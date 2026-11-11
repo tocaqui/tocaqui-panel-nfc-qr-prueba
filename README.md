@@ -1,0 +1,1 @@
+# tocaqui-panel-nfc-qr-prueba
