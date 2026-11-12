@@ -412,7 +412,7 @@
             return await googlePlacesLoaderPromise;
         };
 
-        const compressImageToDataURL = (file, targetWidth = 600, targetHeight = 950, quality = 0.85) => {
+        const compressImageToDataURL = (file, targetWidth = 600, targetHeight = 950, quality = 0.9) => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
@@ -423,25 +423,15 @@
                         canvas.height = targetHeight;
                         const ctx = canvas.getContext('2d');
 
-                        ctx.fillStyle = '#0f172a';
+                        ctx.fillStyle = '#ffffff';
                         ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-                        const imgRatio = img.width / img.height;
-                        const targetRatio = targetWidth / targetHeight;
-                        let renderW = targetWidth;
-                        let renderH = targetHeight;
-                        let offsetX = 0;
-                        let offsetY = 0;
-
-                        if (imgRatio > targetRatio) {
-                            renderW = targetHeight * imgRatio;
-                            offsetX = (targetWidth - renderW) / 2;
-                        } else {
-                            renderH = targetWidth / imgRatio;
-                            offsetY = (targetHeight - renderH) / 2;
-                        }
-
-                        ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
+                        // Contain the complete image, never crop, distort or upscale the source.
+                        const scale = Math.min(targetWidth / img.width, targetHeight / img.height, 1);
+                        const renderW = img.width * scale;
+                        const renderH = img.height * scale;
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);
                         resolve(canvas.toDataURL('image/jpeg', quality));
                     };
                     img.onerror = reject;
@@ -538,6 +528,9 @@
             });
 
             const [selectedQrIdsForSheet, setSelectedQrIdsForSheet] = useState(() => qrs.map(q => q.id));
+            const [resetConfirmText, setResetConfirmText] = useState('');
+            const [resetOpen, setResetOpen] = useState(false);
+            const [resetBusy, setResetBusy] = useState(false);
 
             // Modals & Notifications
             const [activateModal, setActivateModal] = useState({ open: false, qr: null });
@@ -639,7 +632,38 @@ useEffect(()=>sync('qrs','tocaqui_admin_qr_cards',qrs),[qrs,cloudReady]);
 useEffect(()=>sync('clients','tocaqui_admin_qr_clients',clients),[clients,cloudReady]);
 useEffect(()=>sync('templates','tocaqui_admin_qr_templates',templates),[templates,cloudReady]);
 
-const showToast = (msg, type = 'info') => {
+const resetTestInventory = async () => {
+                if (resetConfirmText !== 'REINICIAR TOCAQUI' || resetBusy) return;
+                setResetBusy(true);
+                try {
+                    if (cloudReady) {
+                        await queue.current;
+                        for (const table of ['tocaqui_admin_qr_cards','tocaqui_admin_qr_clients']) {
+                            const {data,error} = await cloud.from(table).select('id');
+                            if (error) throw error;
+                            const ids = (data||[]).map(x=>x.id);
+                            for (let i=0;i<ids.length;i+=100) {
+                                const result=await cloud.from(table).delete().in('id',ids.slice(i,i+100)).select('id');
+                                if(result.error) throw result.error;
+                                if((result.data||[]).length!==ids.slice(i,i+100).length) throw new Error('No se pudieron eliminar todos los registros de '+table);
+                            }
+                            const check=await cloud.from(table).select('id',{count:'exact',head:true});
+                            if(check.error || check.count!==0) throw new Error('El reinicio en nube no pudo verificarse en '+table);
+                        }
+                    } else if (cloudError && qrs.length === 0 && clients.length === 0) {
+                        throw new Error('No hay registros locales para reiniciar.');
+                    }
+                    last.current={...last.current,qrs:[],clients:[]};
+                    setQrs([]);setClients([]);setSelectedQrIdsForSheet([]);
+                    localStorage.removeItem('nfc_qrs_v6');localStorage.removeItem('nfc_clients_v6');
+                    setResetOpen(false);setResetConfirmText('');
+                    showToast('Inventario y clientes de prueba reiniciados. Los nuevos lotes comenzarán vacíos.', 'success');
+                } catch(err) {
+                    setCloudError('Reinicio incompleto: '+err.message);
+                    showToast('No se completó el reinicio: '+err.message,'error');
+                } finally {setResetBusy(false);}
+            };
+            const showToast = (msg, type = 'info') => {
                 setToast({ show: true, msg, type });
                 setTimeout(() => setToast({ show: false, msg: '', type: 'info' }), 3500);
             };
@@ -1070,6 +1094,17 @@ const showToast = (msg, type = 'info') => {
                                     Generar {count} Código(s) e Ir al Estudio A4
                                 </button>
                             </form>
+                        </div>
+                        <div className="glass-panel p-4 rounded-xl border border-rose-500/20 space-y-3">
+                            <button type="button" onClick={()=>setResetOpen(v=>!v)} className="w-full flex items-center justify-between text-left text-xs font-semibold text-rose-300">
+                                <span><i className="fa-solid fa-rotate-left mr-2"></i>Reiniciar inventario de pruebas</span><i className="fa-solid fa-chevron-down"></i>
+                            </button>
+                            {resetOpen && <div className="space-y-3">
+                                <p className="text-xs text-slate-400">Elimina los lotes, códigos TAG y clientes de prueba de este panel y, si hay sesión autorizada, de sus tablas en Supabase. No modifica el PIN, los dispositivos autorizados ni las rutas públicas. Los identificadores existentes dejarán de estar disponibles en este inventario.</p>
+                                <label className="block text-xs text-slate-300">Escribe REINICIAR TOCAQUI para confirmar</label>
+                                <input value={resetConfirmText} onChange={e=>setResetConfirmText(e.target.value)} className="w-full glass-input px-3 py-2 rounded-lg text-sm" placeholder="REINICIAR TOCAQUI"/>
+                                <button type="button" disabled={resetBusy||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio de pruebas'}</button>
+                            </div>}
                         </div>
                     </div>
                 );
@@ -1655,7 +1690,7 @@ const showToast = (msg, type = 'info') => {
                             className={cardClass}
                             style={{
                                 background: bgToUse
-                                    ? `url(${bgToUse}) center/cover`
+                                    ? `#ffffff url("${bgToUse}") center/contain no-repeat`
                                     : printConfig.theme === 'gold-luxury'
                                     ? 'linear-gradient(135deg, #0f172a 0%, #312e81 100%)'
                                     : printConfig.theme === 'clean-white'
@@ -1864,11 +1899,11 @@ const showToast = (msg, type = 'info') => {
                                                         const side = printConfig.activeSide;
                                                         const isHorizontal = printConfig.templateType === 'pvc-horizontal';
                                                         const isPoster = printConfig.templateType === '10x15';
-                                                        const targetWidth = isHorizontal ? 950 : isPoster ? 1000 : 600;
-                                                        const targetHeight = isHorizontal ? 600 : isPoster ? 1400 : 950;
+                                                        const targetWidth = isHorizontal ? 1800 : isPoster ? 1800 : 1200;
+                                                        const targetHeight = isHorizontal ? 1200 : isPoster ? 1200 : 1800;
 
                                                         try {
-                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.9);
+                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92);
                                                             setPrintConfig(prev => ({
                                                                 ...prev,
                                                                 theme: 'custom',
