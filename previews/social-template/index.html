@@ -2606,22 +2606,81 @@ const resetTestInventory = async () => {
 
             // Preview only: does not perform a real scan or change card activation.
             const ScanSimulatorModal = () => {
+                const [query,setQuery]=useState('');
+                const [lot,setLot]=useState('all');
+                const [status,setStatus]=useState('all');
+                const [cameraOn,setCameraOn]=useState(false);
+                const [cameraError,setCameraError]=useState('');
+                const videoRef=useRef(null),streamRef=useRef(null),frameRef=useRef(null);
+                const stop=()=>{if(frameRef.current)cancelAnimationFrame(frameRef.current);frameRef.current=null;if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());streamRef.current=null;setCameraOn(false);};
+                useEffect(()=>()=>{if(frameRef.current)cancelAnimationFrame(frameRef.current);if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());},[]);
+                const scanValue=value=>{
+                    const match=String(value||'').match(/TAG-[A-Z0-9-]+/i);
+                    if(!match){setCameraError('Este QR no contiene un TAG de TOCAQUI.');return;}
+                    const card=qrs.find(q=>q.trackingCode?.toUpperCase()===match[0].toUpperCase());
+                    stop();
+                    if(card){setCameraError('');setScanSimModal(prev=>({...prev,code:card.trackingCode}));}
+                    else setCameraError('El TAG leído no está en el inventario cargado.');
+                };
+                const start=async()=>{
+                    setCameraError('');
+                    if(!navigator.mediaDevices?.getUserMedia){setCameraError('La cámara requiere HTTPS y permisos de Safari.');return;}
+                    try{
+                        let decoder=window.jsQR;
+                        if(!decoder) decoder=await new Promise((resolve,reject)=>{
+                            const script=document.createElement('script');
+                            script.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+                            script.onload=()=>window.jsQR?resolve(window.jsQR):reject(new Error('decoder'));
+                            script.onerror=()=>reject(new Error('decoder'));
+                            document.head.appendChild(script);
+                        });
+                        const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+                        streamRef.current=stream;
+                        const video=videoRef.current;
+                        if(!video){stop();return;}
+                        video.srcObject=stream;await video.play();setCameraOn(true);
+                        const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
+                        const tick=()=>{
+                            if(!streamRef.current)return;
+                            if(video.readyState>=2&&video.videoWidth){
+                                canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+                                ctx.drawImage(video,0,0);
+                                const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+                                const found=decoder(pixels.data,pixels.width,pixels.height,{inversionAttempts:'attemptBoth'});
+                                if(found?.data){scanValue(found.data);return;}
+                            }
+                            frameRef.current=requestAnimationFrame(tick);
+                        };
+                        frameRef.current=requestAnimationFrame(tick);
+                    }catch(e){stop();setCameraError(e?.name==='NotAllowedError'?'Permite el uso de la cámara en Safari.':'No se pudo iniciar el lector. Revisa tu conexión.');}
+                };
+                const lots=[...new Map(qrs.map(q=>[q.batchId||'legacy',{id:q.batchId||'legacy',name:q.batchName||'Sin lote'}])).values()];
+                const filtered=qrs.filter(q=>(lot==='all'||(q.batchId||'legacy')===lot)&&(status==='all'||(status==='active'?q.status==='active':q.status!=='active'))&&(!query||[q.trackingCode,q.businessName,q.batchName].some(v=>String(v||'').toLowerCase().includes(query.toLowerCase())))).slice(0,25);
                 if (!scanSimModal.open) return null;
                 const scannedQr = qrs.find(q => q.trackingCode === scanSimModal.code);
                 const isActive = scannedQr?.status === 'active';
-                const close = () => setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});
+                const close = () => {stop();setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});};
                 return (
                     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div className="glass-panel w-full max-w-md rounded-3xl p-5 sm:p-6 border border-slate-700 relative">
+                        <div className="glass-panel w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-3xl p-5 sm:p-6 border border-slate-700 relative">
                             <button type="button" onClick={close} aria-label="Cerrar prueba" className="absolute top-4 right-4 w-9 h-9 rounded-lg bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
                             <div className="flex items-center gap-3 pr-10 mb-5">
                                 <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400"><i className="fa-solid fa-mobile-screen-button"></i></div>
                                 <div><h3 className="font-bold text-white text-lg">Probar una tarjeta</h3><p className="text-xs text-slate-400">Vista de prueba · no registra escaneos</p></div>
                             </div>
-                            <label className="block text-xs font-semibold text-slate-300 mb-2">1. Selecciona la tarjeta que quieres revisar</label>
+                            <video ref={videoRef} playsInline muted autoPlay className={`w-full aspect-video object-cover bg-black rounded-xl mb-2 ${cameraOn?'block':'hidden'}`}></video>
+                            <button type="button" onClick={cameraOn?stop:start} className="w-full min-h-12 bg-blue-600 text-white font-semibold rounded-xl mb-2"><i className="fa-solid fa-camera mr-2"></i>{cameraOn?'Detener cámara':'Escanear QR con cámara'}</button>
+                            {cameraError&&<p role="alert" className="text-xs text-amber-300 mb-2">{cameraError}</p>}
+                            <label htmlFor="scan-query" className="block text-xs font-semibold text-slate-300 mb-1">Buscar TAG o negocio</label>
+                            <input id="scan-query" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar tarjeta" className="glass-input w-full rounded-xl px-3 py-2.5 mb-2"/>
+                            <div className="grid grid-cols-2 gap-2 mb-3">
+                              <div><label htmlFor="scan-lot" className="text-xs text-slate-400">Lote</label><select id="scan-lot" value={lot} onChange={e=>setLot(e.target.value)} className="glass-input w-full p-2 rounded-xl text-xs"><option value="all">Todos</option>{lots.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
+                              <div><label htmlFor="scan-state" className="text-xs text-slate-400">Estado</label><select id="scan-state" value={status} onChange={e=>setStatus(e.target.value)} className="glass-input w-full p-2 rounded-xl text-xs"><option value="all">Todas</option><option value="active">Activas</option><option value="pending">Pendientes</option></select></div>
+                            </div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-2">Selecciona una tarjeta (máximo 25 resultados)</label>
                             <div className="max-h-44 overflow-y-auto space-y-1.5 rounded-xl border border-slate-700 bg-slate-950/50 p-2">
-                                {qrs.length === 0 && <p className="text-xs text-slate-400 p-3">Todavía no hay tarjetas para probar.</p>}
-                                {qrs.map(q => (
+                                {filtered.length === 0 && <p className="text-xs text-slate-400 p-3">Todavía no hay tarjetas para probar.</p>}
+                                {filtered.map(q => (
                                     <button key={q.id} type="button" onClick={()=>setScanSimModal(prev=>({...prev,code:q.trackingCode,reviewGateStep:'stars',selectedStars:0}))} className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left border transition-colors ${scanSimModal.code===q.trackingCode?'border-blue-500 bg-blue-500/15':'border-transparent hover:bg-slate-800'}`}>
                                         <span className="min-w-0"><span className="block text-sm font-mono text-white truncate">{q.trackingCode}</span><span className="block text-[11px] text-slate-400 truncate">{q.businessName || q.batchName || 'Sin negocio asignado'}</span></span>
                                         <span className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full ${q.status==='active'?'bg-emerald-500/15 text-emerald-300':'bg-amber-500/15 text-amber-300'}`}>{q.status==='active'?'Activa':'Sin activar'}</span>
