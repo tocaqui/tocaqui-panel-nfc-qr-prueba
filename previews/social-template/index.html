@@ -1492,6 +1492,38 @@ const showToast = (msg, type = 'info') => {
             const PrintView = () => {
                 const [qrCodeImages, setQrCodeImages] = useState({});
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
+                const [qrMoveEnabled, setQrMoveEnabled] = useState(false);
+                const [qrDragPosition, setQrDragPosition] = useState(() => {
+                    try {
+                        const saved = JSON.parse(localStorage.getItem('tocaqui_print_qr_position_v1') || 'null');
+                        return saved && Number.isFinite(saved.x) && Number.isFinite(saved.y) ? saved : null;
+                    } catch { return null; }
+                });
+                const [qrDragDraft, setQrDragDraft] = useState(null);
+                const qrDragRef = useRef(null);
+                const activeQrPosition = qrDragDraft || qrDragPosition;
+                const clampQr = value => Math.min(90, Math.max(10, value));
+                const updateQrDrag = (event) => {
+                    const drag = qrDragRef.current;
+                    if (!drag || event.pointerId !== drag.pointerId) return;
+                    const rect = drag.card.getBoundingClientRect();
+                    if (!rect.width || !rect.height) return;
+                    const x = clampQr(((event.clientX - rect.left) / rect.width) * 100);
+                    const y = clampQr(((event.clientY - rect.top) / rect.height) * 100);
+                    setQrDragDraft({ x, y });
+                };
+                const finishQrDrag = (event) => {
+                    if (!qrDragRef.current || event.pointerId !== qrDragRef.current.pointerId) return;
+                    const rect = qrDragRef.current.card.getBoundingClientRect();
+                    const x = clampQr(((event.clientX - rect.left) / rect.width) * 100);
+                    const y = clampQr(((event.clientY - rect.top) / rect.height) * 100);
+                    const position = { x, y };
+                    setQrDragPosition(position);
+                    localStorage.setItem('tocaqui_print_qr_position_v1', JSON.stringify(position));
+                    setQrDragDraft(null);
+                    qrDragRef.current = null;
+                    showToast('Posición del QR guardada para impresión.', 'success');
+                };
 
                 const itemsPerPage = printConfig.templateType === '10x15' ? 2 : 10;
                 const selectedItems = useMemo(() => {
@@ -1557,8 +1589,21 @@ const showToast = (msg, type = 'info') => {
 
                             {/* Only show QR Code on Front side */}
                             {side === 'front' && (
-                                <div className={`flex-1 flex ${alignY} ${alignX} my-1`}>
+                                <div className={activeQrPosition ? 'absolute inset-0 pointer-events-none' : `flex-1 flex ${alignY} ${alignX} my-1`}>
                                     <div
+                                        onPointerDown={event => {
+                                            if (!qrMoveEnabled || !event.currentTarget.closest('.a4-sheet-preview')) return;
+                                            event.preventDefault();
+                                            const card = event.currentTarget.closest('.card-pvc-vertical, .card-pvc-horizontal, .card-poster-10x15');
+                                            if (!card) return;
+                                            qrDragRef.current = { card, pointerId: event.pointerId };
+                                            event.currentTarget.setPointerCapture(event.pointerId);
+                                            updateQrDrag(event);
+                                        }}
+                                        onPointerMove={event => { if (qrDragRef.current) { event.preventDefault(); updateQrDrag(event); } }}
+                                        onPointerUp={finishQrDrag}
+                                        onPointerCancel={() => { qrDragRef.current = null; setQrDragDraft(null); }}
+                                        style={activeQrPosition ? { position: 'absolute', left: activeQrPosition.x + '%', top: activeQrPosition.y + '%', transform: 'translate(-50%, -50%)', pointerEvents: qrMoveEnabled ? 'auto' : 'none', touchAction: qrMoveEnabled ? 'none' : 'auto', cursor: qrMoveEnabled ? 'grab' : 'default', zIndex: 5 } : { pointerEvents: qrMoveEnabled ? 'auto' : 'none', touchAction: qrMoveEnabled ? 'none' : 'auto', cursor: qrMoveEnabled ? 'grab' : 'default' }}
                                         className={`transition-all ${
                                             printConfig.qrBgStyle === 'white-box' ? 'bg-white rounded-xl shadow-md p-1.5' :
                                             printConfig.qrBgStyle === 'glass' ? 'bg-white/25 backdrop-blur-md border border-white/30 rounded-xl p-1.5 shadow-lg' :
@@ -1665,6 +1710,16 @@ const showToast = (msg, type = 'info') => {
                                         ))}
                                     </div>
 
+                                    <div className="border-t border-slate-800 pt-3 space-y-2">
+                                        <button type="button" onClick={() => setQrMoveEnabled(v => !v)} className={`w-full rounded-xl border py-3 text-xs font-bold ${qrMoveEnabled ? 'bg-cyan-600/25 border-cyan-400 text-cyan-200' : 'bg-slate-800 border-slate-600 text-slate-200'}`}>
+                                            <i className="fa-solid fa-up-down-left-right mr-2"></i>{qrMoveEnabled ? 'Mover QR activado · Arrastra sobre la tarjeta' : 'Mover QR dentro de la tarjeta'}
+                                        </button>
+                                        <p className="text-[11px] text-slate-400">Activa el botón y arrastra el QR con el dedo en la vista A4. Al soltarlo se guarda su posición para todas las tarjetas de esta plantilla, también al imprimir.</p>
+                                        {qrDragPosition && <div className="flex items-center justify-between gap-2">
+                                            <span className="text-[11px] text-emerald-400">Posición guardada: {Math.round(qrDragPosition.x)}% · {Math.round(qrDragPosition.y)}%</span>
+                                            <button type="button" onClick={() => { setQrDragPosition(null); setQrDragDraft(null); localStorage.removeItem('tocaqui_print_qr_position_v1'); showToast('Posición del QR restablecida.', 'info'); }} className="text-xs text-cyan-300 underline">Restablecer</button>
+                                        </div>}
+                                    </div>
                                     <div className="pt-4 border-t border-slate-800">
                                         <label className="block text-xs font-semibold text-slate-300 mb-2">
                                             Plantilla o Imagen Personalizada
