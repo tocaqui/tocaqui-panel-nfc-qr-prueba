@@ -185,9 +185,8 @@
         .sheet-preview-pvc-horizontal { grid-template-columns: repeat(2, 85.6mm); grid-template-rows: repeat(5, 54mm); gap: 2mm 6mm; }
         .sheet-preview-posters { grid-template-columns: 150mm; grid-template-rows: repeat(2, 100mm); gap: 8mm; }
         /* Only screen preview is scaled; printed A4 stays at 100% physical dimensions. */
-        .a4-sheet-preview.preview-compact { zoom: .58; }
-        @media (max-width: 640px) {
-            .a4-sheet-preview.preview-compact { zoom: .39; }
+        @media print {
+            .a4-sheet-preview.preview-compact { zoom: 1 !important; }
         }
         .glass-panel {
             background: linear-gradient(180deg, rgba(15, 23, 42, 0.84), rgba(10, 17, 31, 0.82));
@@ -412,7 +411,7 @@
             return await googlePlacesLoaderPromise;
         };
 
-        const compressImageToDataURL = (file, targetWidth = 600, targetHeight = 950, quality = 0.9) => {
+        const compressImageToDataURL = (file, targetWidth = 600, targetHeight = 950, quality = 0.9, fitMode = 'stretch') => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
@@ -425,13 +424,15 @@
 
                         ctx.fillStyle = '#ffffff';
                         ctx.fillRect(0, 0, targetWidth, targetHeight);
-                        // Fill the PVC at its exact aspect ratio; crop only overflow, never distort.
-                        const scale = Math.max(targetWidth / img.width, targetHeight / img.height);
-                        const renderW = img.width * scale;
-                        const renderH = img.height * scale;
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
-                        ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);
+                        if (fitMode === 'cover') {
+                            const scale = Math.max(targetWidth / img.width, targetHeight / img.height);
+                            const renderW = img.width * scale, renderH = img.height * scale;
+                            ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);
+                        } else {
+                            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                        }
                         resolve(canvas.toDataURL('image/jpeg', quality));
                     };
                     img.onerror = reject;
@@ -1610,6 +1611,7 @@ const resetTestInventory = async () => {
                     return selected.length && ids.length === 1 ? ids[0] : 'all';
                 });
                 const [previewZoom, setPreviewZoom] = useState(58);
+                const [artworkFitMode, setArtworkFitMode] = useState('stretch');
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
                 const [qrMoveEnabled, setQrMoveEnabled] = useState(false);
                 const [qrDragPosition, setQrDragPosition] = useState(() => {
@@ -1905,7 +1907,7 @@ const resetTestInventory = async () => {
                                                         const targetHeight = isHorizontal ? 1080 : isPoster ? 1200 : 1712;
 
                                                         try {
-                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92);
+                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, artworkFitMode);
                                                             setPrintConfig(prev => ({
                                                                 ...prev,
                                                                 theme: 'custom',
@@ -1998,6 +2000,12 @@ const resetTestInventory = async () => {
                                     {printBatchFilter !== 'all' && <span className="normal-case tracking-normal text-blue-300 font-semibold">· {printBatches.find(b=>b.id===printBatchFilter)?.name}</span>}
                                 </span>
 
+                                <div className="flex flex-wrap items-center gap-2 no-print text-xs text-slate-400">
+                                    <span>Ajuste de imagen:</span>
+                                    <button type="button" onClick={()=>setArtworkFitMode('stretch')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='stretch'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Diseño completo</button>
+                                    <button type="button" onClick={()=>setArtworkFitMode('cover')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='cover'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Sin deformar (recorta)</button>
+                                    <span className="text-[10px]">Vuelve a cargar la imagen para aplicar el ajuste.</span>
+                                </div>
                                 <div className="flex items-center gap-2 no-print text-xs text-slate-400">
                                     <span>Vista reducida</span>
                                     <input aria-label="Escala de previsualización" type="range" min="35" max="85" step="5" value={previewZoom} onChange={e=>setPreviewZoom(Number(e.target.value))} className="w-28 accent-blue-500"/>
@@ -2005,7 +2013,7 @@ const resetTestInventory = async () => {
                                     <span className="text-slate-500">Impresión: 100%</span>
                                 </div>
                                 {pages.map((pageItems, pageIdx) => (
-                                    <div key={pageIdx} className="a4-sheet-preview preview-compact rounded-lg" style={{zoom: (typeof window !== 'undefined' && window.innerWidth < 640 ? Math.min(previewZoom,40) : previewZoom) + '%'}}>
+                                    <div key={pageIdx} className="a4-sheet-preview preview-compact rounded-lg" style={{zoom: previewZoom + '%'}}>
                                         <div className="absolute top-2 right-3 text-[10px] font-mono font-bold text-slate-400 no-print">
                                             Hoja A4 #{pageIdx + 1} - Cara: {printConfig.activeSide.toUpperCase()}
                                         </div>
