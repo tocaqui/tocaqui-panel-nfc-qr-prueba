@@ -863,9 +863,9 @@ const resetTestInventory = async () => {
                             </div>
 
                             <button
-                                onClick={() => setScanSimModal({ open: true, code: qrs[0]?.trackingCode || 'TAG-DEMO', reviewGateStep: 'stars', selectedStars: 0 })}
-                                aria-label="Simular escaneo"
-                                title="Simular escaneo"
+                                onClick={() => setScanSimModal({ open: true, code: '', reviewGateStep: 'stars', selectedStars: 0 })}
+                                aria-label="Probar tarjeta"
+                                title="Probar una tarjeta sin escanear"
                                 className="w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                             >
                                 <i className="fa-solid fa-mobile-screen-button"></i>
@@ -2604,70 +2604,44 @@ const resetTestInventory = async () => {
                 );
             };
 
-            // SCAN SIMULATOR MODAL
+            // Preview only: does not perform a real scan or change card activation.
             const ScanSimulatorModal = () => {
                 if (!scanSimModal.open) return null;
-                const scannedQr = qrs.find(q => q.trackingCode === scanSimModal.code) || { trackingCode: scanSimModal.code, status: 'pending', dynamicUrl: '' };
-
+                const scannedQr = qrs.find(q => q.trackingCode === scanSimModal.code);
+                const isActive = scannedQr?.status === 'active';
+                const close = () => setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});
                 return (
                     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-700 text-center relative">
-                            <button onClick={() => setScanSimModal({ open: false, code: '', reviewGateStep: 'stars', selectedStars: 0 })} className="absolute top-4 right-4 text-slate-400"><i className="fa-solid fa-xmark text-lg"></i></button>
-
-                            <div className="w-16 h-16 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-full flex items-center justify-center text-2xl mx-auto mb-4 animate-bounce">
-                                <i className="fa-solid fa-mobile-screen"></i>
+                        <div className="glass-panel w-full max-w-md rounded-3xl p-5 sm:p-6 border border-slate-700 relative">
+                            <button type="button" onClick={close} aria-label="Cerrar prueba" className="absolute top-4 right-4 w-9 h-9 rounded-lg bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
+                            <div className="flex items-center gap-3 pr-10 mb-5">
+                                <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400"><i className="fa-solid fa-mobile-screen-button"></i></div>
+                                <div><h3 className="font-bold text-white text-lg">Probar una tarjeta</h3><p className="text-xs text-slate-400">Vista de prueba · no registra escaneos</p></div>
                             </div>
-
-                            <span className="text-[10px] font-mono uppercase bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full">
-                                Escaneado: {scannedQr.trackingCode}
-                            </span>
-
-                            {scannedQr.status === 'active' ? (
-                                <div className="mt-5 space-y-4">
-                                    <h3 className="font-bold text-white text-lg">{scannedQr.businessName || 'Tarjeta Conectada'}</h3>
-                                    
-                                    {scannedQr.functionType === 'review_gate' && scanSimModal.reviewGateStep === 'stars' ? (
-                                        <div className="p-4 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-3">
-                                            <p className="text-xs text-slate-300 font-semibold">¿Cómo fue tu experiencia en el local?</p>
-                                            <div className="flex justify-center gap-2 text-2xl text-amber-400">
-                                                {[1, 2, 3, 4, 5].map(star => (
-                                                    <button
-                                                        key={star}
-                                                        onClick={() => {
-                                                            if (star >= 4) {
-                                                                window.open(scannedQr.dynamicUrl, '_blank');
-                                                            } else {
-                                                                setScanSimModal(prev => ({ ...prev, reviewGateStep: 'feedback', selectedStars: star }));
-                                                            }
-                                                        }}
-                                                        className="hover:scale-125 transition-transform"
-                                                    >
-                                                        ★
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <span className="text-[10px] text-slate-500 block">4-5 ★ redirige a Google Maps • 1-3 ★ formulario privado</span>
-                                        </div>
-                                    ) : scannedQr.functionType === 'review_gate' && scanSimModal.reviewGateStep === 'feedback' ? (
-                                        <div className="p-4 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-3">
-                                            <p className="text-xs text-slate-300 font-semibold">Déjanos tu sugerencia privada:</p>
-                                            <textarea rows="3" placeholder="Escribe aquí tu comentario..." className="w-full glass-input p-2.5 rounded-xl text-xs"></textarea>
-                                            <button onClick={() => { showToast('Gracias por tu opinión privada.', 'success'); setScanSimModal({ open: false, code: '', reviewGateStep: 'stars', selectedStars: 0 }); }} className="w-full py-2 bg-blue-600 text-white font-bold rounded-xl text-xs">Enviar Feedback</button>
+                            <label className="block text-xs font-semibold text-slate-300 mb-2">1. Selecciona la tarjeta que quieres revisar</label>
+                            <div className="max-h-44 overflow-y-auto space-y-1.5 rounded-xl border border-slate-700 bg-slate-950/50 p-2">
+                                {qrs.length === 0 && <p className="text-xs text-slate-400 p-3">Todavía no hay tarjetas para probar.</p>}
+                                {qrs.map(q => (
+                                    <button key={q.id} type="button" onClick={()=>setScanSimModal(prev=>({...prev,code:q.trackingCode,reviewGateStep:'stars',selectedStars:0}))} className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left border transition-colors ${scanSimModal.code===q.trackingCode?'border-blue-500 bg-blue-500/15':'border-transparent hover:bg-slate-800'}`}>
+                                        <span className="min-w-0"><span className="block text-sm font-mono text-white truncate">{q.trackingCode}</span><span className="block text-[11px] text-slate-400 truncate">{q.businessName || q.batchName || 'Sin negocio asignado'}</span></span>
+                                        <span className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full ${q.status==='active'?'bg-emerald-500/15 text-emerald-300':'bg-amber-500/15 text-amber-300'}`}>{q.status==='active'?'Activa':'Sin activar'}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            {scannedQr ? (
+                                <div className="mt-4 p-4 rounded-xl border border-slate-700 bg-slate-900/70 space-y-3">
+                                    <div className="flex justify-between items-center gap-2"><span className="text-xs font-semibold text-slate-300">2. Estado de la tarjeta</span><span className={`text-xs font-bold ${isActive?'text-emerald-400':'text-amber-400'}`}>{isActive?'Activada':'Pendiente de activación'}</span></div>
+                                    <p className="text-sm text-white font-semibold">{isActive?(scannedQr.businessName||'Tarjeta activada'):'Esta tarjeta todavía no está asignada a un negocio'}</p>
+                                    {isActive ? (
+                                        <div className="space-y-2">
+                                            <p className="text-xs text-slate-400">Para comprobar el destino real, abre el enlace de la tarjeta. Esta vista no modifica su estado.</p>
+                                            {scannedQr.dynamicUrl ? <a href={scannedQr.dynamicUrl} target="_blank" rel="noreferrer" className="block text-center w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm">Abrir enlace de la tarjeta <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i></a> : <p className="text-xs text-amber-300">Esta tarjeta no tiene un enlace configurado.</p>}
                                         </div>
                                     ) : (
-                                        <>
-                                            <div className="p-3 bg-slate-900 rounded-xl text-xs font-mono text-blue-400 break-all border border-slate-800">{scannedQr.dynamicUrl}</div>
-                                            <a href={scannedQr.dynamicUrl} target="_blank" rel="noreferrer" className="block w-full py-3 bg-emerald-600 text-white font-bold rounded-xl text-sm">Abrir Enlace Final &rarr;</a>
-                                        </>
+                                        <button type="button" onClick={()=>{close();setActivateModal({open:true,qr:scannedQr})}} className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm">Ir a activar esta tarjeta</button>
                                     )}
                                 </div>
-                            ) : (
-                                <div className="mt-5 space-y-4">
-                                    <h3 className="font-bold text-amber-400 text-lg">Tarjeta Virgen Por Activar</h3>
-                                    <p className="text-xs text-slate-400">Al escanear esta tarjeta en blanco se requiere ingresar el PIN maestro para asignarla a un local.</p>
-                                    <button onClick={() => { setScanSimModal({ open: false, code: '', reviewGateStep: 'stars', selectedStars: 0 }); setActivateModal({ open: true, qr: scannedQr }); }} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl">Activar e Ingresar PIN</button>
-                                </div>
-                            )}
+                            ) : <p className="text-xs text-slate-400 mt-4">Elige una tarjeta para consultar su estado y acceder a la acción correspondiente.</p>}
                         </div>
                     </div>
                 );
