@@ -1,0 +1,2073 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Admin NFC & QR Dinámico PWA</title>
+
+    <script>
+    (function(){
+      function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
+      window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
+      window.addEventListener('unhandledrejection',function(e){show(String(e.reason&&e.reason.message||e.reason));});
+      window.addEventListener('DOMContentLoaded',function(){setTimeout(function(){if(!document.getElementById('root')?.children.length&&!document.getElementById('tocaqui-fatal'))show('La interfaz no se inicio. Revisa conexion a bibliotecas externas.');},9000);});
+    })();
+    </script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React & ReactDOM (UMD) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- Babel Standalone for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- QRCode JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+    <!-- FontAwesome 6 Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        html {
+            background: #070a12;
+            color-scheme: dark;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #070a12;
+            color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+            margin: 0;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            text-rendering: optimizeLegibility;
+        }
+
+        button, [role="button"] {
+            touch-action: manipulation;
+        }
+
+        button:focus-visible,
+        a:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: 2px solid #60a5fa;
+            outline-offset: 2px;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Print Specific Styles for A4 Paper Sheets 1:1 Physical Scale */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0;
+            }
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .no-print, nav, header, sidebar, button, .modal-backdrop, .no-print-area {
+                display: none !important;
+            }
+            .print-page-a4 {
+                display: block !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                page-break-after: always !important;
+                page-break-inside: avoid !important;
+                position: relative !important;
+                background: #ffffff !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 6mm 8mm !important;
+                box-sizing: border-box !important;
+            }
+            .print-grid-pvc-vertical {
+                display: grid !important;
+                grid-template-columns: repeat(2, 54mm) !important;
+                grid-template-rows: repeat(5, 85.6mm) !important;
+                gap: 4mm 10mm !important;
+                justify-content: center !important;
+                align-content: center !important;
+                height: 100% !important;
+            }
+            .print-grid-pvc-horizontal {
+                display: grid !important;
+                grid-template-columns: repeat(2, 85.6mm) !important;
+                grid-template-rows: repeat(5, 53.98mm) !important;
+                gap: 4mm 6mm !important;
+                justify-content: center !important;
+                align-content: center !important;
+                height: 100% !important;
+            }
+            .print-grid-posters {
+                display: grid !important;
+                grid-template-columns: 1fr !important;
+                grid-template-rows: repeat(2, 140mm) !important;
+                gap: 6mm !important;
+                justify-content: center !important;
+                align-content: center !important;
+                height: 100% !important;
+            }
+        }
+
+        /* Screen Preview A4 Sheet Box */
+        .a4-sheet-preview {
+            width: 210mm;
+            min-height: 297mm;
+            background-color: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+            margin: 0 auto;
+            padding: 8mm;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* Physical Dimensions for Single Card Previews */
+        .card-pvc-vertical {
+            width: 54mm;
+            height: 85.6mm;
+            border-radius: 3.18mm;
+            position: relative;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            border: 1px dashed rgba(0, 0, 0, 0.25);
+            box-sizing: border-box;
+        }
+
+        .card-pvc-horizontal {
+            width: 85.6mm;
+            height: 54mm;
+            border-radius: 3.18mm;
+            position: relative;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            border: 1px dashed rgba(0, 0, 0, 0.25);
+            box-sizing: border-box;
+        }
+
+        .card-poster-10x15 {
+            width: 100mm;
+            height: 140mm;
+            border-radius: 4mm;
+            position: relative;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            border: 1px dashed rgba(0, 0, 0, 0.25);
+            box-sizing: border-box;
+        }
+
+        .glass-panel {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.84), rgba(10, 17, 31, 0.82));
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            box-shadow: 0 12px 34px rgba(2, 6, 23, 0.18);
+        }
+
+        .metric-card {
+            min-height: 154px;
+            transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.5), transparent 55%);
+            pointer-events: none;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .metric-card:hover {
+                transform: translateY(-2px);
+                border-color: rgba(96, 165, 250, 0.28);
+                box-shadow: 0 16px 38px rgba(2, 6, 23, 0.28);
+            }
+        }
+
+        @media (max-width: 639px) {
+            .app-shell-header {
+                padding-top: env(safe-area-inset-top);
+            }
+
+            .metric-card {
+                min-height: 132px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                scroll-behavior: auto !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        .glass-input {
+            background: rgba(9, 14, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+        }
+        .glass-input:focus {
+            border-color: #3b82f6;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        const DEFAULT_PIN = '1234';
+
+        const INITIAL_CLIENTS = [
+            { id: 'CLI-001', name: 'Carlos Mendoza', company: 'Restaurante El Gaucho', email: 'carlos@elgaucho.cl', phone: '+56 9 8765 4321', createdAt: Date.now() - 86400000 * 10 },
+            { id: 'CLI-002', name: 'Valeria Silva', company: 'Barbería Capital', email: 'contacto@barberiacapital.com', phone: '+56 9 1234 5678', createdAt: Date.now() - 86400000 * 5 },
+            { id: 'CLI-003', name: 'Esteban Rocha', company: 'Café Central', email: 'esteban@cafecentral.cl', phone: '+56 9 5555 4444', createdAt: Date.now() - 86400000 * 2 }
+        ];
+
+        const INITIAL_QRS = [
+            {
+                id: 'TAG-94A12',
+                trackingCode: 'TAG-94A12',
+                status: 'active',
+                clientId: 'CLI-001',
+                functionType: 'review_gate',
+                placeId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+                businessName: 'Restaurante El Gaucho',
+                businessAddress: 'Av. Providencia 1234, Santiago',
+                dynamicUrl: 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',
+                createdAt: Date.now() - 86400000 * 8,
+                scans: 64,
+                history: [
+                    { timestamp: Date.now() - 86400000 * 8, type: 'creation', description: 'Tarjeta activada con Review Gate 5 Estrellas' }
+                ]
+            },
+            {
+                id: 'TAG-31B88',
+                trackingCode: 'TAG-31B88',
+                status: 'active',
+                clientId: 'CLI-002',
+                functionType: 'custom_url',
+                placeId: null,
+                businessName: 'Barbería Capital',
+                businessAddress: 'Calle San Martín 560, Santiago',
+                dynamicUrl: 'https://instagram.com/barberiacapital',
+                createdAt: Date.now() - 86400000 * 4,
+                scans: 38,
+                history: [
+                    { timestamp: Date.now() - 86400000 * 4, type: 'creation', description: 'Tarjeta activada con URL Instagram' }
+                ]
+            },
+            { id: 'TAG-BT001', trackingCode: 'TAG-BT001', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #1', scans: 0, createdAt: Date.now(), history: [] },
+            { id: 'TAG-BT002', trackingCode: 'TAG-BT002', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #2', scans: 0, createdAt: Date.now(), history: [] },
+            { id: 'TAG-BT003', trackingCode: 'TAG-BT003', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #3', scans: 0, createdAt: Date.now(), history: [] },
+            { id: 'TAG-BT004', trackingCode: 'TAG-BT004', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #4', scans: 0, createdAt: Date.now(), history: [] },
+            { id: 'TAG-BT005', trackingCode: 'TAG-BT005', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #5', scans: 0, createdAt: Date.now(), history: [] },
+            { id: 'TAG-BT006', trackingCode: 'TAG-BT006', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #6', scans: 0, createdAt: Date.now(), history: [] },
+            { id: 'TAG-BT007', trackingCode: 'TAG-BT007', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #7', scans: 0, createdAt: Date.now(), history: [] },
+            { id: 'TAG-BT008', trackingCode: 'TAG-BT008', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #8', scans: 0, createdAt: Date.now(), history: [] },
+            { id: 'TAG-BT009', trackingCode: 'TAG-BT009', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #9', scans: 0, createdAt: Date.now(), history: [] },
+            { id: 'TAG-BT010', trackingCode: 'TAG-BT010', status: 'pending', clientId: null, businessName: 'Tarjeta Virgen #10', scans: 0, createdAt: Date.now(), history: [] }
+        ];
+
+        const INITIAL_TEMPLATES = [
+            {
+                id: 'TPL-001',
+                name: 'Azul Neón Corporativo',
+                category: 'pvc-vertical',
+                frontBg: '',
+                backBg: '',
+                defaultTheme: 'dark-neon',
+                qrBgStyle: 'white-box',
+                qrSizePx: 55,
+                qrPosY: 'center',
+                qrPosX: 'center'
+            },
+            {
+                id: 'TPL-002',
+                name: 'Oro & Negro Elegante',
+                category: 'pvc-vertical',
+                frontBg: '',
+                backBg: '',
+                defaultTheme: 'gold-luxury',
+                qrBgStyle: 'glass',
+                qrSizePx: 60,
+                qrPosY: 'center',
+                qrPosX: 'center'
+            },
+            {
+                id: 'TPL-003',
+                name: 'Blanco Limpio Impresión',
+                category: 'pvc-vertical',
+                frontBg: '',
+                backBg: '',
+                defaultTheme: 'clean-white',
+                qrBgStyle: 'transparent',
+                qrSizePx: 55,
+                qrPosY: 'center',
+                qrPosX: 'center'
+            }
+        ];
+
+        const generateUID = () => 'TAG-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+
+        const sanitizeUrl = (url) => {
+            if (!url) return '';
+            let trimmed = url.trim();
+            if (!/^https?:\/\//i.test(trimmed)) {
+                trimmed = 'https://' + trimmed;
+            }
+            return trimmed;
+        };
+
+        const getBaseTagUrl = (code) => {
+            return `https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-admin-qr-test-r/${code}`;
+        };
+
+        const generateQRBase64 = async (text, size = 300) => {
+            if (window.QRCode && window.QRCode.toDataURL) {
+                try {
+                    return await window.QRCode.toDataURL(text, {
+                        width: size,
+                        margin: 1,
+                        color: { dark: '#000000', light: '#ffffff' }
+                    });
+                } catch (err) {
+                    console.error("QR Generation error", err);
+                }
+            }
+            return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
+        };
+
+        const compressImageToDataURL = (file, targetWidth = 600, targetHeight = 950, quality = 0.85) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = targetWidth;
+                        canvas.height = targetHeight;
+                        const ctx = canvas.getContext('2d');
+
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+                        const imgRatio = img.width / img.height;
+                        const targetRatio = targetWidth / targetHeight;
+                        let renderW = targetWidth;
+                        let renderH = targetHeight;
+                        let offsetX = 0;
+                        let offsetY = 0;
+
+                        if (imgRatio > targetRatio) {
+                            renderW = targetHeight * imgRatio;
+                            offsetX = (targetWidth - renderW) / 2;
+                        } else {
+                            renderH = targetWidth / imgRatio;
+                            offsetY = (targetHeight - renderH) / 2;
+                        }
+
+                        ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = reject;
+                    img.src = event.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        };
+
+        const App = ({cloud}) => {
+            const [qrs, setQrs] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('nfc_qrs_v6');
+                    return saved ? JSON.parse(saved) : [];
+                } catch (e) {
+                    return [];
+                }
+            });
+
+            const [clients, setClients] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('nfc_clients_v6');
+                    return saved ? JSON.parse(saved) : [];
+                } catch (e) {
+                    return [];
+                }
+            });
+
+            const [templates, setTemplates] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('nfc_templates_v6');
+                    return saved ? JSON.parse(saved) : INITIAL_TEMPLATES;
+                } catch (e) {
+                    return [];
+                }
+            });
+
+            const [masterPin, setMasterPin] = useState(() => {
+                try {
+                    return localStorage.getItem('nfc_master_pin_v6') || DEFAULT_PIN;
+                } catch (e) {
+                    return DEFAULT_PIN;
+                }
+            });
+
+            const [googleApiKey, setGoogleApiKey] = useState(() => {
+                try {
+                    return localStorage.getItem('google_places_api_key_v6') || '';
+                } catch (e) {
+                    return '';
+                }
+            });
+
+            const [driveConfig, setDriveConfig] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('gdrive_config_v6');
+                    return saved ? JSON.parse(saved) : { clientId: '', folderId: '', isConnected: false };
+                } catch (e) {
+                    return { clientId: '', folderId: '', isConnected: false };
+                }
+            });
+
+            const [cloudDbConfig, setCloudDbConfig] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('cloud_db_config_v6');
+                    return saved ? JSON.parse(saved) : { endpointUrl: '', apiKey: '', isEnabled: false };
+                } catch (e) {
+                    return { endpointUrl: '', apiKey: '', isEnabled: false };
+                }
+            });
+
+            // Navigation
+            const [roleMode, setRoleMode] = useState('admin');
+            const [adminTab, setAdminTab] = useState('dashboard');
+            const [selectedClientDetailId, setSelectedClientDetailId] = useState(null);
+            const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+            // Print & Studio Configuration State
+            const [printConfig, setPrintConfig] = useState({
+                templateType: 'pvc-vertical',
+                selectedTemplateId: 'TPL-001',
+                activeSide: 'front', // 'front' (Anverso) | 'back' (Reverso)
+                theme: 'dark-neon',
+                customFrontBg: '',
+                customBackBg: '',
+                qrSizePx: 55,
+                qrPosY: 'center',
+                qrPosX: 'center',
+                qrBgStyle: 'white-box',
+                idPosition: 'bottom-right',
+                idFontSize: 'text-[7px]',
+                idOpacity: 'opacity-60'
+            });
+
+            const [selectedQrIdsForSheet, setSelectedQrIdsForSheet] = useState(() => qrs.map(q => q.id));
+
+            // Modals & Notifications
+            const [activateModal, setActivateModal] = useState({ open: false, qr: null });
+            const [scanSimModal, setScanSimModal] = useState({ open: false, code: '', reviewGateStep: 'stars', selectedStars: 0 });
+            const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
+            const [templateModal, setTemplateModal] = useState({ open: false, isEditing: false, data: null });
+            const [toast, setToast] = useState({ show: false, msg: '', type: 'info' });
+            useEffect(() => { try { void masterPin; } catch (e){} }, [masterPin]);
+            useEffect(() => { try { localStorage.setItem('google_places_api_key_v6', googleApiKey); } catch (e){} }, [googleApiKey]);
+            useEffect(() => { try { localStorage.setItem('gdrive_config_v6', JSON.stringify(driveConfig)); } catch (e){} }, [driveConfig]);
+            useEffect(() => { try { localStorage.setItem('cloud_db_config_v6', JSON.stringify(cloudDbConfig)); } catch (e){} }, [cloudDbConfig]);
+
+            useEffect(()=>{try{localStorage.setItem('nfc_qrs_v6',JSON.stringify(qrs))}catch(e){}},[qrs]);
+useEffect(()=>{try{localStorage.setItem('nfc_clients_v6',JSON.stringify(clients))}catch(e){}},[clients]);
+useEffect(()=>{try{localStorage.setItem('nfc_templates_v6',JSON.stringify(templates))}catch(e){}},[templates]);
+const [cloudReady,setCloudReady]=useState(false);
+const [cloudError,setCloudError]=useState('');
+const last=React.useRef({qrs:[],clients:[],templates:[]});
+const initialized=React.useRef(false);
+useEffect(()=>{let live=true;(async()=>{try{const {data:{session}}=await cloud.auth.getSession();if(!session){setCloudError('Modo local: datos solo en este navegador; activacion en nube no disponible sin autorizacion.');return;} const [a,b,c]=await Promise.all(['tocaqui_admin_qr_cards','tocaqui_admin_qr_clients','tocaqui_admin_qr_templates'].map(t=>cloud.from(t).select('id,data').limit(1000)));
+for(const r of [a,b,c])if(r.error)throw r.error;
+if(!live)return;
+const m=[a,b,c].map(r=>r.data.map(x=>({...x.data,id:x.id})));
+last.current={qrs:m[0],clients:m[1],templates:m[2]};
+setQrs(m[0]);setClients(m[1]);setTemplates(m[2].length?m[2]:INITIAL_TEMPLATES);
+initialized.current=true;setCloudReady(true);
+}catch(e){if(live)setCloudError(e.message)}})();return()=>{live=false}},[cloud]);
+const queue=React.useRef(Promise.resolve());
+const sync=(name,table,items)=>{if(!cloudReady||!initialized.current)return;
+const prev=last.current[name];if(JSON.stringify(prev)===JSON.stringify(items))return;
+last.current={...last.current,[name]:items};
+queue.current=queue.current.then(async()=>{
+const changed=items.filter(x=>!prev.some(p=>p.id===x.id&&JSON.stringify(p)===JSON.stringify(x)));
+if(changed.length){const {error}=await cloud.from(table).upsert(changed.map(x=>({id:x.id,data:x})),{onConflict:'id'});if(error)throw error;}
+const deleted=prev.filter(x=>!items.some(y=>y.id===x.id)).map(x=>x.id);
+if(deleted.length){const {error}=await cloud.from(table).delete().in('id',deleted);if(error)throw error;}
+}).catch(e=>setCloudError('Error guardando: '+e.message));};
+useEffect(()=>sync('qrs','tocaqui_admin_qr_cards',qrs),[qrs,cloudReady]);
+useEffect(()=>sync('clients','tocaqui_admin_qr_clients',clients),[clients,cloudReady]);
+useEffect(()=>sync('templates','tocaqui_admin_qr_templates',templates),[templates,cloudReady]);
+
+const showToast = (msg, type = 'info') => {
+                setToast({ show: true, msg, type });
+                setTimeout(() => setToast({ show: false, msg: '', type: 'info' }), 3500);
+            };
+
+            const createBatch = (count) => {
+                const newItems = [];
+                for (let i = 0; i < count; i++) {
+                    const code = generateUID();
+                    newItems.push({
+                        id: code,
+                        trackingCode: code,
+                        status: 'pending',
+                        clientId: null,
+                        functionType: null,
+                        placeId: null,
+                        businessName: null,
+                        businessAddress: null,
+                        dynamicUrl: '',
+                        createdAt: Date.now(),
+                        scans: 0,
+                        history: [
+                            { timestamp: Date.now(), type: 'creation', description: 'Código generado en lote A4' }
+                        ]
+                    });
+                }
+                setQrs(prev => [...newItems, ...prev]);
+                setSelectedQrIdsForSheet(newItems.map(item => item.id));
+                showToast(`Generados ${count} QRs en lote. Listos para impresión A4.`, 'success');
+            };
+
+            const updateQR = (id, fields) => {
+                setQrs(prev => prev.map(item => {
+                    if (item.id === id) {
+                        const newHistory = [...(item.history || [])];
+                        if (fields.dynamicUrl && fields.dynamicUrl !== item.dynamicUrl) {
+                            newHistory.push({
+                                timestamp: Date.now(),
+                                type: 'update',
+                                description: `Cambio de URL: ${item.dynamicUrl || 'vacía'} → ${fields.dynamicUrl}`
+                            });
+                        }
+                        if (fields.clientId && fields.clientId !== item.clientId) {
+                            const cl = clients.find(c => c.id === fields.clientId);
+                            newHistory.push({
+                                timestamp: Date.now(),
+                                type: 'assignment',
+                                description: `Asignada a cliente: ${cl ? cl.name : fields.clientId}`
+                            });
+                        }
+                        return { ...item, ...fields, history: newHistory };
+                    }
+                    return item;
+                }));
+                showToast('Tarjeta actualizada correctamente.', 'success');
+            };
+
+            const deleteQR = (id) => {
+                setConfirmModal({
+                    open: true,
+                    title: 'Eliminar Tarjeta QR',
+                    message: '¿Deseas eliminar este código de la base de datos?',
+                    onConfirm: () => {
+                        setQrs(prev => prev.filter(item => item.id !== id));
+                        setSelectedQrIdsForSheet(prev => prev.filter(i => i !== id));
+                        showToast('Tarjeta eliminada.', 'warning');
+                        setConfirmModal({ open: false, title: '', message: '', onConfirm: null });
+                    }
+                });
+            };
+
+            const addClient = (clientData) => {
+                const newClient = {
+                    id: 'CLI-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
+                    ...clientData,
+                    createdAt: Date.now()
+                };
+                setClients(prev => [...prev, newClient]);
+                showToast(`Cliente ${newClient.name} registrado.`, 'success');
+                return newClient.id;
+            };
+
+            const exportForNFCTools = () => {
+                let csv = "ID,TrackingCode,URL_Enlace_NFC,Estado,Cliente\n";
+                qrs.forEach(q => {
+                    const client = clients.find(c => c.id === q.clientId);
+                    const clientName = client ? `"${client.name} - ${client.company}"` : "Sin Asignar";
+                    csv += `${q.id},${q.trackingCode},${getBaseTagUrl(q.trackingCode)},${q.status},${clientName}\n`;
+                });
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = `Export_NFC_Tools_${new Date().toISOString().slice(0,10)}.csv`;
+                link.click();
+                showToast("CSV descargado para NFC Tools (iOS).", "success");
+            };
+
+            const writeWebNFC = async (trackingCode) => {
+                if ('NDEFReader' in window) {
+                    try {
+                        const ndef = new NDEFReader();
+                        await ndef.write({
+                            records: [{ recordType: "url", data: getBaseTagUrl(trackingCode) }]
+                        });
+                        showToast("¡Tarjeta NFC grabada con éxito!", "success");
+                    } catch (error) {
+                        showToast("Error al grabar NFC: " + error.message, "warning");
+                    }
+                } else {
+                    showToast("Web NFC no disponible en este navegador/dispositivo. Usa NFC Tools en iOS.", "info");
+                }
+            };
+
+            const BackToDashboardButton = ({ label = 'Volver al Panel Principal', targetTab = 'dashboard' }) => (
+                <button
+                    onClick={() => {
+                        setAdminTab(targetTab);
+                        if (targetTab !== 'client-detail') setSelectedClientDetailId(null);
+                    }}
+                    className="mb-4 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold transition-all shadow-sm group"
+                >
+                    <i className="fa-solid fa-arrow-left text-blue-400 group-hover:-translate-x-0.5 transition-transform"></i>
+                    <span>← {label}</span>
+                </button>
+            );
+
+            // --- HEADER & NAVIGATION ---
+            const TopHeader = () => (
+                <header className="app-shell-header bg-slate-900/95 border-b border-slate-800 sticky top-0 z-40 no-print backdrop-blur-md">
+                    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-16 py-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                            <button onClick={() => setMobileSidebarOpen(true)} className="md:hidden w-11 h-11 -ml-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/70 flex items-center justify-center flex-shrink-0 transition-colors">
+                                <i className="fa-solid fa-bars text-xl"></i>
+                            </button>
+                            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/25 flex-shrink-0">
+                                    <i className="fa-solid fa-nfc-symbol text-xl"></i>
+                                </div>
+                                <div>
+                                    <span className="block font-extrabold text-sm sm:text-lg leading-tight tracking-tight whitespace-nowrap bg-gradient-to-r from-white via-slate-200 to-blue-400 bg-clip-text text-transparent">
+                                        NFC & QR <span className="text-blue-500"><span className="sm:hidden">A4</span><span className="hidden sm:inline">A4 System</span></span>
+                                    </span>
+                                    <span className="hidden sm:inline-block ml-2 px-2 py-0.5 text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">Pro Auditado</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                            <div className="bg-slate-800 p-0.5 sm:p-1 rounded-xl flex items-center border border-slate-700/60">
+                                <button
+                                    onClick={() => setRoleMode('admin')}
+                                    aria-label="Modo Admin"
+                                    title="Modo Admin"
+                                    className={`w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${roleMode === 'admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    <i className="fa-solid fa-user-shield"></i>
+                                    <span className="hidden sm:inline">Modo Admin</span>
+                                </button>
+                                <button
+                                    onClick={() => setRoleMode('client')}
+                                    aria-label="Portal Cliente"
+                                    title="Portal Cliente"
+                                    className={`w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${roleMode === 'client' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    <i className="fa-solid fa-user-tie"></i>
+                                    <span className="hidden sm:inline">Portal Cliente</span>
+                                </button>
+                            </div>
+
+                            <button
+                                onClick={() => setScanSimModal({ open: true, code: qrs[0]?.trackingCode || 'TAG-DEMO', reviewGateStep: 'stars', selectedStars: 0 })}
+                                aria-label="Simular escaneo"
+                                title="Simular escaneo"
+                                className="w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                            >
+                                <i className="fa-solid fa-mobile-screen-button"></i>
+                                <span className="hidden sm:inline"><span className="hidden md:inline">Simular </span>Escaneo</span>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+            );
+
+            const AdminSidebar = () => {
+                const menuItems = [
+                    { id: 'dashboard', label: 'Panel Principal', icon: 'fa-chart-pie' },
+                    { id: 'batch', label: 'Generar Lote A4', icon: 'fa-layer-group' },
+                    { id: 'qrs', label: 'Gestión de Tarjetas', icon: 'fa-qrcode' },
+                    { id: 'clients', label: 'Directorio Clientes', icon: 'fa-users' },
+                    { id: 'templates', label: 'Biblioteca Plantillas', icon: 'fa-swatchbook' },
+                    { id: 'print', label: 'Estudio Impresión A4', icon: 'fa-print' },
+                    { id: 'settings', label: 'Configuración & APIs', icon: 'fa-sliders' }
+                ];
+
+                return (
+                    <>
+                        {mobileSidebarOpen && (
+                            <div className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)}></div>
+                        )}
+
+                        <aside className={`fixed top-16 bottom-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 transform transition-transform duration-300 md:translate-x-0 ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:static md:w-64 flex-shrink-0 flex flex-col justify-between no-print`}>
+                            <nav className="p-4 space-y-1.5">
+                                <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono">Menú de Control</div>
+                                {menuItems.map(item => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => { setAdminTab(item.id); setMobileSidebarOpen(false); }}
+                                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${adminTab === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'}`}
+                                    >
+                                        <i className={`fa-solid ${item.icon} w-5 text-center text-base`}></i>
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </nav>
+
+                            <div className="p-4 border-t border-slate-800">
+                                <div className="glass-panel p-3 rounded-xl flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                        <div>
+                                            <div className="text-xs font-semibold text-slate-200">A4 Master Mode</div>
+                                            <div className="text-[10px] text-slate-400 font-mono">PIN validado en servidor</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </aside>
+                    </>
+                );
+            };
+
+            // 1. DASHBOARD VIEW
+            const DashboardView = () => {
+                const totalQRs = qrs.length;
+                const activeQRs = qrs.filter(q => q.status === 'active').length;
+                const totalScans = qrs.reduce((acc, curr) => acc + (curr.scans || 0), 0);
+
+                return (
+                    <div className="space-y-6">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">Panel de Control Principal</h1>
+                            <p className="text-slate-400 text-sm mt-1.5 max-w-2xl leading-relaxed">Supervisa tarjetas activas, lotes y escaneos de clientes en tiempo real.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="glass-panel metric-card p-4 sm:p-5 rounded-2xl relative overflow-hidden">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-400 uppercase">Total Tarjetas</p>
+                                        <h3 className="text-3xl font-extrabold text-white mt-1 font-mono">{totalQRs}</h3>
+                                    </div>
+                                    <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center text-xl">
+                                        <i className="fa-solid fa-qrcode"></i>
+                                    </div>
+                                </div>
+                                <div className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
+                                    <i className="fa-solid fa-file-invoice text-blue-400"></i> ≈ {Math.ceil(totalQRs / 10)} Hojas A4
+                                </div>
+                            </div>
+
+                            <div className="glass-panel metric-card p-4 sm:p-5 rounded-2xl relative overflow-hidden">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-400 uppercase">Tarjetas Activas</p>
+                                        <h3 className="text-3xl font-extrabold text-emerald-400 mt-1 font-mono">{activeQRs}</h3>
+                                    </div>
+                                    <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center text-xl">
+                                        <i className="fa-solid fa-circle-check"></i>
+                                    </div>
+                                </div>
+                                <div className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
+                                    <i className="fa-solid fa-chart-line text-emerald-400"></i> {totalQRs > 0 ? Math.round((activeQRs / totalQRs) * 100) : 0}% configuradas
+                                </div>
+                            </div>
+
+                            <div className="glass-panel metric-card p-4 sm:p-5 rounded-2xl relative overflow-hidden">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-400 uppercase">Clientes</p>
+                                        <h3 className="text-3xl font-extrabold text-indigo-400 mt-1 font-mono">{clients.length}</h3>
+                                    </div>
+                                    <div className="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center text-xl">
+                                        <i className="fa-solid fa-users"></i>
+                                    </div>
+                                </div>
+                                <div className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
+                                    <i className="fa-solid fa-store text-indigo-400"></i> Negocios registrados
+                                </div>
+                            </div>
+
+                            <div className="glass-panel metric-card p-4 sm:p-5 rounded-2xl relative overflow-hidden">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-400 uppercase">Lecturas Totales</p>
+                                        <h3 className="text-3xl font-extrabold text-amber-400 mt-1 font-mono">{totalScans}</h3>
+                                    </div>
+                                    <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center text-xl">
+                                        <i className="fa-solid fa-bolt"></i>
+                                    </div>
+                                </div>
+                                <div className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
+                                    <i className="fa-solid fa-mobile text-amber-400"></i> Escaneos QR / NFC
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <button
+                                onClick={() => setAdminTab('batch')}
+                                className="glass-panel p-5 rounded-2xl text-left border border-blue-500/20 hover:border-blue-500/50 transition-all group"
+                            >
+                                <div className="w-10 h-10 bg-blue-600/20 text-blue-400 rounded-xl flex items-center justify-center mb-3 text-lg group-hover:scale-110 transition-transform">
+                                    <i className="fa-solid fa-plus-circle"></i>
+                                </div>
+                                <h3 className="font-bold text-white text-base">Generar Lote A4</h3>
+                                <p className="text-xs text-slate-400 mt-1">Crea tarjetas en blanco para imprimir 10 unidades por hoja A4.</p>
+                            </button>
+
+                            <button
+                                onClick={() => setAdminTab('templates')}
+                                className="glass-panel p-5 rounded-2xl text-left border border-purple-500/20 hover:border-purple-500/50 transition-all group"
+                            >
+                                <div className="w-10 h-10 bg-purple-600/20 text-purple-400 rounded-xl flex items-center justify-center mb-3 text-lg group-hover:scale-110 transition-transform">
+                                    <i className="fa-solid fa-swatchbook"></i>
+                                </div>
+                                <h3 className="font-bold text-white text-base">Plantillas Guardadas</h3>
+                                <p className="text-xs text-slate-400 mt-1">Biblioteca con soporte para diseños de Anverso y Reverso.</p>
+                            </button>
+
+                            <button
+                                onClick={() => setAdminTab('print')}
+                                className="glass-panel p-5 rounded-2xl text-left border border-indigo-500/20 hover:border-indigo-500/50 transition-all group"
+                            >
+                                <div className="w-10 h-10 bg-indigo-600/20 text-indigo-400 rounded-xl flex items-center justify-center mb-3 text-lg group-hover:scale-110 transition-transform">
+                                    <i className="fa-solid fa-print"></i>
+                                </div>
+                                <h3 className="font-bold text-white text-base">Estudio Impresión A4</h3>
+                                <p className="text-xs text-slate-400 mt-1">Ajusta tamaño del QR, posición Y/X y genera impresiones Dúplex.</p>
+                            </button>
+
+                            <button
+                                onClick={() => setAdminTab('clients')}
+                                className="glass-panel p-5 rounded-2xl text-left border border-emerald-500/20 hover:border-emerald-500/50 transition-all group"
+                            >
+                                <div className="w-10 h-10 bg-emerald-600/20 text-emerald-400 rounded-xl flex items-center justify-center mb-3 text-lg group-hover:scale-110 transition-transform">
+                                    <i className="fa-solid fa-users"></i>
+                                </div>
+                                <h3 className="font-bold text-white text-base">Expediente Clientes</h3>
+                                <p className="text-xs text-slate-400 mt-1">Audita inventario por cliente, bitácora y Ficha de Entrega.</p>
+                            </button>
+                        </div>
+                    </div>
+                );
+            };
+
+            // 2. BATCH GENERATOR VIEW
+            const BatchView = () => {
+                const [count, setCount] = useState(10);
+
+                return (
+                    <div className="max-w-2xl mx-auto space-y-6">
+                        <BackToDashboardButton />
+
+                        <div>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">Generar Lote de Tarjetas NFC</h1>
+                            <p className="text-slate-400 text-sm mt-1">Crea múltiples códigos dinámicos listos para ser impresos por hojas A4.</p>
+                        </div>
+
+                        <div className="glass-panel p-6 rounded-2xl space-y-6">
+                            <form onSubmit={(e) => { e.preventDefault(); createBatch(count); setAdminTab('print'); }} className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">Cantidad de Tarjetas a Generar</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="200"
+                                        value={count}
+                                        onChange={e => setCount(Math.max(1, parseInt(e.target.value) || 1))}
+                                        className="w-full glass-input px-4 py-3 rounded-xl font-mono text-lg font-bold"
+                                        required
+                                    />
+                                    <p className="text-xs text-slate-400 mt-2">
+                                        💡 <span className="text-emerald-400 font-semibold">Cálculo de Ahorro:</span> 10 Tarjetas PVC llenan 1 Hoja A4 exacta.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-5 gap-2">
+                                    {[10, 20, 30, 50, 100].map(val => (
+                                        <button
+                                            key={val}
+                                            type="button"
+                                            onClick={() => setCount(val)}
+                                            className={`py-2 rounded-xl text-xs font-semibold font-mono border transition-all ${count === val ? 'bg-blue-600/30 text-blue-300 border-blue-500' : 'bg-slate-800/40 text-slate-400 border-slate-700/50 hover:bg-slate-800'}`}
+                                        >
+                                            {val} ({val/10} A4)
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/25 flex justify-center items-center gap-2"
+                                >
+                                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                                    Generar {count} Código(s) e Ir al Estudio A4
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            };
+
+            // 3. QR MANAGEMENT VIEW
+            const QRManagementView = () => {
+                const [search, setSearch] = useState('');
+                const [statusFilter, setStatusFilter] = useState('all');
+
+                const filteredQrs = useMemo(() => {
+                    return qrs.filter(q => {
+                        const matchCode = q.trackingCode.toLowerCase().includes(search.toLowerCase()) ||
+                            (q.businessName && q.businessName.toLowerCase().includes(search.toLowerCase()));
+                        const matchStatus = statusFilter === 'all' || q.status === statusFilter;
+                        return matchCode && matchStatus;
+                    });
+                }, [qrs, search, statusFilter]);
+
+                return (
+                    <div className="space-y-6">
+                        <BackToDashboardButton />
+
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <h1 className="text-2xl font-bold text-white tracking-tight">Gestión de Tarjetas NFC / QR</h1>
+                                <p className="text-slate-400 text-sm mt-1">Configura enlaces dinámicos, asignaciones y audita escaneos.</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={exportForNFCTools} className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2">
+                                    <i className="fa-solid fa-file-export text-blue-400"></i> Exportar CSV iOS
+                                </button>
+                                <button onClick={() => setAdminTab('batch')} className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-blue-600/25">
+                                    <i className="fa-solid fa-plus"></i> Generar Lote
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row gap-4 justify-between">
+                            <div className="relative flex-1">
+                                <i className="fa-solid fa-search absolute left-3.5 top-3.5 text-slate-500 text-sm"></i>
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por código TAG-XXXX, negocio..."
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    className="w-full glass-input pl-10 pr-4 py-2.5 rounded-xl text-sm"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {['all', 'pending', 'active'].map(st => (
+                                    <button
+                                        key={st}
+                                        onClick={() => setStatusFilter(st)}
+                                        className={`px-3 py-2 rounded-xl text-xs font-semibold capitalize border transition-all ${statusFilter === st ? 'bg-blue-600/30 text-blue-300 border-blue-500' : 'bg-slate-800/40 text-slate-400 border-slate-700/50 hover:bg-slate-800'}`}
+                                    >
+                                        {st === 'all' ? 'Todos' : st === 'pending' ? 'Por Activar' : 'Activos'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm text-slate-300">
+                                    <thead className="bg-slate-900/90 uppercase text-[11px] font-mono text-slate-400 border-b border-slate-800">
+                                        <tr>
+                                            <th className="py-3.5 px-4">Código Seg.</th>
+                                            <th className="py-3.5 px-4">Estado</th>
+                                            <th className="py-3.5 px-4">Negocio / Función</th>
+                                            <th className="py-3.5 px-4">Cliente Asignado</th>
+                                            <th className="py-3.5 px-4 text-center">Escaneos</th>
+                                            <th className="py-3.5 px-4 text-right">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/60 font-sans">
+                                        {filteredQrs.map(qr => {
+                                            const client = clients.find(c => c.id === qr.clientId);
+                                            return (
+                                                <tr key={qr.id} className="hover:bg-slate-800/40 transition-colors">
+                                                    <td className="py-3.5 px-4 font-mono font-bold text-white flex items-center gap-2">
+                                                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                        {qr.trackingCode}
+                                                    </td>
+                                                    <td className="py-3.5 px-4">
+                                                        {qr.status === 'active' ? (
+                                                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Activo</span>
+                                                        ) : (
+                                                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">Por Activar</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-3.5 px-4">
+                                                        {qr.businessName ? (
+                                                            <div>
+                                                                <div className="font-semibold text-white">{qr.businessName}</div>
+                                                                <div className="text-xs text-blue-400 font-mono truncate max-w-[200px]">{qr.dynamicUrl}</div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-500 italic">Libre / Virgen</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-3.5 px-4">
+                                                        {client ? (
+                                                            <button
+                                                                onClick={() => { setSelectedClientDetailId(client.id); setAdminTab('client-detail'); }}
+                                                                className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold underline flex items-center gap-1"
+                                                            >
+                                                                <i className="fa-solid fa-user-tie text-[10px]"></i> {client.name}
+                                                            </button>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-500">Sin Cliente</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-300">
+                                                        {qr.scans || 0}
+                                                    </td>
+                                                    <td className="py-3.5 px-4 text-right space-x-1.5">
+                                                        <button
+                                                            onClick={() => writeWebNFC(qr.trackingCode)}
+                                                            className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-2 py-1.5 rounded-lg text-xs"
+                                                            title="Grabar NFC (Android Chrome)"
+                                                        >
+                                                            <i className="fa-solid fa-nfc-symbol"></i>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setActivateModal({ open: true, qr })}
+                                                            className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+                                                        >
+                                                            <i className="fa-solid fa-gear mr-1"></i> Configurar
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteQR(qr.id)}
+                                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2 py-1.5 rounded-lg text-xs"
+                                                        >
+                                                            <i className="fa-solid fa-trash-can"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // 4. CLIENT DIRECTORY & DETAILED expediente VIEW
+            const ClientView = () => {
+                const [showAddModal, setShowAddModal] = useState(false);
+                const [form, setForm] = useState({ name: '', company: '', email: '', phone: '' });
+
+                if (adminTab === 'client-detail' && selectedClientDetailId) {
+                    const client = clients.find(c => c.id === selectedClientDetailId);
+                    const clientQrs = qrs.filter(q => q.clientId === selectedClientDetailId);
+                    const totalScans = clientQrs.reduce((acc, curr) => acc + (curr.scans || 0), 0);
+
+                    return (
+                        <div className="space-y-6">
+                            <BackToDashboardButton label="Volver al Directorio de Clientes" targetTab="clients" />
+
+                            <div className="glass-panel p-6 rounded-2xl border border-indigo-500/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                                        <i className="fa-solid fa-user-tie"></i>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-mono uppercase text-indigo-400 font-bold">Expediente de Cliente</span>
+                                        <h1 className="text-2xl font-extrabold text-white">{client?.name}</h1>
+                                        <p className="text-sm text-slate-400">{client?.company} • {client?.email}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => window.print()}
+                                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg"
+                                    >
+                                        <i className="fa-solid fa-file-pdf"></i> Imprimir Ficha de Entrega
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="glass-panel p-5 rounded-2xl">
+                                    <p className="text-xs font-medium text-slate-400 uppercase">Tarjetas Asignadas</p>
+                                    <h3 className="text-3xl font-extrabold text-white mt-1 font-mono">{clientQrs.length}</h3>
+                                </div>
+                                <div className="glass-panel p-5 rounded-2xl">
+                                    <p className="text-xs font-medium text-slate-400 uppercase">Tarjetas Activas</p>
+                                    <h3 className="text-3xl font-extrabold text-emerald-400 mt-1 font-mono">{clientQrs.filter(q => q.status === 'active').length}</h3>
+                                </div>
+                                <div className="glass-panel p-5 rounded-2xl">
+                                    <p className="text-xs font-medium text-slate-400 uppercase">Escaneos Acumulados</p>
+                                    <h3 className="text-3xl font-extrabold text-amber-400 mt-1 font-mono">{totalScans}</h3>
+                                </div>
+                            </div>
+
+                            <div className="glass-panel p-6 rounded-2xl space-y-4">
+                                <h3 className="font-bold text-white text-base">Inventario de Productos del Cliente</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {clientQrs.map(qr => (
+                                        <div key={qr.id} className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
+                                            <div className="flex justify-between items-start">
+                                                <span className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded">ID: {qr.trackingCode}</span>
+                                                <span className="text-xs text-slate-400 font-mono"><i className="fa-solid fa-bolt text-amber-400 mr-1"></i>{qr.scans || 0} escaneos</span>
+                                            </div>
+                                            <h4 className="font-bold text-white">{qr.businessName || 'Tarjeta Sin Nombre'}</h4>
+                                            <div className="p-2.5 bg-slate-950 rounded-lg text-xs font-mono text-blue-400 truncate border border-slate-800/80">{qr.dynamicUrl || 'Sin enlace'}</div>
+                                            
+                                            {/* History Audit Log */}
+                                            {qr.history && qr.history.length > 0 && (
+                                                <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-400 space-y-1">
+                                                    <span className="font-bold uppercase text-slate-500 block">Bitácora de Cambios:</span>
+                                                    {qr.history.slice(-2).map((h, idx) => (
+                                                        <div key={idx} className="truncate">
+                                                            • {new Date(h.timestamp).toLocaleDateString()}: {h.description}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <button
+                                                onClick={() => setActivateModal({ open: true, qr })}
+                                                className="w-full py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 font-semibold text-xs rounded-xl"
+                                            >
+                                                Reprogramar Tarjeta
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="space-y-6">
+                        <BackToDashboardButton />
+
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-bold text-white tracking-tight">Directorio de Clientes</h1>
+                                <p className="text-slate-400 text-sm mt-1">Registra dueños de negocios para vincularles tarjetas y auditar su historial.</p>
+                            </div>
+                            <button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-blue-600/25">
+                                <i className="fa-solid fa-user-plus"></i> Registrar Cliente
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {clients.map(client => {
+                                const assignedCount = qrs.filter(q => q.clientId === client.id).length;
+                                return (
+                                    <div key={client.id} className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start">
+                                                <h3 className="font-bold text-white text-base">{client.name}</h3>
+                                                <span className="text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded">{assignedCount} tarjetas</span>
+                                            </div>
+                                            <p className="text-xs text-blue-400 font-semibold mt-0.5">{client.company}</p>
+                                            <div className="pt-3 text-xs text-slate-300 space-y-1">
+                                                <div><i className="fa-solid fa-envelope w-4 text-slate-500"></i> {client.email}</div>
+                                                <div><i className="fa-solid fa-phone w-4 text-slate-500"></i> {client.phone || 'N/A'}</div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => { setSelectedClientDetailId(client.id); setAdminTab('client-detail'); }}
+                                            className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl flex justify-center items-center gap-1.5"
+                                        >
+                                            <i className="fa-solid fa-folder-open text-indigo-400"></i> Ver Expediente Histórico
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {showAddModal && (
+                            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="glass-panel w-full max-w-md rounded-2xl p-6 border border-slate-700 space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="font-bold text-white">Nuevo Cliente</h3>
+                                        <button onClick={() => setShowAddModal(false)} className="text-slate-400"><i className="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <form onSubmit={(e) => { e.preventDefault(); addClient(form); setShowAddModal(false); }} className="space-y-3">
+                                        <input type="text" placeholder="Nombre completo" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full glass-input px-3 py-2 rounded-xl text-sm" />
+                                        <input type="text" placeholder="Empresa / Local" required value={form.company} onChange={e => setForm({...form, company: e.target.value})} className="w-full glass-input px-3 py-2 rounded-xl text-sm" />
+                                        <input type="email" placeholder="Correo electrónico" required value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full glass-input px-3 py-2 rounded-xl text-sm" />
+                                        <input type="tel" placeholder="Teléfono" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="w-full glass-input px-3 py-2 rounded-xl text-sm" />
+                                        <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl">Guardar Cliente</button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 5. TEMPLATES LIBRARY VIEW (DUPLEX ANVERSO / REVERSO)
+            const TemplatesView = () => {
+                const [form, setForm] = useState({ name: '', category: 'pvc-vertical', frontBg: '', backBg: '' });
+
+                const handleSaveTemplate = async (e) => {
+                    e.preventDefault();
+                    const newTpl = {
+                        id: 'TPL-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
+                        name: form.name,
+                        category: form.category,
+                        frontBg: form.frontBg,
+                        backBg: form.backBg,
+                        defaultTheme: 'custom',
+                        qrBgStyle: 'white-box',
+                        qrSizePx: 55,
+                        qrPosY: 'center',
+                        qrPosX: 'center'
+                    };
+                    setTemplates(prev => [...prev, newTpl]);
+                    setTemplateModal({ open: false, isEditing: false, data: null });
+                    showToast('Plantilla guardada en la biblioteca.', 'success');
+                };
+
+                return (
+                    <div className="space-y-6">
+                        <BackToDashboardButton />
+
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-bold text-white tracking-tight">Biblioteca de Plantillas Guardadas</h1>
+                                <p className="text-slate-400 text-sm mt-1">Guarda diseños reutilizables con soporte para Anverso (frente) y Reverso (atrás).</p>
+                            </div>
+                            <button onClick={() => setTemplateModal({ open: true, isEditing: false, data: null })} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-purple-600/25">
+                                <i className="fa-solid fa-plus"></i> Nueva Plantilla
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {templates.map(tpl => (
+                                <div key={tpl.id} className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+                                    <div className="flex justify-between items-start">
+                                        <h3 className="font-bold text-white text-base">{tpl.name}</h3>
+                                        <span className="text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded">{tpl.category}</span>
+                                    </div>
+
+                                    {/* Preview Boxes Dual */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 flex flex-col justify-between p-2 relative overflow-hidden" style={{ background: tpl.frontBg ? `url(${tpl.frontBg}) center/cover` : 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)' }}>
+                                            <span className="text-[8px] font-bold uppercase bg-black/60 text-white px-1.5 py-0.5 rounded w-fit">Anverso</span>
+                                        </div>
+                                        <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 flex flex-col justify-between p-2 relative overflow-hidden" style={{ background: tpl.backBg ? `url(${tpl.backBg}) center/cover` : 'linear-gradient(135deg, #0f172a 0%, #312e81 100%)' }}>
+                                            <span className="text-[8px] font-bold uppercase bg-black/60 text-white px-1.5 py-0.5 rounded w-fit">Reverso</span>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+                                            setPrintConfig(prev => ({
+                                                ...prev,
+                                                selectedTemplateId: tpl.id,
+                                                templateType: tpl.category,
+                                                customFrontBg: tpl.frontBg,
+                                                customBackBg: tpl.backBg,
+                                                theme: tpl.frontBg ? 'custom' : tpl.defaultTheme
+                                            }));
+                                            setAdminTab('print');
+                                            showToast(`Plantilla "${tpl.name}" cargada en el Estudio A4.`, 'info');
+                                        }}
+                                        className="w-full py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold rounded-xl"
+                                    >
+                                        Usar en Estudio A4
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {templateModal.open && (
+                            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="glass-panel w-full max-w-lg rounded-2xl p-6 border border-slate-700 space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="font-bold text-white">Crear Nueva Plantilla Guardada</h3>
+                                        <button onClick={() => setTemplateModal({ open: false, isEditing: false, data: null })} className="text-slate-400"><i className="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <form onSubmit={handleSaveTemplate} className="space-y-4">
+                                        <input type="text" placeholder="Nombre de la Plantilla (ej: Barberías Oro)" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-sm" />
+                                        
+                                        <div>
+                                            <label className="block text-xs text-slate-300 mb-1">Anverso (Imagen Frente)</label>
+                                            <input type="file" accept="image/*" onChange={async (e) => {
+                                                const file = e.target.files[0];
+                                                if (file) {
+                                                    const b64 = await compressImageToDataURL(file, 600, 950, 0.85);
+                                                    setForm(prev => ({ ...prev, frontBg: b64 }));
+                                                }
+                                            }} className="text-xs text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white" />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs text-slate-300 mb-1">Reverso (Imagen Atrás)</label>
+                                            <input type="file" accept="image/*" onChange={async (e) => {
+                                                const file = e.target.files[0];
+                                                if (file) {
+                                                    const b64 = await compressImageToDataURL(file, 600, 950, 0.85);
+                                                    setForm(prev => ({ ...prev, backBg: b64 }));
+                                                }
+                                            }} className="text-xs text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white" />
+                                        </div>
+
+                                        <button type="submit" className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl">Guardar Plantilla Permanente</button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 6. ADVANCED PRINT & MASSIVE A4 DUPLEX STUDIO
+            const PrintView = () => {
+                const [qrCodeImages, setQrCodeImages] = useState({});
+
+                const itemsPerPage = printConfig.templateType === '10x15' ? 2 : 10;
+                const selectedItems = useMemo(() => {
+                    return qrs.filter(q => selectedQrIdsForSheet.includes(q.id));
+                }, [qrs, selectedQrIdsForSheet]);
+
+                const pages = useMemo(() => {
+                    const result = [];
+                    for (let i = 0; i < selectedItems.length; i += itemsPerPage) {
+                        result.push(selectedItems.slice(i, i + itemsPerPage));
+                    }
+                    return result;
+                }, [selectedItems, itemsPerPage]);
+
+                useEffect(() => {
+                    selectedItems.forEach(item => {
+                        const tagUrl = getBaseTagUrl(item.trackingCode);
+                        generateQRBase64(tagUrl, 280).then(url => {
+                            setQrCodeImages(prev => ({ ...prev, [item.id]: url }));
+                        });
+                    });
+                }, [selectedItems]);
+
+                const toggleSelectAll = () => {
+                    if (selectedQrIdsForSheet.length === qrs.length) {
+                        setSelectedQrIdsForSheet([]);
+                    } else {
+                        setSelectedQrIdsForSheet(qrs.map(q => q.id));
+                    }
+                };
+
+                const renderCardContent = (item, side = printConfig.activeSide) => {
+                    const qrImg = qrCodeImages[item.id] || '';
+
+                    const alignY = printConfig.qrPosY === 'top' ? 'items-start pt-2' : printConfig.qrPosY === 'bottom' ? 'items-end pb-2' : 'items-center';
+                    const alignX = printConfig.qrPosX === 'left' ? 'justify-start pl-2' : printConfig.qrPosX === 'right' ? 'justify-end pr-2' : 'justify-center';
+
+                    const cardClass = printConfig.templateType === 'pvc-vertical' ? "card-pvc-vertical p-3 flex flex-col justify-between mx-auto" :
+                        printConfig.templateType === 'pvc-horizontal' ? "card-pvc-horizontal p-3 flex flex-col justify-between mx-auto" :
+                        "card-poster-10x15 p-5 flex flex-col justify-between mx-auto";
+
+                    const bgToUse = side === 'front' ? printConfig.customFrontBg : printConfig.customBackBg;
+
+                    return (
+                        <div
+                            key={item.id}
+                            className={cardClass}
+                            style={{
+                                background: bgToUse
+                                    ? `url(${bgToUse}) center/cover`
+                                    : printConfig.theme === 'gold-luxury'
+                                    ? 'linear-gradient(135deg, #0f172a 0%, #312e81 100%)'
+                                    : printConfig.theme === 'clean-white'
+                                    ? '#ffffff'
+                                    : 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)',
+                                color: printConfig.theme === 'clean-white' ? '#0f172a' : '#ffffff'
+                            }}
+                        >
+                            <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
+                                <span className="truncate max-w-[120px]">{item.businessName || 'NFC CARD'}</span>
+                                <i className="fa-solid fa-nfc-symbol text-xs text-blue-400"></i>
+                            </div>
+
+                            {/* Only show QR Code on Front side */}
+                            {side === 'front' && (
+                                <div className={`flex-1 flex ${alignY} ${alignX} my-1`}>
+                                    <div
+                                        className={`transition-all ${
+                                            printConfig.qrBgStyle === 'white-box' ? 'bg-white rounded-xl shadow-md p-1.5' :
+                                            printConfig.qrBgStyle === 'glass' ? 'bg-white/25 backdrop-blur-md border border-white/30 rounded-xl p-1.5 shadow-lg' :
+                                            printConfig.qrBgStyle === 'dark-box' ? 'bg-slate-900/90 text-white border border-slate-700 rounded-xl p-1.5 shadow-md' :
+                                            'bg-transparent p-0'
+                                        }`}
+                                    >
+                                        <img
+                                            src={qrImg}
+                                            alt="QR Code"
+                                            style={{ width: `${printConfig.qrSizePx}px`, height: `${printConfig.qrSizePx}px` }}
+                                            className="object-contain block"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {side === 'back' && (
+                                <div className="flex-1 flex items-center justify-center text-center p-2">
+                                    <span className="text-[10px] font-semibold opacity-70">REVERSO DE TARJETA</span>
+                                </div>
+                            )}
+
+                            <div className="flex justify-between items-end text-[8px] font-mono">
+                                <span className="text-[7px] truncate max-w-[90px]">{item.businessAddress ? item.businessAddress.substring(0, 15) : 'Escanea aquí'}</span>
+                                <span className={`font-bold ${printConfig.idOpacity} ${printConfig.idFontSize}`}>
+                                    {item.trackingCode}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                };
+
+                return (
+                    <div className="space-y-6">
+                        <BackToDashboardButton />
+
+                        <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <h1 className="text-2xl font-bold text-white tracking-tight">Estudio de Impresión Masiva en Hoja A4 Dúplex</h1>
+                                <p className="text-slate-400 text-sm mt-1">Imprime tarjetas en diseño vertical u horizontal con alineación Dúplex.</p>
+                            </div>
+                            <button
+                                onClick={() => window.print()}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl text-xs shadow-lg shadow-emerald-600/25 flex items-center gap-2"
+                            >
+                                <i className="fa-solid fa-print text-sm"></i> Imprimir Hojas A4 Dúplex
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 no-print">
+                            {/* Controls */}
+                            <div className="lg:col-span-5 space-y-5">
+                                {/* Side Selector (Anverso / Reverso) */}
+                                <div className="glass-panel p-4 rounded-2xl flex items-center justify-between border border-blue-500/30">
+                                    <span className="text-xs font-bold uppercase text-slate-300">Vista de Impresión:</span>
+                                    <div className="bg-slate-900 p-1 rounded-xl flex items-center border border-slate-800">
+                                        <button
+                                            onClick={() => setPrintConfig(prev => ({ ...prev, activeSide: 'front' }))}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${printConfig.activeSide === 'front' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}
+                                        >
+                                            ANVERSO (Frente)
+                                        </button>
+                                        <button
+                                            onClick={() => setPrintConfig(prev => ({ ...prev, activeSide: 'back' }))}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${printConfig.activeSide === 'back' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}
+                                        >
+                                            REVERSO (Atrás)
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="glass-panel p-5 rounded-2xl space-y-4 border border-purple-500/20">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h3 className="text-xs font-bold text-purple-300 uppercase tracking-wider">Diseño para Redes Sociales</h3>
+                                            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">Carga una imagen y el sistema la adapta automáticamente al formato de tarjeta que estás usando.</p>
+                                        </div>
+                                        <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 flex items-center justify-center flex-shrink-0">
+                                            <i className="fa-solid fa-image"></i>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                                        <span className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 font-semibold">
+                                            {printConfig.activeSide === 'front' ? 'ANVERSO' : 'REVERSO'}
+                                        </span>
+                                        <span>
+                                            {printConfig.templateType === 'pvc-horizontal' ? 'Horizontal' : printConfig.templateType === '10x15' ? '10 × 15' : 'Vertical'}
+                                        </span>
+                                    </div>
+
+                                    <label className="block">
+                                        <span className="sr-only">Cargar diseño de tarjeta</span>
+                                        <input
+                                            type="file"
+                                            accept="image/png,image/jpeg,image/webp"
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+
+                                                const isHorizontal = printConfig.templateType === 'pvc-horizontal';
+                                                const isPoster = printConfig.templateType === '10x15';
+                                                const targetWidth = isHorizontal ? 950 : isPoster ? 1000 : 600;
+                                                const targetHeight = isHorizontal ? 600 : isPoster ? 1400 : 950;
+
+                                                try {
+                                                    const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.9);
+                                                    setPrintConfig(prev => ({
+                                                        ...prev,
+                                                        theme: 'custom',
+                                                        ...(prev.activeSide === 'front'
+                                                            ? { customFrontBg: adaptedImage }
+                                                            : { customBackBg: adaptedImage })
+                                                    }));
+                                                    showToast(`Diseño cargado en ${printConfig.activeSide === 'front' ? 'Anverso' : 'Reverso'} y adaptado al formato.`, 'success');
+                                                } catch (err) {
+                                                    console.error('Error adapting social design', err);
+                                                    showToast('No se pudo procesar la imagen seleccionada.', 'warning');
+                                                } finally {
+                                                    e.target.value = '';
+                                                }
+                                            }}
+                                        />
+                                        <span className="w-full min-h-12 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-lg shadow-purple-600/15">
+                                            <i className="fa-solid fa-cloud-arrow-up"></i>
+                                            Cargar imagen al {printConfig.activeSide === 'front' ? 'Anverso' : 'Reverso'}
+                                        </span>
+                                    </label>
+
+                                    {(printConfig.activeSide === 'front' ? printConfig.customFrontBg : printConfig.customBackBg) && (
+                                        <div className="rounded-xl border border-slate-700 bg-slate-950/70 p-3 flex items-center gap-3">
+                                            <div
+                                                className={`flex-shrink-0 bg-slate-900 border border-slate-700 bg-center bg-cover ${printConfig.templateType === 'pvc-horizontal' ? 'w-20 h-12 rounded-lg' : printConfig.templateType === '10x15' ? 'w-12 h-16 rounded-lg' : 'w-12 h-20 rounded-lg'}`}
+                                                style={{ backgroundImage: `url(${printConfig.activeSide === 'front' ? printConfig.customFrontBg : printConfig.customBackBg})` }}
+                                            ></div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-semibold text-white">Diseño aplicado</p>
+                                                <p className="text-[10px] text-slate-400 mt-0.5">Se usa sobre las tarjetas actuales sin cambiar QR, IDs ni lógica de impresión.</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPrintConfig(prev => prev.activeSide === 'front'
+                                                    ? { ...prev, customFrontBg: '' }
+                                                    : { ...prev, customBackBg: '' })}
+                                                className="w-9 h-9 rounded-lg border border-slate-700 bg-slate-900 text-slate-400 hover:text-red-300 hover:border-red-500/40 transition-colors flex items-center justify-center"
+                                                aria-label="Quitar imagen cargada"
+                                                title="Quitar imagen"
+                                            >
+                                                <i className="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="glass-panel p-5 rounded-2xl space-y-4">
+                                    <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">Control & Estilo del Código QR</h3>
+                                    <div>
+                                        <div className="flex justify-between text-xs text-slate-300 mb-1">
+                                            <span>Tamaño del QR:</span>
+                                            <span className="font-mono font-bold text-blue-400">{printConfig.qrSizePx} px</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="35"
+                                            max="130"
+                                            value={printConfig.qrSizePx}
+                                            onChange={e => setPrintConfig(prev => ({ ...prev, qrSizePx: parseInt(e.target.value) }))}
+                                            className="w-full accent-blue-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[
+                                            { id: 'transparent', label: 'Transparente' },
+                                            { id: 'glass', label: 'Cristal Glass' },
+                                            { id: 'white-box', label: 'Caja Blanca' },
+                                            { id: 'dark-box', label: 'Modo Noche' }
+                                        ].map(st => (
+                                            <button
+                                                key={st.id}
+                                                onClick={() => setPrintConfig(prev => ({ ...prev, qrBgStyle: st.id }))}
+                                                className={`py-1.5 px-2 rounded-lg text-xs font-semibold border ${printConfig.qrBgStyle === st.id ? 'bg-amber-600/30 text-amber-300 border-amber-500' : 'bg-slate-800/40 text-slate-400 border-slate-700/50'}`}
+                                            >
+                                                {st.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="glass-panel p-5 rounded-2xl space-y-3 max-h-60 overflow-y-auto">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-xs font-bold text-slate-300 uppercase">Seleccionar para Imprimir ({selectedQrIdsForSheet.length})</h3>
+                                        <button onClick={toggleSelectAll} className="text-[11px] text-blue-400 font-semibold">
+                                            {selectedQrIdsForSheet.length === qrs.length ? 'Desmarcar Todas' : 'Marcar Todas'}
+                                        </button>
+                                    </div>
+                                    <div className="space-y-1">
+                                        {qrs.map(q => (
+                                            <label key={q.id} className="flex items-center gap-2 text-xs text-slate-300 p-1.5 hover:bg-slate-800/50 rounded cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedQrIdsForSheet.includes(q.id)}
+                                                    onChange={e => {
+                                                        if (e.target.checked) setSelectedQrIdsForSheet(prev => [...prev, q.id]);
+                                                        else setSelectedQrIdsForSheet(prev => prev.filter(i => i !== q.id));
+                                                    }}
+                                                    className="accent-blue-500"
+                                                />
+                                                <span className="font-mono font-bold text-white">{q.trackingCode}</span>
+                                                <span className="truncate text-slate-400">- {q.businessName || 'Virgen'}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Live Screen Preview */}
+                            <div className="lg:col-span-7 flex flex-col items-center justify-start space-y-6 overflow-x-auto">
+                                <span className="text-xs font-mono uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                                    <i className="fa-solid fa-eye text-emerald-400"></i> Previsualización A4 ({printConfig.activeSide.toUpperCase()})
+                                </span>
+
+                                {pages.map((pageItems, pageIdx) => (
+                                    <div key={pageIdx} className="a4-sheet-preview rounded-lg">
+                                        <div className="absolute top-2 right-3 text-[10px] font-mono font-bold text-slate-400 no-print">
+                                            Hoja A4 #{pageIdx + 1} - Cara: {printConfig.activeSide.toUpperCase()}
+                                        </div>
+
+                                        <div className={
+                                            printConfig.templateType === 'pvc-vertical' ? "grid grid-cols-2 gap-y-[4mm] gap-x-[10mm] justify-center items-center h-full pt-2" :
+                                            printConfig.templateType === 'pvc-horizontal' ? "grid grid-cols-2 gap-y-[4mm] gap-x-[6mm] justify-center items-center h-full pt-2" :
+                                            "grid grid-cols-1 gap-y-[6mm] justify-center items-center h-full pt-2"
+                                        }>
+                                            {pageItems.map(item => renderCardContent(item, printConfig.activeSide))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Printable CSS Media Print Wrapper */}
+                        <div id="print-area-wrapper" className="hidden">
+                            {pages.map((pageItems, pageIdx) => (
+                                <React.Fragment key={pageIdx}>
+                                    {/* Page 1: Anverso */}
+                                    <div className="print-page-a4">
+                                        <div className="print-grid-pvc-vertical">
+                                            {pageItems.map(item => renderCardContent(item, 'front'))}
+                                        </div>
+                                    </div>
+                                    {/* Page 2: Reverso */}
+                                    <div className="print-page-a4">
+                                        <div className="print-grid-pvc-vertical">
+                                            {pageItems.map(item => renderCardContent(item, 'back'))}
+                                        </div>
+                                    </div>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            // 7. CLIENT PORTAL VIEW
+            const ClientPortalView = () => {
+                const currentClient = clients[0];
+                const clientQrs = qrs.filter(q => q.clientId === currentClient?.id);
+                const [editingQr, setEditingQr] = useState(null);
+                const [newUrl, setNewUrl] = useState('');
+
+                return (
+                    <div className="max-w-4xl mx-auto space-y-6">
+                        <BackToDashboardButton label="Volver a Selección de Modo" />
+
+                        <div className="glass-panel p-4 rounded-2xl flex justify-between items-center border border-indigo-500/30">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold">
+                                    <i className="fa-solid fa-user-tie"></i>
+                                </div>
+                                <div>
+                                    <span className="text-xs font-mono uppercase text-indigo-400">Portal del Cliente</span>
+                                    <h2 className="text-lg font-bold text-white">{currentClient?.company || 'Mi Empresa'}</h2>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {clientQrs.map(qr => (
+                                <div key={qr.id} className="glass-panel p-5 rounded-2xl space-y-3">
+                                    <div className="flex justify-between items-start">
+                                        <span className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded">ID: {qr.trackingCode}</span>
+                                        <span className="text-xs text-slate-400 font-mono"><i className="fa-solid fa-eye mr-1"></i>{qr.scans || 0} lecturas</span>
+                                    </div>
+                                    <h3 className="font-bold text-white">{qr.businessName || 'Mi Tarjeta'}</h3>
+                                    <div className="p-3 bg-slate-900 rounded-xl text-xs font-mono text-blue-400 truncate border border-slate-800">{qr.dynamicUrl || 'Sin enlace'}</div>
+                                    <button onClick={() => { setEditingQr(qr); setNewUrl(qr.dynamicUrl); }} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl">
+                                        Cambiar Enlace Dinámico
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        {editingQr && (
+                            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="glass-panel w-full max-w-md rounded-2xl p-6 border border-slate-700 space-y-4">
+                                    <h3 className="font-bold text-white">Modificar URL de Destino</h3>
+                                    <form onSubmit={(e) => { e.preventDefault(); updateQR(editingQr.id, { dynamicUrl: sanitizeUrl(newUrl) }); setEditingQr(null); }} className="space-y-4">
+                                        <input type="url" required value={newUrl} onChange={e => setNewUrl(e.target.value)} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm font-mono" placeholder="https://..." />
+                                        <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl">Guardar Destino</button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // 8. SETTINGS VIEW
+            const SettingsView = () => {
+                const [pinInput, setPinInput] = useState(masterPin);
+                const [keyInput, setKeyInput] = useState(googleApiKey);
+
+                const saveSettings = () => {
+                    setGoogleApiKey(keyInput);
+                    showToast('La clave de Google se guardó solo en este navegador. El PIN se administra en Supabase.', 'info');
+                };
+
+                return (
+                    <div className="max-w-3xl mx-auto space-y-6">
+                        <BackToDashboardButton />
+
+                        <div>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">Configuración & APIs Cloud</h1>
+                            <p className="text-slate-400 text-sm mt-1">Configura el PIN de 4 dígitos y conectores con Google Cloud APIs.</p>
+                        </div>
+
+                        <div className="glass-panel p-6 rounded-2xl space-y-4">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                <i className="fa-solid fa-lock text-amber-400"></i> PIN Maestro de Activación (4 dígitos)
+                            </h2>
+                            <div className="flex gap-2 max-w-xs">
+                                <input
+                                    type="text"
+                                    maxLength="4"
+                                    value={pinInput}
+                                    onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
+                                    className="glass-input px-4 py-2 rounded-xl font-mono text-center font-bold text-lg tracking-widest w-32"
+                                />
+                                <button onClick={saveSettings} className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-xl text-xs">
+                                    Guardar configuración local
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="glass-panel p-6 rounded-2xl space-y-4">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                <i className="fa-brands fa-google text-blue-400"></i> Google Places API Key
+                            </h2>
+                            <div className="flex gap-2">
+                                <input
+                                    type="password"
+                                    value={keyInput}
+                                    onChange={e => setKeyInput(e.target.value)}
+                                    placeholder="AIzaSyB..."
+                                    className="flex-1 glass-input px-3.5 py-2.5 rounded-xl text-sm font-mono"
+                                />
+                                <button onClick={saveSettings} className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2.5 rounded-xl text-xs">
+                                    Guardar Key
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="glass-panel p-6 rounded-2xl space-y-4">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                <i className="fa-brands fa-google-drive text-emerald-400"></i> Google Drive API v3 (Conector OAuth 2.0)
+                            </h2>
+                            <div className="space-y-3">
+                                <input type="text" placeholder="Google OAuth Client ID" value={driveConfig.clientId} onChange={e => setDriveConfig({...driveConfig, clientId: e.target.value})} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono" />
+                                <input type="text" placeholder="Folder ID de Google Drive" value={driveConfig.folderId} onChange={e => setDriveConfig({...driveConfig, folderId: e.target.value})} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono" />
+                                <button onClick={() => showToast('Conexión con Google Drive guardada.', 'success')} className="py-2.5 px-4 bg-emerald-600 text-white font-bold rounded-xl text-xs">Conectar con Google Drive</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // MODAL ACTIVATION FLOW WITH SECURITY PIN & GOOGLE PLACES
+            const ActivationModal = () => {
+                if (!activateModal.open) return null;
+                const qr = activateModal.qr;
+
+                const [pinEntered, setPinEntered] = useState('');
+                const [pinVerified, setPinVerified] = useState(qr.status === 'active');
+                const [pinError, setPinError] = useState(false);
+
+                const [searchQuery, setSearchQuery] = useState('');
+                const [selectedPlace, setSelectedPlace] = useState(qr.businessName ? { name: qr.businessName, address: qr.businessAddress || '', placeId: qr.placeId || 'ChIJMock' } : null);
+                const [presetType, setPresetType] = useState(qr.functionType || 'review_gate');
+                const [customUrl, setCustomUrl] = useState(qr.dynamicUrl || '');
+                const [assignedClient, setAssignedClient] = useState(qr.clientId || clients[0]?.id || '');
+
+                const mockPlaces = [];
+                const filteredMock = [];
+                const [manualPlaceId,setManualPlaceId]=useState(qr.placeId||'');
+                const [manualBusinessName,setManualBusinessName]=useState(qr.businessName||'');
+                const handleConfirmActivation = async () => {
+                    if(presetType!=='custom_url' && (!selectedPlace?.placeId || !selectedPlace?.name)){showToast('Debes seleccionar un negocio real con Place ID','error');return;}
+                    if(presetType==='custom_url' && !/^https:\/\//i.test(customUrl)){showToast('Introduce una URL HTTPS válida','error');return;}
+                    let finalUrl = customUrl;
+                    if (presetType === 'google_review' && selectedPlace) {
+                        finalUrl = `https://search.google.com/local/writereview?placeid=${selectedPlace.placeId}`;
+                    } else if (presetType === 'review_gate' && selectedPlace) {
+                        finalUrl = `https://search.google.com/local/writereview?placeid=${selectedPlace.placeId}`;
+                    }
+
+                    // Configuracion local sin PIN; no declarar activacion publica sin persistencia autorizada.
+                    updateQR(qr.id, {
+                        status: 'pending',
+                        clientId: assignedClient,
+                        businessName: selectedPlace ? selectedPlace.name : 'Negocio Asignado',
+                        businessAddress: selectedPlace ? selectedPlace.address : '',
+                        placeId: selectedPlace ? selectedPlace.placeId : null,
+                        functionType: presetType,
+                        dynamicUrl: sanitizeUrl(finalUrl)
+                    });
+                    showToast('Configuracion guardada en este navegador. QR aun pendiente de activacion publica.');
+                    setActivateModal({ open: false, qr: null });
+                };
+
+                return (
+                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="glass-panel w-full max-w-xl rounded-2xl p-6 border border-slate-700 max-h-[90vh] overflow-y-auto">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-bold text-lg text-white">Configurar Tarjeta {qr.trackingCode}</h3>
+                                <button onClick={() => setActivateModal({ open: false, qr: null })} className="text-slate-400"><i className="fa-solid fa-xmark text-lg"></i></button>
+                            </div>
+
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">1. Vincular a Cliente</label>
+                                        <select value={assignedClient} onChange={e => setAssignedClient(e.target.value)} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-sm">
+                                            {clients.map(c => (
+                                                <option key={c.id} value={c.id} className="bg-slate-900 text-white">{c.name} ({c.company})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">2. Vincular negocio por Place ID real</label><p className="text-xs text-amber-300 mb-2">La búsqueda automática de Google Places aún no está configurada. Introduce el Place ID oficial del negocio, sin usar resultados de demostración.</p><input type="text" className="w-full glass-input px-3 py-2 mb-2" placeholder="Nombre comercial" value={manualBusinessName} onChange={e=>setManualBusinessName(e.target.value)}/><input type="text" className="w-full glass-input px-3 py-2 mb-2" placeholder="Place ID (ChIJ...)" value={manualPlaceId} onChange={e=>setManualPlaceId(e.target.value)}/><button type="button" onClick={()=>{if(manualPlaceId.trim()&&manualBusinessName.trim())setSelectedPlace({name:manualBusinessName.trim(),address:'',placeId:manualPlaceId.trim()})}} className="bg-slate-700 rounded px-3 py-2 text-xs mb-2">Aplicar Place ID</button>
+                                        <input type="text" placeholder="Buscar negocio..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-sm" />
+                                        {searchQuery && !selectedPlace && (
+                                            <div className="mt-2 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-800">
+                                                {filteredMock.map((p, idx) => (
+                                                    <div key={idx} onClick={() => { setSelectedPlace(p); setSearchQuery(''); }} className="p-3 hover:bg-slate-800 cursor-pointer text-xs flex justify-between">
+                                                        <div><div className="font-bold text-white">{p.name}</div><div className="text-slate-400">{p.address}</div></div>
+                                                        <span className="text-blue-400 font-mono text-[10px]">Seleccionar</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {selectedPlace && (
+                                            <div className="mt-2 bg-blue-600/10 border border-blue-500/30 p-3 rounded-xl flex justify-between items-center text-xs">
+                                                <div><div className="font-bold text-white">{selectedPlace.name}</div><div className="text-slate-400">{selectedPlace.address}</div></div>
+                                                <button onClick={() => setSelectedPlace(null)} className="text-slate-400 hover:text-red-400">Cambiar</button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-300 uppercase mb-2">3. Función de Destino</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { id: 'review_gate', name: 'Filtro 5 Estrellas (Review Gate)' },
+                                                { id: 'google_review', name: 'Directo Google Reviews' },
+                                                { id: 'custom_url', name: 'URL Personalizada / PDF' }
+                                            ].map(fn => (
+                                                <button key={fn.id} type="button" onClick={() => setPresetType(fn.id)} className={`p-3 rounded-xl border text-xs font-semibold text-left ${presetType === fn.id ? 'bg-blue-600/30 border-blue-500 text-white' : 'bg-slate-800/40 border-slate-700/60 text-slate-400'}`}>
+                                                    {fn.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {presetType === 'custom_url' && (
+                                        <input type="url" value={customUrl} onChange={e => setCustomUrl(e.target.value)} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono" placeholder="https://..." />
+                                    )}
+
+                                    <button onClick={handleConfirmActivation} className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg">
+                                        Guardar Asignación de Tarjeta
+                                    </button>
+                                </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // SCAN SIMULATOR MODAL
+            const ScanSimulatorModal = () => {
+                if (!scanSimModal.open) return null;
+                const scannedQr = qrs.find(q => q.trackingCode === scanSimModal.code) || { trackingCode: scanSimModal.code, status: 'pending', dynamicUrl: '' };
+
+                return (
+                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-700 text-center relative">
+                            <button onClick={() => setScanSimModal({ open: false, code: '', reviewGateStep: 'stars', selectedStars: 0 })} className="absolute top-4 right-4 text-slate-400"><i className="fa-solid fa-xmark text-lg"></i></button>
+
+                            <div className="w-16 h-16 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-full flex items-center justify-center text-2xl mx-auto mb-4 animate-bounce">
+                                <i className="fa-solid fa-mobile-screen"></i>
+                            </div>
+
+                            <span className="text-[10px] font-mono uppercase bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full">
+                                Escaneado: {scannedQr.trackingCode}
+                            </span>
+
+                            {scannedQr.status === 'active' ? (
+                                <div className="mt-5 space-y-4">
+                                    <h3 className="font-bold text-white text-lg">{scannedQr.businessName || 'Tarjeta Conectada'}</h3>
+                                    
+                                    {scannedQr.functionType === 'review_gate' && scanSimModal.reviewGateStep === 'stars' ? (
+                                        <div className="p-4 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-3">
+                                            <p className="text-xs text-slate-300 font-semibold">¿Cómo fue tu experiencia en el local?</p>
+                                            <div className="flex justify-center gap-2 text-2xl text-amber-400">
+                                                {[1, 2, 3, 4, 5].map(star => (
+                                                    <button
+                                                        key={star}
+                                                        onClick={() => {
+                                                            if (star >= 4) {
+                                                                window.open(scannedQr.dynamicUrl, '_blank');
+                                                            } else {
+                                                                setScanSimModal(prev => ({ ...prev, reviewGateStep: 'feedback', selectedStars: star }));
+                                                            }
+                                                        }}
+                                                        className="hover:scale-125 transition-transform"
+                                                    >
+                                                        ★
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <span className="text-[10px] text-slate-500 block">4-5 ★ redirige a Google Maps • 1-3 ★ formulario privado</span>
+                                        </div>
+                                    ) : scannedQr.functionType === 'review_gate' && scanSimModal.reviewGateStep === 'feedback' ? (
+                                        <div className="p-4 bg-slate-900/90 rounded-2xl border border-slate-800 space-y-3">
+                                            <p className="text-xs text-slate-300 font-semibold">Déjanos tu sugerencia privada:</p>
+                                            <textarea rows="3" placeholder="Escribe aquí tu comentario..." className="w-full glass-input p-2.5 rounded-xl text-xs"></textarea>
+                                            <button onClick={() => { showToast('Gracias por tu opinión privada.', 'success'); setScanSimModal({ open: false, code: '', reviewGateStep: 'stars', selectedStars: 0 }); }} className="w-full py-2 bg-blue-600 text-white font-bold rounded-xl text-xs">Enviar Feedback</button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="p-3 bg-slate-900 rounded-xl text-xs font-mono text-blue-400 break-all border border-slate-800">{scannedQr.dynamicUrl}</div>
+                                            <a href={scannedQr.dynamicUrl} target="_blank" rel="noreferrer" className="block w-full py-3 bg-emerald-600 text-white font-bold rounded-xl text-sm">Abrir Enlace Final &rarr;</a>
+                                        </>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="mt-5 space-y-4">
+                                    <h3 className="font-bold text-amber-400 text-lg">Tarjeta Virgen Por Activar</h3>
+                                    <p className="text-xs text-slate-400">Al escanear esta tarjeta en blanco se requiere ingresar el PIN maestro para asignarla a un local.</p>
+                                    <button onClick={() => { setScanSimModal({ open: false, code: '', reviewGateStep: 'stars', selectedStars: 0 }); setActivateModal({ open: true, qr: scannedQr }); }} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl">Activar e Ingresar PIN</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const ConfirmModal = () => {
+                if (!confirmModal.open) return null;
+                return (
+                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="glass-panel w-full max-w-sm rounded-2xl p-6 border border-slate-700">
+                            <h3 className="font-bold text-lg text-white mb-2">{confirmModal.title}</h3>
+                            <p className="text-xs text-slate-300 mb-5">{confirmModal.message}</p>
+                            <div className="flex gap-3">
+                                <button onClick={() => setConfirmModal({ open: false, title: '', message: '', onConfirm: null })} className="flex-1 py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl">Cancelar</button>
+                                <button onClick={confirmModal.onConfirm} className="flex-1 py-2.5 bg-red-600 text-white text-xs font-bold rounded-xl">Confirmar</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+                    <TopHeader />
+                    <div className="flex-1 flex overflow-hidden">
+                        {roleMode === 'admin' ? (
+                            <>
+                                <AdminSidebar />
+                                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 no-print">
+                                    <div className="max-w-7xl mx-auto">
+                                        {adminTab === 'dashboard' && <DashboardView />}
+                                        {adminTab === 'batch' && <BatchView />}
+                                        {adminTab === 'qrs' && <QRManagementView />}
+                                        {adminTab === 'clients' && <ClientView />}
+                                        {adminTab === 'client-detail' && <ClientView />}
+                                        {adminTab === 'templates' && <TemplatesView />}
+                                        {adminTab === 'print' && <PrintView />}
+                                        {adminTab === 'settings' && <SettingsView />}
+                                    </div>
+                                </main>
+                            </>
+                        ) : (
+                            <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 no-print">
+                                <ClientPortalView />
+                            </main>
+                        )}
+                    </div>
+
+                    <ActivationModal />
+                    <ScanSimulatorModal />
+                    <ConfirmModal />
+
+                    {toast.show && (
+                        <div className="fixed bottom-5 right-5 z-50 glass-panel border border-slate-700 px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+                            <i className="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+                            <span className="text-xs font-semibold text-white">{toast.msg}</span>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+          throw new Error('No se cargo Supabase JS. Comprueba la conexion a la biblioteca externa.');
+        }
+        class TocaquiErrorBoundary extends React.Component {
+          constructor(props) { super(props); this.state={error:null}; }
+          static getDerivedStateFromError(error) { return {error}; }
+          componentDidCatch(error, info) { console.error('TOCAQUI runtime', error, info); }
+          render() { return this.state.error
+            ? <div style={{padding:24,color:'white',fontFamily:'system-ui'}}><h2>Error de interfaz TOCAQUI</h2><p>{String(this.state.error.message || this.state.error)}</p><p>Los datos locales no se han eliminado.</p></div>
+            : this.props.children; }
+        }
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        const cloud=window.supabase.createClient('https://nasdgjalsfxnwymqicio.supabase.co','sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3');
+root.render(<TocaquiErrorBoundary><App cloud={cloud} /></TocaquiErrorBoundary>);
+    </script>
+</body>
+</html>
