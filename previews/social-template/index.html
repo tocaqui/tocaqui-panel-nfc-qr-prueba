@@ -1363,6 +1363,7 @@ const showToast = (msg, type = 'info') => {
             // 6. ADVANCED PRINT & MASSIVE A4 DUPLEX STUDIO
             const PrintView = () => {
                 const [qrCodeImages, setQrCodeImages] = useState({});
+                const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
 
                 const itemsPerPage = printConfig.templateType === '10x15' ? 2 : 10;
                 const selectedItems = useMemo(() => {
@@ -1502,90 +1503,6 @@ const showToast = (msg, type = 'info') => {
                                     </div>
                                 </div>
 
-                                <div className="glass-panel p-5 rounded-2xl space-y-4 border border-purple-500/20">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <h3 className="text-xs font-bold text-purple-300 uppercase tracking-wider">Diseño para Redes Sociales</h3>
-                                            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">Carga una imagen y el sistema la adapta automáticamente al formato de tarjeta que estás usando.</p>
-                                        </div>
-                                        <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 flex items-center justify-center flex-shrink-0">
-                                            <i className="fa-solid fa-image"></i>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                                        <span className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 font-semibold">
-                                            {printConfig.activeSide === 'front' ? 'ANVERSO' : 'REVERSO'}
-                                        </span>
-                                        <span>
-                                            {printConfig.templateType === 'pvc-horizontal' ? 'Horizontal' : printConfig.templateType === '10x15' ? '10 × 15' : 'Vertical'}
-                                        </span>
-                                    </div>
-
-                                    <label className="block">
-                                        <span className="sr-only">Cargar diseño de tarjeta</span>
-                                        <input
-                                            type="file"
-                                            accept="image/png,image/jpeg,image/webp"
-                                            className="hidden"
-                                            onChange={async (e) => {
-                                                const file = e.target.files?.[0];
-                                                if (!file) return;
-
-                                                const isHorizontal = printConfig.templateType === 'pvc-horizontal';
-                                                const isPoster = printConfig.templateType === '10x15';
-                                                const targetWidth = isHorizontal ? 950 : isPoster ? 1000 : 600;
-                                                const targetHeight = isHorizontal ? 600 : isPoster ? 1400 : 950;
-
-                                                try {
-                                                    const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.9);
-                                                    setPrintConfig(prev => ({
-                                                        ...prev,
-                                                        theme: 'custom',
-                                                        ...(prev.activeSide === 'front'
-                                                            ? { customFrontBg: adaptedImage }
-                                                            : { customBackBg: adaptedImage })
-                                                    }));
-                                                    showToast(`Diseño cargado en ${printConfig.activeSide === 'front' ? 'Anverso' : 'Reverso'} y adaptado al formato.`, 'success');
-                                                } catch (err) {
-                                                    console.error('Error adapting social design', err);
-                                                    showToast('No se pudo procesar la imagen seleccionada.', 'warning');
-                                                } finally {
-                                                    e.target.value = '';
-                                                }
-                                            }}
-                                        />
-                                        <span className="w-full min-h-12 px-4 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-lg shadow-purple-600/15">
-                                            <i className="fa-solid fa-cloud-arrow-up"></i>
-                                            Cargar imagen al {printConfig.activeSide === 'front' ? 'Anverso' : 'Reverso'}
-                                        </span>
-                                    </label>
-
-                                    {(printConfig.activeSide === 'front' ? printConfig.customFrontBg : printConfig.customBackBg) && (
-                                        <div className="rounded-xl border border-slate-700 bg-slate-950/70 p-3 flex items-center gap-3">
-                                            <div
-                                                className={`flex-shrink-0 bg-slate-900 border border-slate-700 bg-center bg-cover ${printConfig.templateType === 'pvc-horizontal' ? 'w-20 h-12 rounded-lg' : printConfig.templateType === '10x15' ? 'w-12 h-16 rounded-lg' : 'w-12 h-20 rounded-lg'}`}
-                                                style={{ backgroundImage: `url(${printConfig.activeSide === 'front' ? printConfig.customFrontBg : printConfig.customBackBg})` }}
-                                            ></div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-xs font-semibold text-white">Diseño aplicado</p>
-                                                <p className="text-[10px] text-slate-400 mt-0.5">Se usa sobre las tarjetas actuales sin cambiar QR, IDs ni lógica de impresión.</p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => setPrintConfig(prev => prev.activeSide === 'front'
-                                                    ? { ...prev, customFrontBg: '' }
-                                                    : { ...prev, customBackBg: '' })}
-                                                className="w-9 h-9 rounded-lg border border-slate-700 bg-slate-900 text-slate-400 hover:text-red-300 hover:border-red-500/40 transition-colors flex items-center justify-center"
-                                                aria-label="Quitar imagen cargada"
-                                                title="Quitar imagen"
-                                            >
-                                                <i className="fa-solid fa-trash-can"></i>
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-
                                 <div className="glass-panel p-5 rounded-2xl space-y-4">
                                     <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">Control & Estilo del Código QR</h3>
                                     <div>
@@ -1618,6 +1535,77 @@ const showToast = (msg, type = 'info') => {
                                                 {st.label}
                                             </button>
                                         ))}
+                                    </div>
+
+                                    <div className="pt-4 border-t border-slate-800">
+                                        <label className="block text-xs font-semibold text-slate-300 mb-2">
+                                            Plantilla o Imagen Personalizada
+                                        </label>
+
+                                        <div className="flex items-center gap-3">
+                                            <label className="flex-1 min-w-0 bg-slate-800/80 border border-slate-700 hover:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-300 cursor-pointer flex items-center justify-between gap-3 transition-colors">
+                                                <span className="truncate">
+                                                    {customTemplateFileName[printConfig.activeSide] || 'Seleccionar archivo o foto...'}
+                                                </span>
+                                                <span className="bg-indigo-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-semibold flex-shrink-0">
+                                                    Examinar
+                                                </span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/png,image/jpeg,image/webp"
+                                                    className="hidden"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+
+                                                        const side = printConfig.activeSide;
+                                                        const isHorizontal = printConfig.templateType === 'pvc-horizontal';
+                                                        const isPoster = printConfig.templateType === '10x15';
+                                                        const targetWidth = isHorizontal ? 950 : isPoster ? 1000 : 600;
+                                                        const targetHeight = isHorizontal ? 600 : isPoster ? 1400 : 950;
+
+                                                        try {
+                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.9);
+                                                            setPrintConfig(prev => ({
+                                                                ...prev,
+                                                                theme: 'custom',
+                                                                ...(side === 'front'
+                                                                    ? { customFrontBg: adaptedImage }
+                                                                    : { customBackBg: adaptedImage })
+                                                            }));
+                                                            setCustomTemplateFileName(prev => ({ ...prev, [side]: file.name }));
+                                                            showToast(`Imagen aplicada al ${side === 'front' ? 'Anverso' : 'Reverso'}.`, 'success');
+                                                        } catch (err) {
+                                                            console.error('Error adapting custom print template', err);
+                                                            showToast('No se pudo procesar la imagen seleccionada.', 'warning');
+                                                        } finally {
+                                                            e.target.value = '';
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+
+                                            {(printConfig.activeSide === 'front' ? printConfig.customFrontBg : printConfig.customBackBg) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const side = printConfig.activeSide;
+                                                        setPrintConfig(prev => side === 'front'
+                                                            ? { ...prev, customFrontBg: '' }
+                                                            : { ...prev, customBackBg: '' });
+                                                        setCustomTemplateFileName(prev => ({ ...prev, [side]: '' }));
+                                                        showToast('Imagen personalizada quitada.', 'info');
+                                                    }}
+                                                    className="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex-shrink-0"
+                                                >
+                                                    Quitar
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                                            La imagen se adapta al fondo de las tarjetas del {printConfig.activeSide === 'front' ? 'Anverso' : 'Reverso'} sin modificar QR, IDs ni configuración de impresión.
+                                        </p>
                                     </div>
                                 </div>
 
