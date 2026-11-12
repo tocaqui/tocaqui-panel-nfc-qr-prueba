@@ -120,9 +120,9 @@
             }
             .print-grid-posters {
                 display: grid !important;
-                grid-template-columns: 1fr !important;
-                grid-template-rows: repeat(2, 140mm) !important;
-                gap: 6mm !important;
+                grid-template-columns: repeat(2, 100mm) !important;
+                grid-template-rows: 150mm !important;
+                gap: 0 !important;
                 justify-content: center !important;
                 align-content: center !important;
                 height: 100% !important;
@@ -169,7 +169,7 @@
 
         .card-poster-10x15 {
             width: 100mm;
-            height: 140mm;
+            height: 150mm;
             border-radius: 4mm;
             position: relative;
             overflow: hidden;
@@ -595,10 +595,22 @@ const [cloudReady,setCloudReady]=useState(false);
 const [cloudError,setCloudError]=useState('');
 const last=React.useRef({qrs:[],clients:[],templates:[]});
 const initialized=React.useRef(false);
-useEffect(()=>{let live=true;(async()=>{try{const {data:{session}}=await cloud.auth.getSession();if(!session){setCloudError('Modo local: datos solo en este navegador; activacion en nube no disponible sin autorizacion.');return;} const [a,b,c]=await Promise.all(['tocaqui_admin_qr_cards','tocaqui_admin_qr_clients','tocaqui_admin_qr_templates'].map(t=>cloud.from(t).select('id,data').limit(1000)));
-for(const r of [a,b,c])if(r.error)throw r.error;
+useEffect(()=>{let live=true;(async()=>{try{const {data:{session}}=await cloud.auth.getSession();if(!session){setCloudError('Modo local: datos solo en este navegador; activacion en nube no disponible sin autorizacion.');return;} const loadAllRows = async table => {
+  const all = [];
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const result = await cloud.from(table).select('id,data').order('id',{ascending:true}).range(offset,offset+pageSize-1);
+    if (result.error) throw result.error;
+    const rows = result.data || [];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    if (offset > 100000) throw new Error('Límite de seguridad de paginación excedido');
+  }
+  return all;
+};
+const [a,b,c]=await Promise.all(['tocaqui_admin_qr_cards','tocaqui_admin_qr_clients','tocaqui_admin_qr_templates'].map(loadAllRows));
 if(!live)return;
-const m=[a,b,c].map(r=>r.data.map(x=>({...x.data,id:x.id})));
+const m=[a,b,c].map(rows=>rows.map(x=>({...x.data,id:x.id})));
 last.current={qrs:m[0],clients:m[1],templates:m[2]};
 setQrs(m[0]);setClients(m[1]);setTemplates(m[2].length?m[2]:INITIAL_TEMPLATES);
 initialized.current=true;setCloudReady(true);
@@ -622,7 +634,7 @@ const showToast = (msg, type = 'info') => {
                 setTimeout(() => setToast({ show: false, msg: '', type: 'info' }), 3500);
             };
 
-            const createBatch = (count) => {
+            const createBatch = (count, batchName = '', productType = 'pvc-vertical') => {
                 const newItems = [];
                 const batchId = 'LOTE-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
                 for (let i = 0; i < count; i++) {
@@ -631,6 +643,8 @@ const showToast = (msg, type = 'info') => {
                         id: code,
                         trackingCode: code,
                         batchId,
+                        batchName: (batchName || 'Lote sin nombre').trim().slice(0,80),
+                        productType,
                         status: 'pending',
                         clientId: null,
                         functionType: null,
@@ -977,6 +991,8 @@ const showToast = (msg, type = 'info') => {
             // 2. BATCH GENERATOR VIEW
             const BatchView = () => {
                 const [count, setCount] = useState(10);
+                const [batchName, setBatchName] = useState('Google Negro');
+                const [productType, setProductType] = useState('pvc-vertical');
 
                 return (
                     <div className="max-w-2xl mx-auto space-y-6">
@@ -988,7 +1004,19 @@ const showToast = (msg, type = 'info') => {
                         </div>
 
                         <div className="glass-panel p-6 rounded-2xl space-y-6">
-                            <form onSubmit={(e) => { e.preventDefault(); createBatch(count); setAdminTab('print'); }} className="space-y-5">
+                            <form onSubmit={(e) => { e.preventDefault(); createBatch(count, batchName, productType); setPrintConfig(prev => ({...prev, templateType: productType})); setAdminTab('print'); }} className="space-y-5">
+                                <div>
+                                    <label htmlFor="batch-name" className="block text-sm font-medium text-slate-300 mb-2">Nombre del lote</label>
+                                    <input id="batch-name" type="text" maxLength="80" required value={batchName} onChange={e => setBatchName(e.target.value)} placeholder="Ej. Google Blanco" className="w-full glass-input px-4 py-3 rounded-xl text-sm" />
+                                </div>
+                                <div>
+                                    <label htmlFor="batch-format" className="block text-sm font-medium text-slate-300 mb-2">Formato de fabricación</label>
+                                    <select id="batch-format" value={productType} onChange={e => setProductType(e.target.value)} className="w-full glass-input px-4 py-3 rounded-xl text-sm">
+                                        <option value="pvc-vertical">Tarjeta PVC vertical</option>
+                                        <option value="pvc-horizontal">Tarjeta PVC horizontal</option>
+                                        <option value="10x15">Cartel 10 × 15 cm (2 por hoja)</option>
+                                    </select>
+                                </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-300 mb-2">Cantidad de Tarjetas a Generar</label>
                                     <input
@@ -1038,7 +1066,7 @@ const showToast = (msg, type = 'info') => {
                 const [batchFilter, setBatchFilter] = useState('all');
                 const batchOptions = useMemo(() => [...new Set(qrs.map(q => q.batchId || 'legacy'))], [qrs]);
                 const batchStats = useMemo(() => batchOptions.map(id => ({
-                    id, total: qrs.filter(q => (q.batchId || 'legacy') === id).length,
+                    id, name: qrs.find(q => (q.batchId || 'legacy') === id)?.batchName || (id === 'legacy' ? 'Tarjetas anteriores' : id), total: qrs.filter(q => (q.batchId || 'legacy') === id).length,
                     pending: qrs.filter(q => (q.batchId || 'legacy') === id && q.status !== 'active').length
                 })), [batchOptions, qrs]);
 
@@ -1105,7 +1133,7 @@ const showToast = (msg, type = 'info') => {
                                     <strong className="block">Todas</strong><span>{qrs.length} tarjetas</span>
                                 </button>
                                 {batchStats.map(batch => <button key={batch.id} type="button" onClick={() => setBatchFilter(batch.id)} className={`shrink-0 rounded-xl border px-3 py-2 text-xs text-left ${batchFilter === batch.id ? 'border-blue-500 bg-blue-600/20 text-white' : 'border-slate-700 bg-slate-900 text-slate-300'}`}>
-                                    <strong className="block">{batch.id === 'legacy' ? 'Sin lote (anteriores)' : batch.id}</strong>
+                                    <strong className="block">{batch.id === 'legacy' ? 'Sin lote (anteriores)' : batch.name}</strong>
                                     <span>{batch.total} tarjetas · {batch.pending} por activar</span>
                                 </button>)}
                             </div>
@@ -1704,6 +1732,14 @@ const showToast = (msg, type = 'info') => {
 
                                 <div className="glass-panel p-5 rounded-2xl space-y-4">
                                     <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">Control & Estilo del Código QR</h3>
+                                    <div className="space-y-2 border-b border-slate-800 pb-3">
+                                        <label htmlFor="print-format" className="block text-xs font-semibold text-slate-300">Formato de impresión</label>
+                                        <select id="print-format" value={printConfig.templateType} onChange={e => setPrintConfig(prev => ({...prev, templateType:e.target.value}))} className="w-full glass-input px-3 py-2 rounded-xl text-sm">
+                                            <option value="pvc-vertical">PVC vertical</option>
+                                            <option value="pvc-horizontal">PVC horizontal</option>
+                                            <option value="10x15">Carteles 10 × 15 cm · 2 por A4</option>
+                                        </select>
+                                    </div>
                                     <div>
                                         <div className="flex justify-between text-xs text-slate-300 mb-1">
                                             <span>Tamaño del QR:</span>
@@ -1860,7 +1896,7 @@ const showToast = (msg, type = 'info') => {
                                         <div className={
                                             printConfig.templateType === 'pvc-vertical' ? "grid grid-cols-2 gap-y-[4mm] gap-x-[10mm] justify-center items-center h-full pt-2" :
                                             printConfig.templateType === 'pvc-horizontal' ? "grid grid-cols-2 gap-y-[4mm] gap-x-[6mm] justify-center items-center h-full pt-2" :
-                                            "grid grid-cols-1 gap-y-[6mm] justify-center items-center h-full pt-2"
+                                            "grid grid-cols-2 gap-0 justify-center items-center h-full pt-2"
                                         }>
                                             {pageItems.map(item => renderCardContent(item, printConfig.activeSide))}
                                         </div>
@@ -1875,13 +1911,13 @@ const showToast = (msg, type = 'info') => {
                                 <React.Fragment key={pageIdx}>
                                     {/* Page 1: Anverso */}
                                     <div className="print-page-a4">
-                                        <div className="print-grid-pvc-vertical">
+                                        <div className={printConfig.templateType === '10x15' ? 'print-grid-posters' : printConfig.templateType === 'pvc-horizontal' ? 'print-grid-pvc-horizontal' : 'print-grid-pvc-vertical'}>
                                             {pageItems.map(item => renderCardContent(item, 'front'))}
                                         </div>
                                     </div>
                                     {/* Page 2: Reverso */}
                                     <div className="print-page-a4">
-                                        <div className="print-grid-pvc-vertical">
+                                        <div className={printConfig.templateType === '10x15' ? 'print-grid-posters' : printConfig.templateType === 'pvc-horizontal' ? 'print-grid-pvc-horizontal' : 'print-grid-pvc-vertical'}>
                                             {pageItems.map(item => renderCardContent(item, 'back'))}
                                         </div>
                                     </div>
