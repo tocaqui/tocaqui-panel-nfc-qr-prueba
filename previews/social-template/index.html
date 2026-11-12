@@ -833,7 +833,7 @@ const resetTestInventory = async () => {
                                 </div>
                                 <div>
                                     <span className="block font-extrabold text-sm sm:text-lg leading-tight tracking-tight whitespace-nowrap bg-gradient-to-r from-white via-slate-200 to-blue-400 bg-clip-text text-transparent">
-                                        NFC & QR <span className="text-blue-500"><span className="sm:hidden">A4</span><span className="hidden sm:inline">A4 System</span></span>
+                                        TOCAQUI <span className="text-blue-500"><span className="sm:hidden">A4</span><span className="hidden sm:inline">· NFC / QR</span></span>
                                     </span>
                                     <span className="hidden sm:inline-block ml-2 px-2 py-0.5 text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">Pro Auditado</span>
                                 </div>
@@ -1029,7 +1029,7 @@ const resetTestInventory = async () => {
                                     <i className="fa-solid fa-swatchbook"></i>
                                 </div>
                                 <h3 className="font-bold text-white text-base">Plantillas Guardadas</h3>
-                                <p className="text-xs text-slate-400 mt-1">Biblioteca con soporte para diseños de Anverso y Reverso.</p>
+                                <p className="text-xs text-slate-400 mt-1">Reutiliza diseños guardados y envíalos al Estudio A4.</p>
                             </button>
 
                             <button
@@ -1549,7 +1549,7 @@ const resetTestInventory = async () => {
                         <div className="flex justify-between items-center">
                             <div>
                                 <h1 className="text-2xl font-bold text-white tracking-tight">Biblioteca de Plantillas Guardadas</h1>
-                                <p className="text-slate-400 text-sm mt-1">Guarda diseños reutilizables con soporte para Anverso (frente) y Reverso (atrás).</p>
+                                <p className="text-slate-400 text-sm mt-1">Catálogo de diseños reutilizables para imprimir nuevos lotes sin volver a cargar fotografías. Cada plantilla conserva anverso, reverso y formato.</p>
                             </div>
                             <button onClick={() => setTemplateModal({ open: true, isEditing: false, data: null })} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-purple-600/25">
                                 <i className="fa-solid fa-plus"></i> Nueva Plantilla
@@ -1589,7 +1589,7 @@ const resetTestInventory = async () => {
                                         }}
                                         className="w-full py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold rounded-xl"
                                     >
-                                        Usar en Estudio A4
+                                        <i className="fa-solid fa-arrow-up-right-from-square mr-1"></i> Aplicar diseño al Estudio A4
                                     </button>
                                 </div>
                             ))}
