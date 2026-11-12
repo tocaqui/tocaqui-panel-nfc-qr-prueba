@@ -120,9 +120,9 @@
             }
             .print-grid-posters {
                 display: grid !important;
-                grid-template-columns: 150mm !important;
-                grid-template-rows: repeat(2, 100mm) !important;
-                row-gap: 8mm !important;
+                grid-template-columns: repeat(2, 100mm) !important;
+                grid-template-rows: 150mm !important;
+                column-gap: 0mm !important;
                 justify-content: center !important;
                 align-content: center !important;
                 height: 100% !important;
@@ -168,8 +168,8 @@
         }
 
         .card-poster-10x15 {
-            width: 150mm;
-            height: 100mm;
+            width: 100mm;
+            height: 150mm;
             border-radius: 4mm;
             position: relative;
             overflow: hidden;
@@ -183,7 +183,11 @@
         .sheet-preview-grid { display: grid; height: 100%; justify-content: center; align-content: center; box-sizing: border-box; }
         .sheet-preview-pvc-vertical { grid-template-columns: repeat(3, 54mm); grid-template-rows: repeat(3, 85.6mm); gap: 6mm 8mm; }
         .sheet-preview-pvc-horizontal { grid-template-columns: repeat(2, 85.6mm); grid-template-rows: repeat(5, 54mm); gap: 2mm 6mm; }
-        .sheet-preview-posters { grid-template-columns: 150mm; grid-template-rows: repeat(2, 100mm); gap: 8mm; }
+        .sheet-preview-posters { grid-template-columns: repeat(2, 100mm); grid-template-rows: 150mm; gap: 0; }
+        .a4-sheet-preview:has(.sheet-preview-posters) { padding: 4mm; }
+        @media print {
+            .print-page-a4:has(.print-grid-posters) { padding: 4mm !important; }
+        }
         /* Only screen preview is scaled; printed A4 stays at 100% physical dimensions. */
         @media print {
             .a4-sheet-preview.preview-compact { zoom: 1 !important; }
@@ -1522,7 +1526,7 @@ const resetTestInventory = async () => {
             // 5. TEMPLATES LIBRARY VIEW (DUPLEX ANVERSO / REVERSO)
             const TemplatesView = () => {
                 const [form, setForm] = useState({ name: '', category: 'pvc-vertical', frontBg: '', backBg: '' });
-                const templateImageSize = form.category === '10x15' ? [1800,1200] : form.category === 'pvc-horizontal' ? [1712,1080] : [1080,1712];
+                const templateImageSize = form.category === '10x15' ? [1200,1800] : form.category === 'pvc-horizontal' ? [1712,1080] : [1080,1712];
 
                 const handleSaveTemplate = async (e) => {
                     e.preventDefault();
@@ -1969,8 +1973,8 @@ const resetTestInventory = async () => {
                                                         const side = printConfig.activeSide;
                                                         const isHorizontal = printConfig.templateType === 'pvc-horizontal';
                                                         const isPoster = printConfig.templateType === '10x15';
-                                                        const targetWidth = isPoster ? 1800 : isHorizontal ? 1712 : 1080;
-                                                        const targetHeight = isPoster ? 1200 : isHorizontal ? 1080 : 1712;
+                                                        const targetWidth = isPoster ? 1200 : isHorizontal ? 1712 : 1080;
+                                                        const targetHeight = isPoster ? 1800 : isHorizontal ? 1080 : 1712;
 
                                                         try {
                                                             const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, artworkFitMode);
