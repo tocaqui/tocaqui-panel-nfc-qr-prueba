@@ -1522,6 +1522,7 @@ const resetTestInventory = async () => {
             // 5. TEMPLATES LIBRARY VIEW (DUPLEX ANVERSO / REVERSO)
             const TemplatesView = () => {
                 const [form, setForm] = useState({ name: '', category: 'pvc-vertical', frontBg: '', backBg: '' });
+                const templateImageSize = form.category === '10x15' ? [1800,1200] : form.category === 'pvc-horizontal' ? [1712,1080] : [1080,1712];
 
                 const handleSaveTemplate = async (e) => {
                     e.preventDefault();
@@ -1606,11 +1607,20 @@ const resetTestInventory = async () => {
                                         <input type="text" placeholder="Nombre de la Plantilla (ej: Barberías Oro)" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-sm" />
                                         
                                         <div>
+                                            <label className="block text-xs text-slate-300 mb-1">Formato de la plantilla</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {[['pvc-vertical','PVC vertical'],['pvc-horizontal','PVC horizontal'],['10x15','Cartel 10×15']].map(([value,label])=>(
+                                                    <button key={value} type="button" onClick={()=>setForm(prev=>({...prev,category:value,frontBg:'',backBg:''}))} className={`rounded-lg border px-2 py-2 text-[11px] font-semibold ${form.category===value?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700 bg-slate-900 text-slate-400'}`}>{label}</button>
+                                                ))}
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 mt-1">Selecciona el formato antes de cargar las imágenes; se adaptan automáticamente a sus medidas.</p>
+                                        </div>
+                                        <div>
                                             <label className="block text-xs text-slate-300 mb-1">Anverso (Imagen Frente)</label>
                                             <input type="file" accept="image/*" onChange={async (e) => {
                                                 const file = e.target.files[0];
                                                 if (file) {
-                                                    const b64 = await compressImageToDataURL(file, 600, 950, 0.85);
+                                                    const b64 = await compressImageToDataURL(file, ...templateImageSize, 0.92, 'stretch');
                                                     setForm(prev => ({ ...prev, frontBg: b64 }));
                                                 }
                                             }} className="text-xs text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white" />
@@ -1621,7 +1631,7 @@ const resetTestInventory = async () => {
                                             <input type="file" accept="image/*" onChange={async (e) => {
                                                 const file = e.target.files[0];
                                                 if (file) {
-                                                    const b64 = await compressImageToDataURL(file, 600, 950, 0.85);
+                                                    const b64 = await compressImageToDataURL(file, ...templateImageSize, 0.92, 'stretch');
                                                     setForm(prev => ({ ...prev, backBg: b64 }));
                                                 }
                                             }} className="text-xs text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white" />
@@ -1959,8 +1969,8 @@ const resetTestInventory = async () => {
                                                         const side = printConfig.activeSide;
                                                         const isHorizontal = printConfig.templateType === 'pvc-horizontal';
                                                         const isPoster = printConfig.templateType === '10x15';
-                                                        const targetWidth = isHorizontal ? 1712 : isPoster ? 1800 : 1080;
-                                                        const targetHeight = isHorizontal ? 1080 : isPoster ? 1200 : 1712;
+                                                        const targetWidth = isPoster ? 1800 : isHorizontal ? 1712 : 1080;
+                                                        const targetHeight = isPoster ? 1200 : isHorizontal ? 1080 : 1712;
 
                                                         try {
                                                             const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, artworkFitMode);
