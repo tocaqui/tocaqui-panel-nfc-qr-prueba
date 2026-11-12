@@ -1014,7 +1014,7 @@ const showToast = (msg, type = 'info') => {
                         </div>
 
                         <div className="glass-panel p-6 rounded-2xl space-y-6">
-                            <form onSubmit={(e) => { e.preventDefault(); createBatch(count, batchName, productType); setPrintConfig(prev => ({...prev, templateType: productType})); setAdminTab('print'); }} className="space-y-5">
+                            <form onSubmit={(e) => { e.preventDefault(); createBatch(count, batchName, productType); setPrintConfig(prev => ({...prev, templateType: productType, theme: /blanco|blanca|white/i.test(batchName) ? 'clean-white' : /negro|negra|black/i.test(batchName) ? 'gold-luxury' : prev.theme})); setAdminTab('print'); }} className="space-y-5">
                                 <div>
                                     <label htmlFor="batch-name" className="block text-sm font-medium text-slate-300 mb-2">Nombre del lote</label>
                                     <input id="batch-name" type="text" maxLength="80" required value={batchName} onChange={e => setBatchName(e.target.value)} placeholder="Ej. Google Blanco" className="w-full glass-input px-4 py-3 rounded-xl text-sm" />
@@ -1287,6 +1287,8 @@ const showToast = (msg, type = 'info') => {
             const ClientView = () => {
                 const [showAddModal, setShowAddModal] = useState(false);
                 const [form, setForm] = useState({ name: '', company: '', email: '', phone: '' });
+                const [clientSearch, setClientSearch] = useState('');
+                const filteredClients = clients.filter(c => [c.name,c.company,c.email,c.phone].some(v=>String(v||'').toLowerCase().includes(clientSearch.toLowerCase())));
 
                 if (adminTab === 'client-detail' && selectedClientDetailId) {
                     const client = clients.find(c => c.id === selectedClientDetailId);
@@ -1297,7 +1299,7 @@ const showToast = (msg, type = 'info') => {
                         <div className="space-y-6">
                             <BackToDashboardButton label="Volver al Directorio de Clientes" targetTab="clients" />
 
-                            <div className="glass-panel p-6 rounded-2xl border border-indigo-500/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div className="glass-panel p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg">
                                         <i className="fa-solid fa-user-tie"></i>
@@ -1320,7 +1322,7 @@ const showToast = (msg, type = 'info') => {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="glass-panel p-5 rounded-2xl">
+                                <div className="glass-panel p-3.5 rounded-xl">
                                     <p className="text-xs font-medium text-slate-400 uppercase">Tarjetas Asignadas</p>
                                     <h3 className="text-3xl font-extrabold text-white mt-1 font-mono">{clientQrs.length}</h3>
                                 </div>
@@ -1386,11 +1388,15 @@ const showToast = (msg, type = 'info') => {
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {clients.map(client => {
+                        <div className="glass-panel p-3 rounded-xl">
+                            <div className="relative"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-500 text-xs"></i><input value={clientSearch} onChange={e=>setClientSearch(e.target.value)} placeholder="Buscar cliente, local, correo o teléfono" className="glass-input w-full rounded-lg py-2.5 pl-9 pr-3 text-sm"/></div>
+                            <p className="mt-2 text-[11px] text-slate-500">{filteredClients.length} clientes encontrados · {qrs.filter(q=>q.clientId).length} tarjetas asignadas</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {filteredClients.map(client => {
                                 const assignedCount = qrs.filter(q => q.clientId === client.id).length;
                                 return (
-                                    <div key={client.id} className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                                    <div key={client.id} className="glass-panel p-3.5 rounded-xl border border-slate-800 space-y-2.5 flex flex-col justify-between">
                                         <div>
                                             <div className="flex justify-between items-start">
                                                 <h3 className="font-bold text-white text-base">{client.name}</h3>
@@ -1555,6 +1561,7 @@ const showToast = (msg, type = 'info') => {
             // 6. ADVANCED PRINT & MASSIVE A4 DUPLEX STUDIO
             const PrintView = () => {
                 const [qrCodeImages, setQrCodeImages] = useState({});
+                const [printBatchFilter, setPrintBatchFilter] = useState('all');
                 const [previewZoom, setPreviewZoom] = useState(58);
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
                 const [qrMoveEnabled, setQrMoveEnabled] = useState(false);
@@ -1591,9 +1598,11 @@ const showToast = (msg, type = 'info') => {
                 };
 
                 const itemsPerPage = printConfig.templateType === '10x15' ? 2 : printConfig.templateType === 'pvc-vertical' ? 9 : 10;
+                const printBatches = useMemo(() => [...new Map(qrs.map(q => [q.batchId || 'legacy', {id:q.batchId || 'legacy',name:q.batchName || 'Tarjetas anteriores'}])).values()], [qrs]);
+                const visiblePrintQrs = useMemo(() => qrs.filter(q => printBatchFilter === 'all' || (q.batchId || 'legacy') === printBatchFilter), [qrs, printBatchFilter]);
                 const selectedItems = useMemo(() => {
-                    return qrs.filter(q => selectedQrIdsForSheet.includes(q.id));
-                }, [qrs, selectedQrIdsForSheet]);
+                    return visiblePrintQrs.filter(q => selectedQrIdsForSheet.includes(q.id));
+                }, [visiblePrintQrs, selectedQrIdsForSheet]);
 
                 const pages = useMemo(() => {
                     const result = [];
@@ -1613,11 +1622,9 @@ const showToast = (msg, type = 'info') => {
                 }, [selectedItems]);
 
                 const toggleSelectAll = () => {
-                    if (selectedQrIdsForSheet.length === qrs.length) {
-                        setSelectedQrIdsForSheet([]);
-                    } else {
-                        setSelectedQrIdsForSheet(qrs.map(q => q.id));
-                    }
+                    const visibleIds = visiblePrintQrs.map(q=>q.id);
+                    const allSelected = visibleIds.every(id=>selectedQrIdsForSheet.includes(id));
+                    setSelectedQrIdsForSheet(prev => allSelected ? prev.filter(id=>!visibleIds.includes(id)) : [...new Set([...prev,...visibleIds])]);
                 };
 
                 const renderCardContent = (item, side = printConfig.activeSide) => {
@@ -1897,13 +1904,21 @@ const showToast = (msg, type = 'info') => {
 
                                 <div className="glass-panel p-5 rounded-2xl space-y-3 max-h-60 overflow-y-auto">
                                     <div className="flex justify-between items-center">
-                                        <h3 className="text-xs font-bold text-slate-300 uppercase">Seleccionar para Imprimir ({selectedQrIdsForSheet.length})</h3>
+                                        <h3 className="text-xs font-bold text-slate-300 uppercase">Seleccionar para imprimir ({selectedItems.length})</h3>
                                         <button onClick={toggleSelectAll} className="text-[11px] text-blue-400 font-semibold">
-                                            {selectedQrIdsForSheet.length === qrs.length ? 'Desmarcar Todas' : 'Marcar Todas'}
+                                            {visiblePrintQrs.every(q=>selectedQrIdsForSheet.includes(q.id)) ? 'Desmarcar lote' : 'Marcar lote'}
                                         </button>
                                     </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[11px] text-slate-400">Lote de fabricación</label>
+                                        <div className="flex gap-2 overflow-x-auto pb-2">
+                                            <button type="button" onClick={()=>setPrintBatchFilter('all')} className={`shrink-0 rounded-xl border px-3 py-2 text-xs ${printBatchFilter==='all'?'border-blue-400 bg-blue-600/20 text-white':'border-slate-700 text-slate-400'}`}>Todos</button>
+                                            {printBatches.map(batch=><button type="button" key={batch.id} onClick={()=>{setPrintBatchFilter(batch.id);const first=qrs.find(q=>(q.batchId||'legacy')===batch.id);if(first){setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType,theme:/blanco|blanca|white/i.test(batch.name)?'clean-white':/negro|negra|black/i.test(batch.name)?'gold-luxury':prev.theme}));setSelectedQrIdsForSheet(qrs.filter(q=>(q.batchId||'legacy')===batch.id).map(q=>q.id));}}} className={`shrink-0 rounded-xl border px-3 py-2 text-xs ${printBatchFilter===batch.id?'border-blue-400 bg-blue-600/20 text-white':'border-slate-700 text-slate-400'}`}>{batch.name} · {qrs.filter(q=>(q.batchId||'legacy')===batch.id).length}</button>)}
+                                        </div>
+                                        <div className="text-[11px] text-slate-500">Se imprimen solo las tarjetas del lote seleccionado.</div>
+                                    </div>
                                     <div className="space-y-1">
-                                        {qrs.map(q => (
+                                        {visiblePrintQrs.map(q => (
                                             <label key={q.id} className="flex items-center gap-2 text-xs text-slate-300 p-1.5 hover:bg-slate-800/50 rounded cursor-pointer">
                                                 <input
                                                     type="checkbox"
