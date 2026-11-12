@@ -624,11 +624,13 @@ const showToast = (msg, type = 'info') => {
 
             const createBatch = (count) => {
                 const newItems = [];
+                const batchId = 'LOTE-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase();
                 for (let i = 0; i < count; i++) {
                     const code = generateUID();
                     newItems.push({
                         id: code,
                         trackingCode: code,
+                        batchId,
                         status: 'pending',
                         clientId: null,
                         functionType: null,
@@ -1033,15 +1035,22 @@ const showToast = (msg, type = 'info') => {
             const QRManagementView = () => {
                 const [search, setSearch] = useState('');
                 const [statusFilter, setStatusFilter] = useState('all');
+                const [batchFilter, setBatchFilter] = useState('all');
+                const batchOptions = useMemo(() => [...new Set(qrs.map(q => q.batchId || 'legacy'))], [qrs]);
+                const batchStats = useMemo(() => batchOptions.map(id => ({
+                    id, total: qrs.filter(q => (q.batchId || 'legacy') === id).length,
+                    pending: qrs.filter(q => (q.batchId || 'legacy') === id && q.status !== 'active').length
+                })), [batchOptions, qrs]);
 
                 const filteredQrs = useMemo(() => {
                     return qrs.filter(q => {
                         const matchCode = q.trackingCode.toLowerCase().includes(search.toLowerCase()) ||
                             (q.businessName && q.businessName.toLowerCase().includes(search.toLowerCase()));
                         const matchStatus = statusFilter === 'all' || q.status === statusFilter;
-                        return matchCode && matchStatus;
+                        const matchBatch = batchFilter === 'all' || (q.batchId || 'legacy') === batchFilter;
+                        return matchCode && matchStatus && matchBatch;
                     });
-                }, [qrs, search, statusFilter]);
+                }, [qrs, search, statusFilter, batchFilter]);
 
                 return (
                     <div className="space-y-6">
@@ -1084,6 +1093,23 @@ const showToast = (msg, type = 'info') => {
                                     </button>
                                 ))}
                             </div>
+                        </div>
+
+                        <div className="glass-panel p-3 sm:p-4 rounded-2xl border border-slate-800 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="text-sm font-bold text-slate-200"><i className="fa-solid fa-layer-group text-blue-400 mr-2"></i>Lotes de fabricación</h3>
+                                <button type="button" onClick={() => setBatchFilter('all')} className="text-xs text-cyan-300 underline">Ver todas</button>
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                <button type="button" onClick={() => setBatchFilter('all')} className={`shrink-0 rounded-xl border px-3 py-2 text-xs text-left ${batchFilter === 'all' ? 'border-blue-500 bg-blue-600/20 text-white' : 'border-slate-700 bg-slate-900 text-slate-300'}`}>
+                                    <strong className="block">Todas</strong><span>{qrs.length} tarjetas</span>
+                                </button>
+                                {batchStats.map(batch => <button key={batch.id} type="button" onClick={() => setBatchFilter(batch.id)} className={`shrink-0 rounded-xl border px-3 py-2 text-xs text-left ${batchFilter === batch.id ? 'border-blue-500 bg-blue-600/20 text-white' : 'border-slate-700 bg-slate-900 text-slate-300'}`}>
+                                    <strong className="block">{batch.id === 'legacy' ? 'Sin lote (anteriores)' : batch.id}</strong>
+                                    <span>{batch.total} tarjetas · {batch.pending} por activar</span>
+                                </button>)}
+                            </div>
+                            <p className="text-[11px] text-slate-500">Selecciona un lote para ver sus tarjetas. Las tarjetas creadas anteriormente se conservan en «Sin lote».</p>
                         </div>
 
                         {/* Vista compacta móvil: mismas tarjetas y acciones, sin desplazamiento horizontal */}
@@ -1582,10 +1608,10 @@ const showToast = (msg, type = 'info') => {
                                 color: printConfig.theme === 'clean-white' ? '#0f172a' : '#ffffff'
                             }}
                         >
-                            <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
+                            {side === 'back' && <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
                                 <span className="truncate max-w-[120px]">{item.businessName || 'NFC CARD'}</span>
                                 <i className="fa-solid fa-nfc-symbol text-xs text-blue-400"></i>
-                            </div>
+                            </div>}
 
                             {/* Only show QR Code on Front side */}
                             {side === 'front' && (
@@ -1623,16 +1649,16 @@ const showToast = (msg, type = 'info') => {
 
                             {side === 'back' && (
                                 <div className="flex-1 flex items-center justify-center text-center p-2">
-                                    <span className="text-[10px] font-semibold opacity-70">REVERSO DE TARJETA</span>
+                                    <span className="text-[10px] font-semibold opacity-70 break-words">{item.businessName || 'TOCAQUI · Tarjeta NFC / QR'}</span>
                                 </div>
                             )}
 
-                            <div className="flex justify-between items-end text-[8px] font-mono">
-                                <span className="text-[7px] truncate max-w-[90px]">{item.businessAddress ? item.businessAddress.substring(0, 15) : 'Escanea aquí'}</span>
+                            {side === 'back' && <div className="flex justify-between items-end text-[8px] font-mono">
+                                <span className="text-[7px] truncate max-w-[90px]">{item.businessAddress || 'TOCAQUI'}</span>
                                 <span className={`font-bold ${printConfig.idOpacity} ${printConfig.idFontSize}`}>
                                     {item.trackingCode}
                                 </span>
-                            </div>
+                            </div>}
                         </div>
                     );
                 };
