@@ -1647,7 +1647,7 @@ const resetTestInventory = async () => {
                 const [previewZoom, setPreviewZoom] = useState(58);
                 const [artworkFitMode, setArtworkFitMode] = useState('stretch');
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
-                const [qrMoveEnabled, setQrMoveEnabled] = useState(false);
+                const [qrMoveEnabled, setQrMoveEnabled] = useState(true);
                 const [qrDragPosition, setQrDragPosition] = useState(() => {
                     try {
                         const saved = JSON.parse(localStorage.getItem('tocaqui_print_qr_position_v1') || 'null');
@@ -1658,26 +1658,36 @@ const resetTestInventory = async () => {
                 const qrDragRef = useRef(null);
                 const activeQrPosition = qrDragDraft || qrDragPosition;
                 const clampQr = value => Math.min(90, Math.max(10, value));
-                const updateQrDrag = (event) => {
+                const saveQrPosition = position => {
+                    const next = {x:clampQr(position.x), y:clampQr(position.y)};
+                    setQrDragPosition(next);
+                    localStorage.setItem('tocaqui_print_qr_position_v1', JSON.stringify(next));
+                    return next;
+                };
+                const nudgeQr = (dx,dy) => {
+                    const current = qrDragPosition || {x:50,y:50};
+                    saveQrPosition({x:current.x+dx,y:current.y+dy});
+                };
+                const updateQrDrag = event => {
                     const drag = qrDragRef.current;
                     if (!drag || event.pointerId !== drag.pointerId) return;
                     const rect = drag.card.getBoundingClientRect();
                     if (!rect.width || !rect.height) return;
-                    const x = clampQr(((event.clientX - rect.left) / rect.width) * 100);
-                    const y = clampQr(((event.clientY - rect.top) / rect.height) * 100);
-                    setQrDragDraft({ x, y });
+                    const x = clampQr(drag.start.x + (event.clientX-drag.startClientX)/rect.width*100);
+                    const y = clampQr(drag.start.y + (event.clientY-drag.startClientY)/rect.height*100);
+                    setQrDragDraft({x,y});
                 };
-                const finishQrDrag = (event) => {
-                    if (!qrDragRef.current || event.pointerId !== qrDragRef.current.pointerId) return;
-                    const rect = qrDragRef.current.card.getBoundingClientRect();
-                    const x = clampQr(((event.clientX - rect.left) / rect.width) * 100);
-                    const y = clampQr(((event.clientY - rect.top) / rect.height) * 100);
-                    const position = { x, y };
-                    setQrDragPosition(position);
-                    localStorage.setItem('tocaqui_print_qr_position_v1', JSON.stringify(position));
+                const finishQrDrag = event => {
+                    const drag=qrDragRef.current;
+                    if(!drag || event.pointerId!==drag.pointerId)return;
+                    const rect=drag.card.getBoundingClientRect();
+                    if(rect.width && rect.height) {
+                        const x=clampQr(drag.start.x+(event.clientX-drag.startClientX)/rect.width*100);
+                        const y=clampQr(drag.start.y+(event.clientY-drag.startClientY)/rect.height*100);
+                        saveQrPosition({x,y});
+                    }
                     setQrDragDraft(null);
-                    qrDragRef.current = null;
-                    showToast('Posición del QR guardada para impresión.', 'success');
+                    qrDragRef.current=null;
                 };
 
                 const itemsPerPage = printConfig.templateType === '10x15' ? 2 : printConfig.templateType === 'pvc-vertical' ? 9 : 10;
@@ -1751,9 +1761,11 @@ const resetTestInventory = async () => {
                                             event.preventDefault();
                                             const card = event.currentTarget.closest('.card-pvc-vertical, .card-pvc-horizontal, .card-poster-10x15');
                                             if (!card) return;
-                                            qrDragRef.current = { card, pointerId: event.pointerId };
+                                            const rect = card.getBoundingClientRect();
+                                            const elementRect = event.currentTarget.getBoundingClientRect();
+                                            const start = activeQrPosition || {x: ((elementRect.left+elementRect.width/2-rect.left)/rect.width)*100, y: ((elementRect.top+elementRect.height/2-rect.top)/rect.height)*100};
+                                            qrDragRef.current = {card, pointerId:event.pointerId, start, startClientX:event.clientX, startClientY:event.clientY};
                                             event.currentTarget.setPointerCapture(event.pointerId);
-                                            updateQrDrag(event);
                                         }}
                                         onPointerMove={event => { if (qrDragRef.current) { event.preventDefault(); updateQrDrag(event); } }}
                                         onPointerUp={finishQrDrag}
@@ -1905,9 +1917,19 @@ const resetTestInventory = async () => {
 
                                     <div className="border-t border-slate-800 pt-3 space-y-2">
                                         <button type="button" onClick={() => setQrMoveEnabled(v => !v)} className={`w-full rounded-xl border py-3 text-xs font-bold ${qrMoveEnabled ? 'bg-cyan-600/25 border-cyan-400 text-cyan-200' : 'bg-slate-800 border-slate-600 text-slate-200'}`}>
-                                            <i className="fa-solid fa-up-down-left-right mr-2"></i>{qrMoveEnabled ? 'Mover QR activado · Arrastra sobre la tarjeta' : 'Mover QR dentro de la tarjeta'}
+                                            <i className="fa-solid fa-up-down-left-right mr-2"></i>{qrMoveEnabled ? 'Mover QR activo · Ajuste continuo' : 'Activar movimiento del QR'}
                                         </button>
-                                        <p className="text-[11px] text-slate-400">Activa el botón y arrastra el QR con el dedo en la vista A4. Al soltarlo se guarda su posición para todas las tarjetas de esta plantilla, también al imprimir.</p>
+                                        <p className="text-[11px] text-slate-400">El QR permanece movible después de soltarlo. Arrastra desde su posición actual sin saltos; usa las flechas para calibrar con precisión. Se guarda automáticamente para la impresión.</p>
+                                        <div className="flex items-center gap-3 flex-wrap rounded-xl border border-slate-700 bg-slate-900/60 p-2.5">
+                                            <span className="text-[11px] text-slate-400">Calibración fina · 1%</span>
+                                            <div className="grid grid-cols-3 gap-1">
+                                                <span></span><button type="button" aria-label="Subir QR" onClick={()=>nudgeQr(0,-1)} className="rounded-lg bg-slate-700 px-3 py-2 text-cyan-200"><i className="fa-solid fa-chevron-up"></i></button><span></span>
+                                                <button type="button" aria-label="Mover QR a la izquierda" onClick={()=>nudgeQr(-1,0)} className="rounded-lg bg-slate-700 px-3 py-2 text-cyan-200"><i className="fa-solid fa-chevron-left"></i></button>
+                                                <button type="button" aria-label="Centrar QR" onClick={()=>saveQrPosition({x:50,y:50})} className="rounded-lg bg-blue-600/30 px-3 py-2 text-blue-200" title="Centrar"><i className="fa-solid fa-crosshairs"></i></button>
+                                                <button type="button" aria-label="Mover QR a la derecha" onClick={()=>nudgeQr(1,0)} className="rounded-lg bg-slate-700 px-3 py-2 text-cyan-200"><i className="fa-solid fa-chevron-right"></i></button>
+                                                <span></span><button type="button" aria-label="Bajar QR" onClick={()=>nudgeQr(0,1)} className="rounded-lg bg-slate-700 px-3 py-2 text-cyan-200"><i className="fa-solid fa-chevron-down"></i></button><span></span>
+                                            </div>
+                                        </div>
                                         {qrDragPosition && <div className="flex items-center justify-between gap-2">
                                             <span className="text-[11px] text-emerald-400">Posición guardada: {Math.round(qrDragPosition.x)}% · {Math.round(qrDragPosition.y)}%</span>
                                             <button type="button" onClick={() => { setQrDragPosition(null); setQrDragDraft(null); localStorage.removeItem('tocaqui_print_qr_position_v1'); showToast('Posición del QR restablecida.', 'info'); }} className="text-xs text-cyan-300 underline">Restablecer</button>
