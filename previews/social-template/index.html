@@ -24,7 +24,6 @@
 <!-- Babel Standalone for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     <!-- QRCode JS Library -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
@@ -2605,78 +2604,45 @@ const resetTestInventory = async () => {
                 );
             };
 
-                const ScanSimulatorModal = () => {
-                const [search,setSearch]=useState('');
-                const [lot,setLot]=useState('all');
-                const [status,setStatus]=useState('all');
-                const [cameraActive,setCameraActive]=useState(false);
-                const [error,setError]=useState('');
-                const videoRef=useRef(null),streamRef=useRef(null),frameRef=useRef(null);
-                const stop=()=>{if(frameRef.current)cancelAnimationFrame(frameRef.current);frameRef.current=null;if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());streamRef.current=null;setCameraActive(false);};
-                useEffect(()=>()=>{if(frameRef.current)cancelAnimationFrame(frameRef.current);if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());},[]);
-                const close=()=>{stop();setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});};
-                const selectCode=raw=>{
-                    const match=String(raw||'').match(/TAG-[A-Z0-9-]+/i);
-                    const code=(match?match[0]:String(raw||'')).toUpperCase();
-                    const card=qrs.find(q=>q.trackingCode?.toUpperCase()===code);
-                    stop();
-                    if(card){setError('');setScanSimModal(prev=>({...prev,code:card.trackingCode}));}
-                    else setError('El código '+code+' no figura en el inventario disponible.');
-                };
-                const start=async()=>{
-                    setError('');
-                    if(!navigator.mediaDevices?.getUserMedia||!window.jsQR){setError('Lector no disponible. Revisa permisos y conexión o busca por código.');return;}
-                    try{
-                        const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
-                        streamRef.current=stream;
-                        const video=videoRef.current;
-                        if(!video){stream.getTracks().forEach(t=>t.stop());return;}
-                        video.srcObject=stream;await video.play();setCameraActive(true);
-                        const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
-                        const tick=()=>{
-                            if(!streamRef.current)return;
-                            if(video.readyState>=2&&video.videoWidth){
-                                canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-                                ctx.drawImage(video,0,0);
-                                const data=ctx.getImageData(0,0,canvas.width,canvas.height);
-                                const result=window.jsQR(data.data,data.width,data.height,{inversionAttempts:'attemptBoth'});
-                                if(result?.data){selectCode(result.data);return;}
-                            }
-                            frameRef.current=requestAnimationFrame(tick);
-                        };
-                        frameRef.current=requestAnimationFrame(tick);
-                    }catch(e){stop();setError(e.name==='NotAllowedError'?'Autoriza la cámara en Safari para escanear.':'No fue posible abrir la cámara.');}
-                };
-                const scannedQr=qrs.find(q=>q.trackingCode===scanSimModal.code);
-                const lots=[...new Map(qrs.map(q=>[q.batchId||'legacy',{id:q.batchId||'legacy',name:q.batchName||'Sin lote'}])).values()];
-                const results=qrs.filter(q=>(lot==='all'||(q.batchId||'legacy')===lot)&&(status==='all'||(status==='active'?q.status==='active':q.status!=='active'))&&(!search||[q.trackingCode,q.businessName,q.batchName,q.batchId].some(v=>String(v||'').toLowerCase().includes(search.toLowerCase())))).slice(0,30);
-                if(!scanSimModal.open)return null;
-                return <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3">
-                    <div className="glass-panel w-full max-w-md max-h-[92dvh] overflow-y-auto rounded-3xl p-4 border border-slate-700 relative">
-                        <button type="button" onClick={close} aria-label="Cerrar" className="absolute top-3 right-3 w-11 h-11 rounded-xl bg-slate-800 text-white"><i className="fa-solid fa-xmark"></i></button>
-                        <h3 className="text-lg font-bold text-white pr-12"><i className="fa-solid fa-qrcode text-cyan-400 mr-2"></i>Escanear tarjeta</h3>
-                        <p className="text-xs text-slate-400 mt-1 mb-4">Identificación administrativa · sin contar visitas</p>
-                        <video ref={videoRef} playsInline muted autoPlay className={`w-full aspect-video object-cover rounded-xl bg-black mb-2 ${cameraActive?'block':'hidden'}`}></video>
-                        <button type="button" onClick={cameraActive?stop:start} className="w-full min-h-12 rounded-xl bg-blue-600 text-white font-bold text-sm"><i className="fa-solid fa-camera mr-2"></i>{cameraActive?'Detener cámara':'Escanear QR con cámara'}</button>
-                        {error&&<p role="alert" className="text-xs text-amber-300 mt-2 p-2 rounded-lg bg-amber-500/10">{error}</p>}
-                        <p className="text-xs text-slate-400 my-3 text-center">O busca una tarjeta por código, negocio o lote</p>
-                        <label htmlFor="scan-search" className="text-xs text-slate-300">Buscar</label>
-                        <input id="scan-search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="TAG o nombre de negocio" className="glass-input w-full rounded-xl px-3 py-3 text-sm mb-3"/>
-                        <div className="grid grid-cols-2 gap-2 mb-3">
-                            <div><label htmlFor="scan-lot" className="block text-xs text-slate-400">Lote</label><select id="scan-lot" value={lot} onChange={e=>setLot(e.target.value)} className="glass-input w-full rounded-xl p-2.5 text-xs"><option value="all">Todos</option>{lots.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
-                            <div><label htmlFor="scan-status" className="block text-xs text-slate-400">Estado</label><select id="scan-status" value={status} onChange={e=>setStatus(e.target.value)} className="glass-input w-full rounded-xl p-2.5 text-xs"><option value="all">Todas</option><option value="pending">Sin activar</option><option value="active">Activas</option></select></div>
+            // Preview only: does not perform a real scan or change card activation.
+            const ScanSimulatorModal = () => {
+                if (!scanSimModal.open) return null;
+                const scannedQr = qrs.find(q => q.trackingCode === scanSimModal.code);
+                const isActive = scannedQr?.status === 'active';
+                const close = () => setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});
+                return (
+                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div className="glass-panel w-full max-w-md rounded-3xl p-5 sm:p-6 border border-slate-700 relative">
+                            <button type="button" onClick={close} aria-label="Cerrar prueba" className="absolute top-4 right-4 w-9 h-9 rounded-lg bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
+                            <div className="flex items-center gap-3 pr-10 mb-5">
+                                <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400"><i className="fa-solid fa-mobile-screen-button"></i></div>
+                                <div><h3 className="font-bold text-white text-lg">Probar una tarjeta</h3><p className="text-xs text-slate-400">Vista de prueba · no registra escaneos</p></div>
+                            </div>
+                            <label className="block text-xs font-semibold text-slate-300 mb-2">1. Selecciona la tarjeta que quieres revisar</label>
+                            <div className="max-h-44 overflow-y-auto space-y-1.5 rounded-xl border border-slate-700 bg-slate-950/50 p-2">
+                                {qrs.length === 0 && <p className="text-xs text-slate-400 p-3">Todavía no hay tarjetas para probar.</p>}
+                                {qrs.map(q => (
+                                    <button key={q.id} type="button" onClick={()=>setScanSimModal(prev=>({...prev,code:q.trackingCode,reviewGateStep:'stars',selectedStars:0}))} className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left border transition-colors ${scanSimModal.code===q.trackingCode?'border-blue-500 bg-blue-500/15':'border-transparent hover:bg-slate-800'}`}>
+                                        <span className="min-w-0"><span className="block text-sm font-mono text-white truncate">{q.trackingCode}</span><span className="block text-[11px] text-slate-400 truncate">{q.businessName || q.batchName || 'Sin negocio asignado'}</span></span>
+                                        <span className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full ${q.status==='active'?'bg-emerald-500/15 text-emerald-300':'bg-amber-500/15 text-amber-300'}`}>{q.status==='active'?'Activa':'Sin activar'}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            {scannedQr ? (
+                                <div className="mt-4 p-4 rounded-xl border border-slate-700 bg-slate-900/70 space-y-3">
+                                    <div className="flex justify-between items-center gap-2"><span className="text-xs font-semibold text-slate-300">2. Estado de la tarjeta</span><span className={`text-xs font-bold ${isActive?'text-emerald-400':'text-amber-400'}`}>{isActive?'Activada':'Pendiente de activación'}</span></div>
+                                    <p className="text-sm text-white font-semibold">{isActive?(scannedQr.businessName||'Tarjeta activada'):'Esta tarjeta todavía no está asignada a un negocio'}</p>
+                                    {isActive ? (
+                                        <div className="space-y-2">
+                                            <p className="text-xs text-slate-400">Para comprobar el destino real, abre el enlace de la tarjeta. Esta vista no modifica su estado.</p>
+                                            {scannedQr.dynamicUrl ? <a href={scannedQr.dynamicUrl} target="_blank" rel="noreferrer" className="block text-center w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm">Abrir enlace de la tarjeta <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i></a> : <p className="text-xs text-amber-300">Esta tarjeta no tiene un enlace configurado.</p>}
+                                        </div>
+                                    ) : (
+                                        <button type="button" onClick={()=>{close();setActivateModal({open:true,qr:scannedQr})}} className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm">Ir a activar esta tarjeta</button>
+                                    )}
+                                </div>
+                            ) : <p className="text-xs text-slate-400 mt-4">Elige una tarjeta para consultar su estado y acceder a la acción correspondiente.</p>}
                         </div>
-                        <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950/60 p-2 space-y-1">
-                            {results.length===0&&<p className="text-xs text-slate-400 p-3">Sin resultados</p>}
-                            {results.map(q=><button key={q.id} type="button" onClick={()=>{stop();setError('');setScanSimModal(prev=>({...prev,code:q.trackingCode}));}} className={`w-full min-h-11 rounded-lg px-3 py-2 text-left flex items-center justify-between gap-2 ${scanSimModal.code===q.trackingCode?'bg-blue-500/20 border border-blue-500/50':'hover:bg-slate-800'}`}><span className="min-w-0"><span className="block text-xs font-mono text-white">{q.trackingCode}</span><span className="block text-[11px] text-slate-400 truncate">{q.businessName||q.batchName||'Sin negocio'}</span></span><span className={`text-[10px] shrink-0 ${q.status==='active'?'text-emerald-400':'text-amber-300'}`}>{q.status==='active'?'Activa':'Sin activar'}</span></button>)}
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-1">Hasta 30 resultados; utiliza los filtros.</p>
-                        {scannedQr&&<div className="mt-3 p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 space-y-2"><p className="text-sm font-bold text-white">{scannedQr.trackingCode} · {scannedQr.status==='active'?'Activa':'Sin activar'}</p><p className="text-xs text-slate-300">{scannedQr.businessName||'Sin negocio asignado'}</p>{scannedQr.status==='active'?(scannedQr.dynamicUrl?<a className="block text-center bg-blue-600 text-white rounded-xl py-3 text-sm font-bold" target="_blank" rel="noreferrer" href={scannedQr.dynamicUrl}>Abrir enlace de tarjeta</a>:<p className="text-xs text-amber-300">Sin enlace configurado</p>):<button type="button" onClick={()=>{close();setActivateModal({open:true,qr:scannedQr})}} className="w-full rounded-xl bg-blue-600 text-white py-3 text-sm font-bold">Activar con autorización</button>}</div>}
-                    </div>
-                </div>;
-            };
-
-            </div>
                     </div>
                 );
             };
