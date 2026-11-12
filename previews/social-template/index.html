@@ -1848,6 +1848,27 @@ const showToast = (msg, type = 'info') => {
                 const [pinVerified, setPinVerified] = useState(false);
                 const [pinError, setPinError] = useState(false);
                 const [activationSaving, setActivationSaving] = useState(false);
+                const [deviceCredential,setDeviceCredential]=useState(()=>localStorage.getItem('tocaqui_device_credential_v1')||'');
+                const [pairCode,setPairCode]=useState('');
+                const [pairError,setPairError]=useState('');
+                const [pairBusy,setPairBusy]=useState(false);
+                const deviceApi=async payload=>{
+                    const response=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify(payload)});
+                    const result=await response.json();
+                    if(!response.ok||!result.ok)throw new Error(result.error||'Solicitud rechazada');
+                    return result;
+                };
+                const pairDevice=async()=>{
+                    if(pairBusy)return;
+                    setPairBusy(true);setPairError('');
+                    try{
+                        const result=await deviceApi({action:'pair',code:pairCode.trim().toLowerCase(),label:/iPhone|iPad/i.test(navigator.userAgent)?'iPhone TOCAQUI':'Computador TOCAQUI'});
+                        localStorage.setItem('tocaqui_device_credential_v1',result.credential);
+                        setDeviceCredential(result.credential);setPairCode('');
+                        showToast('Dispositivo vinculado. Usa tu PIN.','success');
+                    }catch(e){setPairError(e.message||'No se pudo vincular');}
+                    finally{setPairBusy(false);}
+                };
 
                 const [searchQuery, setSearchQuery] = useState('');
                 const [selectedPlace, setSelectedPlace] = useState(qr.businessName ? { name: qr.businessName, address: qr.businessAddress || '', placeId: qr.placeId || 'ChIJMock' } : null);
@@ -1951,20 +1972,7 @@ const showToast = (msg, type = 'info') => {
 
                     setActivationSaving(true);
                     try {
-                        const { data: sessionData, error: sessionError } = await cloud.auth.getSession();
-                        if (sessionError || !sessionData?.session) {
-                            throw new Error('No hay una sesión Supabase autorizada en este navegador.');
-                        }
-
-                        const { data: pinOk, error: pinRpcError } = await cloud.rpc('tocaqui_admin_verify_pin', { p_pin: pinEntered });
-                        if (pinRpcError) throw pinRpcError;
-                        if (pinOk !== true) {
-                            setPinError(true);
-                            setPinVerified(false);
-                            showToast('PIN incorrecto o temporalmente bloqueado.', 'error');
-                            return;
-                        }
-                        setPinVerified(true);
+                        if(!deviceCredential)throw new Error('Vincula este dispositivo primero.');
 
                         let finalUrl = customUrl;
                         if ((presetType === 'google_review' || presetType === 'review_gate') && selectedPlace) {
@@ -2010,10 +2018,17 @@ const showToast = (msg, type = 'info') => {
                             history
                         };
 
-                        const { error: saveError } = await cloud
-                            .from('tocaqui_admin_qr_cards')
-                            .upsert([{ id: activatedCard.id, data: activatedCard }], { onConflict: 'id' });
-                        if (saveError) throw saveError;
+                        try {
+                            await deviceApi({action:'activate',credential:deviceCredential,pin:pinEntered,card:activatedCard});
+                        } catch(error) {
+                            setPinError(true);
+                            if(/device not authorized/i.test(error.message||'')){
+                                localStorage.removeItem('tocaqui_device_credential_v1');
+                                setDeviceCredential('');
+                            }
+                            throw error;
+                        }
+                        setPinVerified(true);
 
                         setQrs(prev => {
                             const exists = prev.some(item => item.id === activatedCard.id);
@@ -2131,6 +2146,14 @@ const showToast = (msg, type = 'info') => {
                                         <input type="url" value={customUrl} onChange={e => setCustomUrl(e.target.value)} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono" placeholder="https://..." />
                                     )}
 
+                                    {!deviceCredential && <div className="glass-panel p-4 rounded-2xl border border-blue-500/20 space-y-2">
+                                        <label className="block text-xs font-semibold text-slate-300 uppercase">Vincular dispositivo (una sola vez)</label>
+                                        <p className="text-[11px] text-slate-400">Código de autorización, sin correo ni contraseña.</p>
+                                        <input value={pairCode} onChange={e=>setPairCode(e.target.value.trim().toLowerCase())} className="w-full glass-input px-3.5 py-3 rounded-xl text-xs font-mono" placeholder="Código de vinculación" autoComplete="off" />
+                                        {pairError && <p role="alert" className="text-[11px] text-red-300">{pairError}</p>}
+                                        <button type="button" onClick={pairDevice} disabled={pairBusy||!/^[a-f0-9]{64}$/.test(pairCode)} className="w-full py-2.5 bg-blue-600 rounded-xl text-sm font-semibold text-white disabled:opacity-40">{pairBusy?'Vinculando...':'Vincular dispositivo'}</button>
+                                    </div>}
+                                    {deviceCredential && <p className="text-[11px] text-emerald-300">Dispositivo vinculado. Usa tu PIN para activar.</p>}
                                     <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 space-y-2">
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
