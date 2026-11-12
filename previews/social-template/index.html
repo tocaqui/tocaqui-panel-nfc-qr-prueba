@@ -605,6 +605,21 @@
 useEffect(()=>{try{localStorage.setItem('nfc_clients_v6',JSON.stringify(clients))}catch(e){}},[clients]);
 useEffect(()=>{try{localStorage.setItem('nfc_templates_v6',JSON.stringify(templates))}catch(e){}},[templates]);
 const [cloudReady,setCloudReady]=useState(false);
+const [serverAnalytics,setServerAnalytics]=useState({scans:null,activations:null});
+useEffect(()=>{
+  if(!cloudReady || adminTab!=='dashboard')return;
+  let alive=true;
+  const load=async()=>{
+    const [scans,activations]=await Promise.all([
+      cloud.from('tocaqui_card_events').select('id',{count:'exact',head:true}).eq('event_type','scan'),
+      cloud.from('tocaqui_card_events').select('id',{count:'exact',head:true}).eq('event_type','activation')
+    ]);
+    if(alive)setServerAnalytics({scans:scans.error?null:scans.count,activations:activations.error?null:activations.count});
+  };
+  load();
+  const interval=setInterval(load,30000);
+  return()=>{alive=false;clearInterval(interval)};
+},[cloud,cloudReady,adminTab]);
 const [cloudError,setCloudError]=useState('');
 const last=React.useRef({qrs:[],clients:[],templates:[]});
 const initialized=React.useRef(false);
@@ -913,7 +928,7 @@ const resetTestInventory = async () => {
             const DashboardView = () => {
                 const totalQRs = qrs.length;
                 const activeQRs = qrs.filter(q => q.status === 'active').length;
-                const totalScans = qrs.reduce((acc, curr) => acc + (curr.scans || 0), 0);
+                const totalScans = serverAnalytics.scans;
 
                 return (
                     <div className="tocaqui-dashboard space-y-4">
@@ -928,6 +943,7 @@ const resetTestInventory = async () => {
                                 <span className="rounded-lg bg-slate-950/50 border border-slate-700/60 px-3 py-2 text-xs text-slate-300"><i className="fa-solid fa-box-open mr-1.5 text-blue-400"></i>{qrs.filter(q=>q.status!=='active').length} pendientes</span>
                                 <span className="rounded-lg bg-slate-950/50 border border-slate-700/60 px-3 py-2 text-xs text-slate-300"><i className="fa-solid fa-circle-check mr-1.5 text-emerald-400"></i>{activeQRs} activas</span>
                                 <span className="rounded-lg bg-slate-950/50 border border-slate-700/60 px-3 py-2 text-xs text-slate-300"><i className="fa-solid fa-layer-group mr-1.5 text-indigo-400"></i>{new Set(qrs.map(q=>q.batchId||'legacy')).size} lotes</span>
+                                <span className="rounded-lg bg-slate-950/50 border border-slate-700/60 px-3 py-2 text-xs text-slate-300"><i className="fa-solid fa-bolt mr-1.5 text-cyan-400"></i>{serverAnalytics.activations===null?'—':serverAnalytics.activations} activaciones registradas</span>
                             </div>
                         </div>
 
@@ -981,14 +997,14 @@ const resetTestInventory = async () => {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-xs font-medium text-slate-400 uppercase">Lecturas registradas</p>
-                                        <h3 className="text-3xl font-extrabold text-amber-400 mt-1 font-mono">{totalScans}</h3>
+                                        <h3 className="text-3xl font-extrabold text-amber-400 mt-1 font-mono">{totalScans === null ? '—' : totalScans}</h3>
                                     </div>
                                     <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center text-xl">
                                         <i className="fa-solid fa-bolt"></i>
                                     </div>
                                 </div>
                                 <div className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
-                                    <i className="fa-solid fa-mobile text-amber-400"></i> Sin medición automática
+                                    <i className="fa-solid fa-mobile text-amber-400"></i> {totalScans === null ? 'Conecta Supabase para ver lecturas' : 'Escaneos reales registrados en servidor'}
                                 </div>
                             </div>
                         </div>
