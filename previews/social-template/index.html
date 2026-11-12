@@ -2367,7 +2367,7 @@ const showToast = (msg, type = 'info') => {
 
                     {individualQr && (
                         <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 no-print" role="dialog" aria-modal="true" aria-label={'QR de ' + individualQr.trackingCode} onClick={() => setIndividualQr(null)}>
-                            <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 sm:p-6 shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+                            <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-5 shadow-2xl space-y-3" style={{WebkitOverflowScrolling:'touch'}} onClick={e => e.stopPropagation()}>
                                 <div className="flex justify-between items-start gap-3">
                                     <div>
                                         <h2 className="font-bold text-white text-lg">QR de {individualQr.trackingCode}</h2>
@@ -2375,7 +2375,7 @@ const showToast = (msg, type = 'info') => {
                                     </div>
                                     <button type="button" aria-label="Cerrar QR" onClick={() => setIndividualQr(null)} className="p-2 text-slate-400 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
                                 </div>
-                                <div className="bg-white rounded-xl p-4 mx-auto w-full max-w-[320px] aspect-square flex items-center justify-center">
+                                <div className="bg-white rounded-xl p-3 mx-auto w-full max-w-[250px] aspect-square flex items-center justify-center">
                                     {individualQrImage ? <img src={individualQrImage} alt={'Código QR de '+individualQr.trackingCode} className="w-full h-full object-contain" /> : <span className="text-slate-700 text-sm">Generando QR...</span>}
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
