@@ -531,6 +531,54 @@
 
             // Modals & Notifications
             const [activateModal, setActivateModal] = useState({ open: false, qr: null });
+            const [individualQr, setIndividualQr] = useState(null);
+            const [individualQrImage, setIndividualQrImage] = useState('');
+            useEffect(() => {
+                if (!individualQr) { setIndividualQrImage(''); return; }
+                let active = true;
+                generateQRBase64(getBaseTagUrl(individualQr.trackingCode), 720).then(img => {
+                    if (active) setIndividualQrImage(img);
+                });
+                return () => { active = false; };
+            }, [individualQr?.trackingCode]);
+            const downloadIndividualQr = async () => {
+                if (!individualQr || !individualQrImage) return;
+                try {
+                    const response = await fetch(individualQrImage);
+                    const blob = await response.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+                    const anchor = document.createElement('a');
+                    anchor.href = objectUrl;
+                    anchor.download = individualQr.trackingCode + '-QR.png';
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    anchor.remove();
+                    setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+                } catch (error) { showToast('No se pudo descargar el QR.', 'error'); }
+            };
+            const shareIndividualQr = async () => {
+                if (!individualQr) return;
+                const url = getBaseTagUrl(individualQr.trackingCode);
+                try {
+                    if (navigator.share) {
+                        if (individualQrImage && navigator.canShare) {
+                            const blob = await (await fetch(individualQrImage)).blob();
+                            const file = new File([blob], individualQr.trackingCode + '-QR.png', {type:'image/png'});
+                            if (navigator.canShare({files:[file]})) {
+                                await navigator.share({title:individualQr.trackingCode,files:[file]});
+                                return;
+                            }
+                        }
+                        await navigator.share({title:individualQr.trackingCode,url});
+                    } else {
+                        await navigator.clipboard.writeText(url);
+                        showToast('Enlace QR copiado.', 'success');
+                    }
+                } catch(error) {
+                    if(error?.name !== 'AbortError') showToast('No se pudo compartir el QR.', 'error');
+                }
+            };
+
             const [scanSimModal, setScanSimModal] = useState({ open: false, code: '', reviewGateStep: 'stars', selectedStars: 0 });
             const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
             const [templateModal, setTemplateModal] = useState({ open: false, isEditing: false, data: null });
@@ -1099,6 +1147,13 @@ const showToast = (msg, type = 'info') => {
                                                             title="Grabar NFC (Android Chrome)"
                                                         >
                                                             <i className="fa-solid fa-nfc-symbol"></i>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setIndividualQr(qr)}
+                                                            className="bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
+                                                            title={'Ver QR ' + qr.trackingCode}
+                                                        >
+                                                            <i className="fa-solid fa-qrcode mr-1"></i> Ver QR
                                                         </button>
                                                         <button
                                                             onClick={() => setActivateModal({ open: true, qr })}
@@ -2310,6 +2365,32 @@ const showToast = (msg, type = 'info') => {
                         )}
                     </div>
 
+                    {individualQr && (
+                        <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 no-print" role="dialog" aria-modal="true" aria-label={'QR de ' + individualQr.trackingCode} onClick={() => setIndividualQr(null)}>
+                            <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5 sm:p-6 shadow-2xl space-y-4" onClick={e => e.stopPropagation()}>
+                                <div className="flex justify-between items-start gap-3">
+                                    <div>
+                                        <h2 className="font-bold text-white text-lg">QR de {individualQr.trackingCode}</h2>
+                                        <p className="text-xs text-slate-400 mt-1">{individualQr.businessName || 'Tarjeta sin negocio asignado'}</p>
+                                    </div>
+                                    <button type="button" aria-label="Cerrar QR" onClick={() => setIndividualQr(null)} className="p-2 text-slate-400 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <div className="bg-white rounded-xl p-4 mx-auto w-full max-w-[320px] aspect-square flex items-center justify-center">
+                                    {individualQrImage ? <img src={individualQrImage} alt={'Código QR de '+individualQr.trackingCode} className="w-full h-full object-contain" /> : <span className="text-slate-700 text-sm">Generando QR...</span>}
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className={individualQr.status === 'active' ? 'text-emerald-400' : 'text-amber-400'}>{individualQr.status === 'active' ? 'Tarjeta activa' : 'Pendiente de activación'}</span>
+                                    <span className="font-mono text-slate-400">{individualQr.trackingCode}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button type="button" onClick={downloadIndividualQr} disabled={!individualQrImage} className="rounded-xl bg-blue-600 text-white font-semibold text-sm py-3 disabled:opacity-50"><i className="fa-solid fa-download mr-2"></i>Descargar PNG</button>
+                                    <button type="button" onClick={shareIndividualQr} disabled={!individualQrImage} className="rounded-xl bg-slate-700 text-white font-semibold text-sm py-3 disabled:opacity-50"><i className="fa-solid fa-share-nodes mr-2"></i>Compartir</button>
+                                </div>
+                                <a href={getBaseTagUrl(individualQr.trackingCode)} target="_blank" rel="noopener noreferrer" className="block text-center text-cyan-300 border border-cyan-500/30 rounded-xl py-2.5 text-sm font-semibold">Probar enlace QR <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i></a>
+                                <p className="text-[11px] text-slate-400 text-center">Este QR conserva su identificador dinámico. El destino se administra desde Configurar.</p>
+                            </div>
+                        </div>
+                    )}
                     <ActivationModal />
                     <ScanSimulatorModal />
                     <ConfirmModal />
