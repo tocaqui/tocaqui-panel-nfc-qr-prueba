@@ -122,7 +122,7 @@
                 display: grid !important;
                 grid-template-columns: repeat(2, 100mm) !important;
                 grid-template-rows: 150mm !important;
-                column-gap: 0mm !important;
+                column-gap: 12mm !important;
                 justify-content: center !important;
                 align-content: center !important;
                 height: 100% !important;
@@ -183,10 +183,10 @@
         .sheet-preview-grid { display: grid; height: 100%; justify-content: center; align-content: center; box-sizing: border-box; }
         .sheet-preview-pvc-vertical { grid-template-columns: repeat(3, 54mm); grid-template-rows: repeat(3, 85.6mm); gap: 6mm 8mm; }
         .sheet-preview-pvc-horizontal { grid-template-columns: repeat(2, 85.6mm); grid-template-rows: repeat(5, 54mm); gap: 2mm 6mm; }
-        .sheet-preview-posters { grid-template-columns: repeat(2, 100mm); grid-template-rows: 150mm; gap: 0; }
-        .a4-sheet-preview:has(.sheet-preview-posters) { padding: 4mm; }
+        .sheet-preview-posters { grid-template-columns: repeat(2, 100mm); grid-template-rows: 150mm; column-gap: 12mm; }
+        .a4-sheet-preview:has(.sheet-preview-posters) { width: 297mm; min-height: 210mm; height: 210mm; padding: 8mm; }
         @media print {
-            .print-page-a4:has(.print-grid-posters) { padding: 4mm !important; }
+            .print-page-a4:has(.print-grid-posters) { width: 297mm !important; height: 210mm !important; padding: 8mm !important; }
         }
         /* Only screen preview is scaled; printed A4 stays at 100% physical dimensions. */
         @media print {
@@ -2100,6 +2100,8 @@ const resetTestInventory = async () => {
                             </div>
                         </div>
 
+                        {/* A4 orientation follows the selected product, never rotates the artwork. */}
+                        <style>{`@media print { @page { size: A4 ${printConfig.templateType === '10x15' ? 'landscape' : 'portrait'}; margin: 0; } }`}</style>
                         {/* Printable CSS Media Print Wrapper */}
                         <div id="print-area-wrapper" className="hidden">
                             {pages.map((pageItems, pageIdx) => (
