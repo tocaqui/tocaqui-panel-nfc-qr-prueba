@@ -1845,8 +1845,9 @@ const showToast = (msg, type = 'info') => {
                 const qr = activateModal.qr;
 
                 const [pinEntered, setPinEntered] = useState('');
-                const [pinVerified, setPinVerified] = useState(qr.status === 'active');
+                const [pinVerified, setPinVerified] = useState(false);
                 const [pinError, setPinError] = useState(false);
+                const [activationSaving, setActivationSaving] = useState(false);
 
                 const [searchQuery, setSearchQuery] = useState('');
                 const [selectedPlace, setSelectedPlace] = useState(qr.businessName ? { name: qr.businessName, address: qr.businessAddress || '', placeId: qr.placeId || 'ChIJMock' } : null);
@@ -1931,27 +1932,114 @@ const showToast = (msg, type = 'info') => {
                     }
                 };
                 const handleConfirmActivation = async () => {
-                    if(presetType!=='custom_url' && (!selectedPlace?.placeId || !selectedPlace?.name)){showToast('Debes seleccionar un negocio real con Place ID','error');return;}
-                    if(presetType==='custom_url' && !/^https:\/\//i.test(customUrl)){showToast('Introduce una URL HTTPS válida','error');return;}
-                    let finalUrl = customUrl;
-                    if (presetType === 'google_review' && selectedPlace) {
-                        finalUrl = `https://search.google.com/local/writereview?placeid=${selectedPlace.placeId}`;
-                    } else if (presetType === 'review_gate' && selectedPlace) {
-                        finalUrl = `https://search.google.com/local/writereview?placeid=${selectedPlace.placeId}`;
+                    if (activationSaving) return;
+                    setPinError(false);
+
+                    if (presetType !== 'custom_url' && (!selectedPlace?.placeId || !selectedPlace?.name)) {
+                        showToast('Debes seleccionar un negocio real con Place ID', 'error');
+                        return;
+                    }
+                    if (presetType === 'custom_url' && !/^https:\/\//i.test(customUrl)) {
+                        showToast('Introduce una URL HTTPS válida', 'error');
+                        return;
+                    }
+                    if (!/^\d{4}$/.test(pinEntered)) {
+                        setPinError(true);
+                        showToast('Ingresa el PIN de activación de 4 dígitos.', 'warning');
+                        return;
                     }
 
-                    // Configuracion local sin PIN; no declarar activacion publica sin persistencia autorizada.
-                    updateQR(qr.id, {
-                        status: 'pending',
-                        clientId: assignedClient,
-                        businessName: selectedPlace ? selectedPlace.name : 'Negocio Asignado',
-                        businessAddress: selectedPlace ? selectedPlace.address : '',
-                        placeId: selectedPlace ? selectedPlace.placeId : null,
-                        functionType: presetType,
-                        dynamicUrl: sanitizeUrl(finalUrl)
-                    });
-                    showToast('Configuracion guardada en este navegador. QR aun pendiente de activacion publica.');
-                    setActivateModal({ open: false, qr: null });
+                    setActivationSaving(true);
+                    try {
+                        const { data: sessionData, error: sessionError } = await cloud.auth.getSession();
+                        if (sessionError || !sessionData?.session) {
+                            throw new Error('No hay una sesión Supabase autorizada en este navegador.');
+                        }
+
+                        const { data: pinOk, error: pinRpcError } = await cloud.rpc('tocaqui_admin_verify_pin', { p_pin: pinEntered });
+                        if (pinRpcError) throw pinRpcError;
+                        if (pinOk !== true) {
+                            setPinError(true);
+                            setPinVerified(false);
+                            showToast('PIN incorrecto o temporalmente bloqueado.', 'error');
+                            return;
+                        }
+                        setPinVerified(true);
+
+                        let finalUrl = customUrl;
+                        if ((presetType === 'google_review' || presetType === 'review_gate') && selectedPlace) {
+                            finalUrl = `https://search.google.com/local/writereview?placeid=${selectedPlace.placeId}`;
+                        }
+                        finalUrl = sanitizeUrl(finalUrl);
+
+                        const existingCard = qrs.find(item => item.id === qr.id) || qr;
+                        const now = Date.now();
+                        const history = [...(existingCard.history || [])];
+
+                        if (finalUrl && finalUrl !== existingCard.dynamicUrl) {
+                            history.push({
+                                timestamp: now,
+                                type: 'update',
+                                description: `Cambio de URL: ${existingCard.dynamicUrl || 'vacía'} → ${finalUrl}`
+                            });
+                        }
+                        if (assignedClient && assignedClient !== existingCard.clientId) {
+                            const cl = clients.find(c => c.id === assignedClient);
+                            history.push({
+                                timestamp: now,
+                                type: 'assignment',
+                                description: `Asignada a cliente: ${cl ? cl.name : assignedClient}`
+                            });
+                        }
+                        history.push({
+                            timestamp: now,
+                            type: 'activation',
+                            description: `Tarjeta activada con función ${presetType}`
+                        });
+
+                        const activatedCard = {
+                            ...existingCard,
+                            status: 'active',
+                            clientId: assignedClient,
+                            businessName: selectedPlace ? selectedPlace.name : (existingCard.businessName || 'Negocio Asignado'),
+                            businessAddress: selectedPlace ? selectedPlace.address : (existingCard.businessAddress || ''),
+                            placeId: selectedPlace ? selectedPlace.placeId : (existingCard.placeId || null),
+                            functionType: presetType,
+                            dynamicUrl: finalUrl,
+                            updatedAt: now,
+                            history
+                        };
+
+                        const { error: saveError } = await cloud
+                            .from('tocaqui_admin_qr_cards')
+                            .upsert([{ id: activatedCard.id, data: activatedCard }], { onConflict: 'id' });
+                        if (saveError) throw saveError;
+
+                        setQrs(prev => {
+                            const exists = prev.some(item => item.id === activatedCard.id);
+                            return exists
+                                ? prev.map(item => item.id === activatedCard.id ? activatedCard : item)
+                                : [activatedCard, ...prev];
+                        });
+
+                        const previousCloud = last.current.qrs || [];
+                        last.current = {
+                            ...last.current,
+                            qrs: previousCloud.some(item => item.id === activatedCard.id)
+                                ? previousCloud.map(item => item.id === activatedCard.id ? activatedCard : item)
+                                : [activatedCard, ...previousCloud]
+                        };
+
+                        showToast('Tarjeta activada y guardada en Supabase.', 'success');
+                        setActivateModal({ open: false, qr: null });
+                    } catch (err) {
+                        console.error('Activation error', err);
+                        const message = String(err?.message || err || '');
+                        if (/PIN de activación requerido/i.test(message)) setPinError(true);
+                        showToast('No se pudo activar la tarjeta: ' + message, 'error');
+                    } finally {
+                        setActivationSaving(false);
+                    }
                 };
 
                 return (
@@ -2043,8 +2131,43 @@ const showToast = (msg, type = 'info') => {
                                         <input type="url" value={customUrl} onChange={e => setCustomUrl(e.target.value)} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono" placeholder="https://..." />
                                     )}
 
-                                    <button onClick={handleConfirmActivation} className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg">
-                                        Guardar Asignación de Tarjeta
+                                    <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 space-y-2">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-300 uppercase">4. PIN de activación</label>
+                                                <p className="text-[10px] text-slate-500 mt-0.5">El PIN autoriza durante 5 minutos el cambio a estado activo.</p>
+                                            </div>
+                                            {pinVerified && (
+                                                <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">VERIFICADO</span>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="password"
+                                            inputMode="numeric"
+                                            autoComplete="one-time-code"
+                                            maxLength="4"
+                                            value={pinEntered}
+                                            onChange={e => {
+                                                setPinEntered(e.target.value.replace(/\D/g, '').slice(0, 4));
+                                                setPinError(false);
+                                                setPinVerified(false);
+                                            }}
+                                            className={`w-full glass-input px-3.5 py-3 rounded-xl text-center text-lg font-mono font-bold tracking-[0.45em] ${pinError ? 'border-red-500/70' : ''}`}
+                                            placeholder="••••"
+                                            aria-label="PIN de activación"
+                                        />
+                                        {pinError && <p className="text-[11px] text-red-300">PIN inválido, bloqueado o no autorizado.</p>}
+                                        {!cloudReady && cloudError && (
+                                            <p className="text-[11px] text-amber-300">{cloudError}</p>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        onClick={handleConfirmActivation}
+                                        disabled={activationSaving}
+                                        className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 disabled:opacity-50 disabled:cursor-wait text-white font-bold rounded-xl shadow-lg"
+                                    >
+                                        {activationSaving ? 'Validando y activando...' : 'Guardar y Activar Tarjeta'}
                                     </button>
                                 </div>
                         </div>
