@@ -2175,10 +2175,39 @@ const resetTestInventory = async () => {
                 );
             };
 
+            // Local, approximate Places usage: counts requests made by this browser only.
+            const PLACES_USAGE_STORAGE = 'tocaqui_places_usage_v1';
+            const currentPlacesMonth = () => new Date().toISOString().slice(0, 7);
+            const readPlacesUsage = () => {
+                const month = currentPlacesMonth();
+                try {
+                    const stored = JSON.parse(localStorage.getItem(PLACES_USAGE_STORAGE) || '{}');
+                    if (stored.month === month) return { month, requests: Number(stored.requests) || 0, successes: Number(stored.successes) || 0, errors: Number(stored.errors) || 0 };
+                } catch (e) {}
+                return { month, requests: 0, successes: 0, errors: 0 };
+            };
+            const recordPlacesUsage = (type) => {
+                try {
+                    const next = readPlacesUsage();
+                    if (type === 'request') next.requests++;
+                    if (type === 'success') next.successes++;
+                    if (type === 'error') next.errors++;
+                    localStorage.setItem(PLACES_USAGE_STORAGE, JSON.stringify(next));
+                    window.dispatchEvent(new Event('tocaqui-places-usage-updated'));
+                } catch (e) {}
+            };
+
             // 8. SETTINGS VIEW
             const SettingsView = () => {
                 const [pinInput, setPinInput] = useState(masterPin);
                 const [keyInput, setKeyInput] = useState(googleApiKey);
+                const [placesUsage, setPlacesUsage] = useState(readPlacesUsage);
+                useEffect(() => {
+                    const refresh = () => setPlacesUsage(readPlacesUsage());
+                    window.addEventListener('tocaqui-places-usage-updated', refresh);
+                    return () => window.removeEventListener('tocaqui-places-usage-updated', refresh);
+                }, []);
+
 
                 const saveSettings = () => {
                     setGoogleApiKey(keyInput);
@@ -2228,6 +2257,17 @@ const resetTestInventory = async () => {
                                     Guardar Key
                                 </button>
                             </div>
+                        </div>
+
+                        <div className="glass-panel p-6 rounded-2xl space-y-3">
+                            <h2 className="text-lg font-bold text-white"><i className="fa-solid fa-chart-simple text-cyan-400 mr-2"></i>Consultas Google Places</h2>
+                            <p className="text-xs text-slate-400">Contador local del mes {placesUsage.month}. Solo registra las búsquedas realizadas en este navegador; no representa el consumo total de Google Cloud ni el saldo gratuito restante.</p>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="rounded-xl bg-slate-800/70 p-3"><div className="text-xl font-bold text-white">{placesUsage.requests}</div><div className="text-xs text-slate-400">Intentos</div></div>
+                                <div className="rounded-xl bg-slate-800/70 p-3"><div className="text-xl font-bold text-emerald-300">{placesUsage.successes}</div><div className="text-xs text-slate-400">Correctas</div></div>
+                                <div className="rounded-xl bg-slate-800/70 p-3"><div className="text-xl font-bold text-rose-300">{placesUsage.errors}</div><div className="text-xs text-slate-400">Errores</div></div>
+                            </div>
+                            <p className="text-xs text-amber-200/80">Google puede facturar por SKU y por sesión; un intento registrado no equivale necesariamente a un evento facturable.</p>
                         </div>
 
                         <div className="glass-panel p-6 rounded-2xl space-y-4">
@@ -2307,12 +2347,14 @@ const resetTestInventory = async () => {
                             if (!placesSessionTokenRef.current) {
                                 placesSessionTokenRef.current = new AutocompleteSessionToken();
                             }
+                            recordPlacesUsage('request');
                             const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
                                 input: query,
                                 region: 'cl',
                                 language: 'es-CL',
                                 sessionToken: placesSessionTokenRef.current
                             });
+                            recordPlacesUsage('success');
                             if (requestId !== placesRequestIdRef.current) return;
                             setPlaceSuggestions(
                                 (suggestions || [])
@@ -2323,6 +2365,7 @@ const resetTestInventory = async () => {
                         } catch (err) {
                             if (requestId !== placesRequestIdRef.current) return;
                             console.error('Google Places autocomplete error', err);
+                            recordPlacesUsage('error');
                             setPlaceSuggestions([]);
                             setPlacesError('No se pudo consultar Google Places. Revisa la API Key y que Places API (New) esté habilitada.');
                         } finally {
