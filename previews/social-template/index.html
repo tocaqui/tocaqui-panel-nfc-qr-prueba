@@ -179,6 +179,11 @@
             box-sizing: border-box;
         }
 
+        /* Only screen preview is scaled; printed A4 stays at 100% physical dimensions. */
+        .a4-sheet-preview.preview-compact { zoom: .58; }
+        @media (max-width: 640px) {
+            .a4-sheet-preview.preview-compact { zoom: .39; }
+        }
         .glass-panel {
             background: linear-gradient(180deg, rgba(15, 23, 42, 0.84), rgba(10, 17, 31, 0.82));
             backdrop-filter: blur(16px);
@@ -1545,6 +1550,7 @@ const showToast = (msg, type = 'info') => {
             // 6. ADVANCED PRINT & MASSIVE A4 DUPLEX STUDIO
             const PrintView = () => {
                 const [qrCodeImages, setQrCodeImages] = useState({});
+                const [previewZoom, setPreviewZoom] = useState(58);
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
                 const [qrMoveEnabled, setQrMoveEnabled] = useState(false);
                 const [qrDragPosition, setQrDragPosition] = useState(() => {
@@ -1683,10 +1689,18 @@ const showToast = (msg, type = 'info') => {
 
                             {side === 'back' && <div className="flex justify-between items-end text-[8px] font-mono">
                                 <span className="text-[7px] truncate max-w-[90px]">{item.businessAddress || 'TOCAQUI'}</span>
-                                <span className={`font-bold ${printConfig.idOpacity} ${printConfig.idFontSize}`}>
-                                    {item.trackingCode}
-                                </span>
                             </div>}
+                            {(printConfig.idPosition === 'back' ? side === 'back' : side === 'front') && printConfig.idPosition !== 'hidden' && (
+                                <span className={`absolute z-10 font-mono font-bold ${printConfig.idOpacity} ${printConfig.idFontSize}`}
+                                    style={{
+                                        ...(printConfig.idPosition === 'top-left' ? {top:'5%',left:'5%'} :
+                                            printConfig.idPosition === 'top-right' ? {top:'5%',right:'5%'} :
+                                            printConfig.idPosition === 'bottom-left' ? {bottom:'5%',left:'5%'} :
+                                            printConfig.idPosition === 'top-center' ? {top:'5%',left:'50%',transform:'translateX(-50%)'} :
+                                            printConfig.idPosition === 'bottom-center' ? {bottom:'5%',left:'50%',transform:'translateX(-50%)'} :
+                                            {bottom:'5%',right:'5%'})
+                                    }}>{item.trackingCode}</span>
+                            )}
                         </div>
                     );
                 };
@@ -1748,6 +1762,19 @@ const showToast = (msg, type = 'info') => {
                                                 </button>
                                             ))}
                                         </div>
+                                    </div>
+                                    <div className="space-y-2 border-b border-slate-800 pb-3">
+                                        <label className="block text-xs font-semibold text-slate-300">Posición del identificador de tarjeta (TAG)</label>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                            {[
+                                                ['top-left','Arriba izquierda'],['top-center','Arriba centro'],['top-right','Arriba derecha'],
+                                                ['bottom-left','Abajo izquierda'],['bottom-center','Abajo centro'],['bottom-right','Abajo derecha'],
+                                                ['back','Solo reverso'],['hidden','Ocultar']
+                                            ].map(([value,label]) => <button key={value} type="button" aria-pressed={printConfig.idPosition===value}
+                                                onClick={() => setPrintConfig(prev=>({...prev,idPosition:value}))}
+                                                className={`rounded-lg border px-2 py-2 text-[11px] font-semibold ${printConfig.idPosition===value?'border-blue-400 bg-blue-600/20 text-white':'border-slate-700 bg-slate-900 text-slate-400'}`}>{label}</button>)}
+                                        </div>
+                                        <p className="text-[10px] text-slate-500">Este código identifica cada tarjeta. El nombre del lote se administra por separado.</p>
                                     </div>
                                     <div>
                                         <div className="flex justify-between text-xs text-slate-300 mb-1">
@@ -1896,8 +1923,14 @@ const showToast = (msg, type = 'info') => {
                                     <i className="fa-solid fa-eye text-emerald-400"></i> Previsualización A4 ({printConfig.activeSide.toUpperCase()})
                                 </span>
 
+                                <div className="flex items-center gap-2 no-print text-xs text-slate-400">
+                                    <span>Vista reducida</span>
+                                    <input aria-label="Escala de previsualización" type="range" min="35" max="85" step="5" value={previewZoom} onChange={e=>setPreviewZoom(Number(e.target.value))} className="w-28 accent-blue-500"/>
+                                    <span>{previewZoom}%</span>
+                                    <span className="text-slate-500">Impresión: 100%</span>
+                                </div>
                                 {pages.map((pageItems, pageIdx) => (
-                                    <div key={pageIdx} className="a4-sheet-preview rounded-lg">
+                                    <div key={pageIdx} className="a4-sheet-preview preview-compact rounded-lg" style={{zoom: (typeof window !== 'undefined' && window.innerWidth < 640 ? Math.min(previewZoom,40) : previewZoom) + '%'}}>
                                         <div className="absolute top-2 right-3 text-[10px] font-mono font-bold text-slate-400 no-print">
                                             Hoja A4 #{pageIdx + 1} - Cara: {printConfig.activeSide.toUpperCase()}
                                         </div>
