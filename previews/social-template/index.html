@@ -425,8 +425,8 @@
 
                         ctx.fillStyle = '#ffffff';
                         ctx.fillRect(0, 0, targetWidth, targetHeight);
-                        // Contain the complete image, never crop, distort or upscale the source.
-                        const scale = Math.min(targetWidth / img.width, targetHeight / img.height, 1);
+                        // Fill the PVC at its exact aspect ratio; crop only overflow, never distort.
+                        const scale = Math.max(targetWidth / img.width, targetHeight / img.height);
                         const renderW = img.width * scale;
                         const renderH = img.height * scale;
                         ctx.imageSmoothingEnabled = true;
@@ -636,6 +636,7 @@ const resetTestInventory = async () => {
                 if (resetConfirmText !== 'REINICIAR TOCAQUI' || resetBusy) return;
                 setResetBusy(true);
                 try {
+                    if (!cloudReady) throw new Error('Se requiere conexión autorizada a Supabase para reiniciar sin dejar registros antiguos en la nube.');
                     if (cloudReady) {
                         await queue.current;
                         for (const table of ['tocaqui_admin_qr_cards','tocaqui_admin_qr_clients']) {
@@ -1103,7 +1104,8 @@ const resetTestInventory = async () => {
                                 <p className="text-xs text-slate-400">Elimina los lotes, códigos TAG y clientes de prueba de este panel y, si hay sesión autorizada, de sus tablas en Supabase. No modifica el PIN, los dispositivos autorizados ni las rutas públicas. Los identificadores existentes dejarán de estar disponibles en este inventario.</p>
                                 <label className="block text-xs text-slate-300">Escribe REINICIAR TOCAQUI para confirmar</label>
                                 <input value={resetConfirmText} onChange={e=>setResetConfirmText(e.target.value)} className="w-full glass-input px-3 py-2 rounded-lg text-sm" placeholder="REINICIAR TOCAQUI"/>
-                                <button type="button" disabled={resetBusy||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio de pruebas'}</button>
+                                {!cloudReady && <p className="text-[11px] text-amber-300">Conecta una sesión autorizada a Supabase antes de reiniciar. Así se borran los registros del navegador y la nube de forma coherente.</p>}
+                                <button type="button" disabled={resetBusy||!cloudReady||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio de pruebas'}</button>
                             </div>}
                         </div>
                     </div>
@@ -1690,7 +1692,7 @@ const resetTestInventory = async () => {
                             className={cardClass}
                             style={{
                                 background: bgToUse
-                                    ? `#ffffff url("${bgToUse}") center/contain no-repeat`
+                                    ? `#ffffff url("${bgToUse}") center/cover no-repeat`
                                     : printConfig.theme === 'gold-luxury'
                                     ? 'linear-gradient(135deg, #0f172a 0%, #312e81 100%)'
                                     : printConfig.theme === 'clean-white'
@@ -1899,8 +1901,8 @@ const resetTestInventory = async () => {
                                                         const side = printConfig.activeSide;
                                                         const isHorizontal = printConfig.templateType === 'pvc-horizontal';
                                                         const isPoster = printConfig.templateType === '10x15';
-                                                        const targetWidth = isHorizontal ? 1800 : isPoster ? 1800 : 1200;
-                                                        const targetHeight = isHorizontal ? 1200 : isPoster ? 1200 : 1800;
+                                                        const targetWidth = isHorizontal ? 1712 : isPoster ? 1800 : 1080;
+                                                        const targetHeight = isHorizontal ? 1080 : isPoster ? 1200 : 1712;
 
                                                         try {
                                                             const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92);
