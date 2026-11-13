@@ -132,7 +132,6 @@
             #print-area-wrapper .card-pvc-vertical > *:not(.print-artwork-img),
             #print-area-wrapper .card-pvc-horizontal > *:not(.print-artwork-img),
             #print-area-wrapper .card-poster-10x15 > *:not(.print-artwork-img) {
-                position: relative;
                 z-index: 1;
             }
             .print-page-a4 {
@@ -150,9 +149,9 @@
             }
             .print-grid-pvc-vertical {
                 display: grid !important;
-                grid-template-columns: repeat(3, 54mm) !important;
-                grid-template-rows: repeat(3, 85.6mm) !important;
-                gap: 6mm 8mm !important;
+                grid-template-columns: repeat(5, 54mm) !important;
+                grid-template-rows: repeat(2, 85.6mm) !important;
+                gap: 2mm 2mm !important;
                 justify-content: center !important;
                 align-content: center !important;
                 height: 100% !important;
@@ -229,12 +228,14 @@
 
         /* Exact physical A4 layout shared by screen preview and print. */
         .sheet-preview-grid { display: grid; height: 100%; justify-content: center; align-content: center; box-sizing: border-box; }
-        .sheet-preview-pvc-vertical { grid-template-columns: repeat(3, 54mm); grid-template-rows: repeat(3, 85.6mm); gap: 6mm 8mm; }
+        .sheet-preview-pvc-vertical { grid-template-columns: repeat(5, 54mm); grid-template-rows: repeat(2, 85.6mm); gap: 2mm 2mm; }
+        .a4-sheet-preview:has(.sheet-preview-pvc-vertical) { width: 297mm; min-height: 210mm; height: 210mm; padding: 8mm; }
         .sheet-preview-pvc-horizontal { grid-template-columns: repeat(2, 85.6mm); grid-template-rows: repeat(5, 54mm); gap: 2mm 6mm; }
         .sheet-preview-posters { grid-template-columns: repeat(2, 100mm); grid-template-rows: 150mm; column-gap: 12mm; }
         .a4-sheet-preview:has(.sheet-preview-posters) { width: 297mm; min-height: 210mm; height: 210mm; padding: 8mm; }
         
         @media print {
+            .print-page-a4:has(.print-grid-pvc-vertical) { width: 297mm !important; height: 210mm !important; padding: 8mm !important; }
             .print-page-a4:has(.print-grid-pvc-horizontal) { width: 210mm !important; height: 297mm !important; padding: 6mm 8mm !important; }
             .print-page-a4:has(.print-grid-posters) { width: 297mm !important; height: 210mm !important; padding: 8mm !important; }
         }
@@ -1861,7 +1862,7 @@ const resetTestInventory = async () => {
                     qrDragRef.current=null;
                 };
 
-                const itemsPerPage = printConfig.templateType === '10x15' ? 2 : printConfig.templateType === 'pvc-vertical' ? 9 : 10;
+                const itemsPerPage = printConfig.templateType === '10x15' ? 2 : 10;
                 const printBatches = useMemo(() => [...new Map(qrs.map(q => [q.batchId || 'legacy', {id:q.batchId || 'legacy',name:q.batchName || 'Tarjetas anteriores'}])).values()], [qrs]);
                 const visiblePrintQrs = useMemo(() => qrs.filter(q => printBatchFilter === 'all' || (q.batchId || 'legacy') === printBatchFilter), [qrs, printBatchFilter]);
                 const selectedItems = useMemo(() => {
@@ -2269,7 +2270,7 @@ const resetTestInventory = async () => {
                         </div>
 
                         {/* A4 orientation follows the selected product, never rotates the artwork. */}
-                        <style>{`@media print { @page { size: A4 ${printConfig.templateType === '10x15' ? 'landscape' : 'portrait'}; margin: 0; } }`}</style>
+                        <style>{`@media print { @page { size: A4 ${printConfig.templateType === 'pvc-horizontal' ? 'portrait' : 'landscape'}; margin: 0; } }`}</style>
                         {/* Printable CSS Media Print Wrapper */}
                         <div id="print-area-wrapper" className="hidden">
                             {pages.map((pageItems, pageIdx) => (
