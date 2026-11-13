@@ -151,7 +151,7 @@
                 display: grid !important;
                 grid-template-columns: repeat(5, 54mm) !important;
                 grid-template-rows: repeat(2, 85.6mm) !important;
-                gap: 2mm 2mm !important;
+                gap: 2.5mm 2.5mm !important;
                 justify-content: center !important;
                 align-content: center !important;
                 height: 100% !important;
@@ -228,7 +228,7 @@
 
         /* Exact physical A4 layout shared by screen preview and print. */
         .sheet-preview-grid { display: grid; height: 100%; justify-content: center; align-content: center; box-sizing: border-box; }
-        .sheet-preview-pvc-vertical { grid-template-columns: repeat(5, 54mm); grid-template-rows: repeat(2, 85.6mm); gap: 2mm 2mm; }
+        .sheet-preview-pvc-vertical { grid-template-columns: repeat(5, 54mm); grid-template-rows: repeat(2, 85.6mm); gap: 2.5mm 2.5mm; }
         .a4-sheet-preview:has(.sheet-preview-pvc-vertical) { width: 297mm; min-height: 210mm; height: 210mm; padding: 8mm; }
         .sheet-preview-pvc-horizontal { grid-template-columns: repeat(2, 85.6mm); grid-template-rows: repeat(5, 54mm); gap: 2mm 6mm; }
         .sheet-preview-posters { grid-template-columns: repeat(2, 100mm); grid-template-rows: 150mm; column-gap: 12mm; }
@@ -2853,35 +2853,79 @@ const resetTestInventory = async () => {
                 };
                 const start=async()=>{
                     setCameraError('');
-                    if(!navigator.mediaDevices?.getUserMedia){setCameraError('La cámara requiere HTTPS y permisos de Safari.');return;}
+                    if(!window.isSecureContext){setCameraError('El lector necesita abrirse por HTTPS.');return;}
+                    if(!navigator.mediaDevices?.getUserMedia){setCameraError('Este navegador no permite acceso a la cámara.');return;}
                     try{
-                        let decoder=window.jsQR;
-                        if(!decoder) decoder=await new Promise((resolve,reject)=>{
-                            const script=document.createElement('script');
-                            script.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-                            script.onload=()=>window.jsQR?resolve(window.jsQR):reject(new Error('decoder'));
-                            script.onerror=()=>reject(new Error('decoder'));
-                            document.head.appendChild(script);
-                        });
-                        const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+                        let detector=null,decoder=null;
+                        if('BarcodeDetector' in window){
+                            try{
+                                const supported=await BarcodeDetector.getSupportedFormats();
+                                if(supported.includes('qr_code')) detector=new BarcodeDetector({formats:['qr_code']});
+                            }catch(e){}
+                        }
+                        if(!detector){
+                            decoder=window.jsQR;
+                            if(!decoder) decoder=await new Promise((resolve,reject)=>{
+                                const existing=document.getElementById('tocaqui-jsqr');
+                                if(existing){
+                                    if(window.jsQR){resolve(window.jsQR);return;}
+                                    existing.addEventListener('load',()=>window.jsQR?resolve(window.jsQR):reject(new Error('decoder')),{once:true});
+                                    existing.addEventListener('error',()=>reject(new Error('decoder')),{once:true});
+                                    return;
+                                }
+                                const script=document.createElement('script');
+                                script.id='tocaqui-jsqr';
+                                script.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+                                script.crossOrigin='anonymous';
+                                script.onload=()=>window.jsQR?resolve(window.jsQR):reject(new Error('decoder'));
+                                script.onerror=()=>reject(new Error('decoder'));
+                                document.head.appendChild(script);
+                            });
+                        }
+
+                        let stream;
+                        try{
+                            stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+                        }catch(firstError){
+                            if(firstError?.name==='NotAllowedError'||firstError?.name==='SecurityError') throw firstError;
+                            stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+                        }
                         streamRef.current=stream;
                         const video=videoRef.current;
                         if(!video){stop();return;}
-                        video.srcObject=stream;await video.play();setCameraOn(true);
+                        video.srcObject=stream;
+                        await video.play();
+                        setCameraOn(true);
                         const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
-                        const tick=()=>{
+                        let busy=false;
+                        const tick=async()=>{
                             if(!streamRef.current)return;
-                            if(video.readyState>=2&&video.videoWidth){
-                                canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-                                ctx.drawImage(video,0,0);
-                                const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
-                                const found=decoder(pixels.data,pixels.width,pixels.height,{inversionAttempts:'attemptBoth'});
-                                if(found?.data){scanValue(found.data);return;}
+                            if(!busy&&video.readyState>=2&&video.videoWidth){
+                                busy=true;
+                                try{
+                                    if(detector){
+                                        const codes=await detector.detect(video);
+                                        if(codes?.[0]?.rawValue){scanValue(codes[0].rawValue);return;}
+                                    }else{
+                                        canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+                                        ctx.drawImage(video,0,0);
+                                        const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+                                        const found=decoder(pixels.data,pixels.width,pixels.height,{inversionAttempts:'attemptBoth'});
+                                        if(found?.data){scanValue(found.data);return;}
+                                    }
+                                }catch(e){}
+                                finally{busy=false;}
                             }
                             frameRef.current=requestAnimationFrame(tick);
                         };
                         frameRef.current=requestAnimationFrame(tick);
-                    }catch(e){stop();setCameraError(e?.name==='NotAllowedError'?'Permite el uso de la cámara en Safari.':'No se pudo iniciar el lector. Revisa tu conexión.');}
+                    }catch(e){
+                        stop();
+                        if(e?.name==='NotAllowedError'||e?.name==='SecurityError') setCameraError('Permite el acceso a la cámara para go.tocaqui.store en el navegador.');
+                        else if(e?.name==='NotFoundError') setCameraError('No se encontró una cámara disponible en este equipo.');
+                        else if(e?.name==='NotReadableError') setCameraError('La cámara está siendo usada por otra aplicación. Ciérrala y vuelve a intentar.');
+                        else setCameraError('No se pudo iniciar el lector QR. Puedes buscar el TAG manualmente mientras revisas permisos de cámara.');
+                    }
                 };
                 const lots=[...new Map(qrs.map(q=>[q.batchId||'legacy',{id:q.batchId||'legacy',name:q.batchName||'Sin lote'}])).values()];
                 const filtered=qrs.filter(q=>(lot==='all'||(q.batchId||'legacy')===lot)&&(status==='all'||(status==='active'?q.status==='active':q.status!=='active'))&&(!query||[q.trackingCode,q.businessName,q.batchName].some(v=>String(v||'').toLowerCase().includes(query.toLowerCase())))).slice(0,25);
