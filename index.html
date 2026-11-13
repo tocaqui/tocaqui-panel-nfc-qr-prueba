@@ -528,7 +528,8 @@
                             } else {
                             const scale = (fitMode === 'contain' ? Math.min : Math.max)(targetWidth / img.width, targetHeight / img.height);
                             const renderW = img.width * scale, renderH = img.height * scale;
-                            ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);\n                            }
+                            ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);
+                            }
                         } else {
                             ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
                         }
