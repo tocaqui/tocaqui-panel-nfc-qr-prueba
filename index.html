@@ -185,7 +185,9 @@
         .sheet-preview-pvc-horizontal { grid-template-columns: repeat(5, 54mm); grid-template-rows: repeat(2, 85.6mm); gap: 2mm 2mm; }\n        .a4-sheet-preview:has(.sheet-preview-pvc-horizontal) { width: 297mm; min-height: 210mm; height: 210mm; padding: 8mm; }
         .sheet-preview-posters { grid-template-columns: repeat(2, 100mm); grid-template-rows: 150mm; column-gap: 12mm; }
         .a4-sheet-preview:has(.sheet-preview-posters) { width: 297mm; min-height: 210mm; height: 210mm; padding: 8mm; }
+        @page pvc-ten-landscape { size: A4 landscape; margin: 0; }
         @media print {
+            .print-page-a4:has(.print-grid-pvc-horizontal) { page: pvc-ten-landscape; width: 297mm !important; height: 210mm !important; padding: 8mm !important; }
             .print-page-a4:has(.print-grid-posters) { width: 297mm !important; height: 210mm !important; padding: 8mm !important; }
         }
         /* Only screen preview is scaled; printed A4 stays at 100% physical dimensions. */
