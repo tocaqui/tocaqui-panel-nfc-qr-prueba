@@ -515,7 +515,17 @@
                         ctx.fillRect(0, 0, targetWidth, targetHeight);
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
-                        if (fitMode === 'cover' || fitMode === 'contain') {\n                            if (targetWidth > targetHeight && img.height > img.width) {\n                                const rotated = document.createElement('canvas');\n                                rotated.width = img.height; rotated.height = img.width;\n                                const rc = rotated.getContext('2d');\n                                rc.translate(rotated.width / 2, rotated.height / 2); rc.rotate(-Math.PI / 2);\n                                rc.drawImage(img, -img.width / 2, -img.height / 2);\n                                const scale = (fitMode === 'contain' ? Math.min : Math.max)(targetWidth / rotated.width, targetHeight / rotated.height);\n                                const rw = rotated.width * scale, rh = rotated.height * scale;\n                                ctx.drawImage(rotated, (targetWidth-rw)/2, (targetHeight-rh)/2, rw, rh);\n                            } else {
+                        if (fitMode === 'cover' || fitMode === 'contain') {
+                            if (targetWidth > targetHeight && img.height > img.width) {
+                                const rotated = document.createElement('canvas');
+                                rotated.width = img.height; rotated.height = img.width;
+                                const rc = rotated.getContext('2d');
+                                rc.translate(rotated.width / 2, rotated.height / 2); rc.rotate(-Math.PI / 2);
+                                rc.drawImage(img, -img.width / 2, -img.height / 2);
+                                const scale = (fitMode === 'contain' ? Math.min : Math.max)(targetWidth / rotated.width, targetHeight / rotated.height);
+                                const rw = rotated.width * scale, rh = rotated.height * scale;
+                                ctx.drawImage(rotated, (targetWidth-rw)/2, (targetHeight-rh)/2, rw, rh);
+                            } else {
                             const scale = (fitMode === 'contain' ? Math.min : Math.max)(targetWidth / img.width, targetHeight / img.height);
                             const renderW = img.width * scale, renderH = img.height * scale;
                             ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);\n                            }
