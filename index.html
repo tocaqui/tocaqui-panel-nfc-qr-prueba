@@ -2056,8 +2056,8 @@ const resetTestInventory = async () => {
                                                         const side = printConfig.activeSide;
                                                         const isHorizontal = printConfig.templateType === 'pvc-horizontal';
                                                         const isPoster = printConfig.templateType === '10x15';
-                                                        const targetWidth = isPoster ? 1800 : isHorizontal ? 1712 : 1080;
-                                                        const targetHeight = isPoster ? 1200 : isHorizontal ? 1080 : 1712;
+                                                        const targetWidth = isPoster ? 1200 : isHorizontal ? 1712 : 1080;
+                                                        const targetHeight = isPoster ? 1800 : isHorizontal ? 1080 : 1712;
 
                                                         try {
                                                             const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, artworkFitMode);
