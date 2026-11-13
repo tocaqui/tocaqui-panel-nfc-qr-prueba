@@ -692,10 +692,9 @@ const workshopApi=async(payload)=>{
 };
 const signInAdmin=async(e)=>{
  e.preventDefault();setLoginBusy(true);setCloudError('');
- try{const credential=localStorage.getItem('tocaqui_device_credential_v1')||'';
- if(!credential)throw new Error('Este navegador no está vinculado. Debes vincular el dispositivo autorizado antes de usar el PIN.');
+ try{const credential=localStorage.getItem('tocaqui_device_credential_v1')||Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
  const result=await workshopApi({action:'login',credential,pin:loginPin});
- sessionStorage.setItem('tocaqui_workshop_session',result.session);setWorkshopSession(result.session);
+ localStorage.setItem('tocaqui_device_credential_v1',credential);sessionStorage.setItem('tocaqui_workshop_session',result.session);setWorkshopSession(result.session);
  setLoginPin('');setAuthRevision(v=>v+1);
  }catch(err){setCloudError(err.message)}finally{setLoginBusy(false)}
 };
@@ -2299,7 +2298,7 @@ const resetTestInventory = async () => {
                                 <i className="fa-solid fa-lock text-amber-400"></i> PIN Maestro de Activación (4 dígitos)
                             </h2>
                             <div className="flex gap-2 max-w-xs">
-                                <input type="password" inputMode="numeric" maxLength="4" value={oldPinInput} onChange={e=>setOldPinInput(e.target.value.replace(/\\D/g,''))} placeholder="PIN actual" className="glass-input px-2 py-2 rounded-xl w-28" />
+                                <input type="password" inputMode="numeric" maxLength="4" value={oldPinInput} onChange={e=>setOldPinInput(e.target.value.replace(/\D/g,''))} placeholder="PIN actual" className="glass-input px-2 py-2 rounded-xl w-28" />
                                 <input
                                     type="password"
                                     inputMode="numeric"
@@ -2849,7 +2848,7 @@ const resetTestInventory = async () => {
                         <form onSubmit={signInAdmin} className="rounded-2xl border border-blue-500/40 bg-slate-900 p-5 shadow-xl space-y-3">
                           <h2 className="text-lg font-bold text-white">Acceso privado TOCAQUI</h2>
                           <p className="text-sm text-slate-300">Ingresa el PIN de cuatro dígitos del taller. Se verificará en Supabase desde este dispositivo autorizado.</p>
-                          <input type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength="4" autoComplete="off" required value={loginPin} onChange={e=>setLoginPin(e.target.value.replace(/\\D/g,''))} placeholder="PIN de cuatro dígitos" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white text-center tracking-widest" />
+                          <input type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength="4" autoComplete="off" required value={loginPin} onChange={e=>setLoginPin(e.target.value.replace(/\D/g,''))} placeholder="PIN de cuatro dígitos" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white text-center tracking-widest" />
                           {cloudError && <p role="alert" className="text-amber-300 text-xs">{cloudError}</p>}
                           <button disabled={loginBusy} type="submit" className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white disabled:opacity-60">{loginBusy?'Verificando...':'Entrar al taller'}</button>
                         </form>
