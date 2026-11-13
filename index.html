@@ -168,6 +168,33 @@
             outline: none;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
         }
+
+        /* TOCAQUI Tech Premium — safe integration with existing compiled runtime.
+           Visual changes only; print dimensions and business logic untouched. */
+        @media screen {
+            body { background: #020617; }
+            .glass-panel {
+                background: rgba(11,20,39,.88);
+                border-color: rgba(96,165,250,.16);
+                box-shadow: 0 8px 26px rgba(0,0,0,.12);
+            }
+            .glass-input {
+                background: #091426;
+                border-color: rgba(148,163,184,.22);
+            }
+            .glass-input:focus {
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+            }
+            #root nav button { min-height: 44px; }
+            #root main { background: radial-gradient(ellipse at 90% 0%,rgba(37,99,235,.055),transparent 50%); }
+            #root h1 { letter-spacing: -.025em; }
+            @media (max-width:639px) {
+                #root main { padding: 14px 12px 28px; }
+                #root .glass-panel { border-radius: 16px; }
+                #root nav button { min-height: 44px; }
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen">
