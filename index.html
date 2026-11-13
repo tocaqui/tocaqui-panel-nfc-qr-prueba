@@ -87,6 +87,15 @@
             .no-print, nav, header, sidebar, button, .modal-backdrop, .no-print-area {
                 display: none !important;
             }
+            #print-area-wrapper {
+                display: block !important;
+                visibility: visible !important;
+            }
+            #print-area-wrapper,
+            #print-area-wrapper * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
             .print-page-a4 {
                 display: block !important;
                 width: 210mm !important;
