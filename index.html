@@ -28,6 +28,8 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <!-- Fast QR decoder fallback for browsers without BarcodeDetector -->
     <script id="tocaqui-jsqr" src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <!-- Google Identity Services: OAuth transient token for Google Cloud administration -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <!-- FontAwesome 6 Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -662,6 +664,16 @@
                 }
             });
 
+            const [googleCloudConfig, setGoogleCloudConfig] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('tocaqui_google_cloud_config_v1');
+                    return saved ? JSON.parse(saved) : { projectId: '', oauthClientId: '', configured: false };
+                } catch (e) {
+                    return { projectId: '', oauthClientId: '', configured: false };
+                }
+            });
+            const [googleCloudKeys, setGoogleCloudKeys] = useState([]);
+
             const [cloudDbConfig, setCloudDbConfig] = useState(() => {
                 try {
                     const saved = localStorage.getItem('cloud_db_config_v6');
@@ -756,6 +768,7 @@
             useEffect(() => { try { void masterPin; } catch (e){} }, [masterPin]);
             useEffect(() => { try { localStorage.setItem('google_places_api_key_v6', googleApiKey); } catch (e){} }, [googleApiKey]);
             useEffect(() => { try { localStorage.setItem('gdrive_config_v6', JSON.stringify(driveConfig)); } catch (e){} }, [driveConfig]);
+            useEffect(() => { try { localStorage.setItem('tocaqui_google_cloud_config_v1', JSON.stringify(googleCloudConfig)); } catch (e){} }, [googleCloudConfig]);
             useEffect(() => { try { localStorage.setItem('cloud_db_config_v6', JSON.stringify(cloudDbConfig)); } catch (e){} }, [cloudDbConfig]);
 
             useEffect(()=>{try{localStorage.setItem('nfc_qrs_v6',JSON.stringify(qrs))}catch(e){}},[qrs]);
