@@ -498,7 +498,7 @@
             return await googlePlacesLoaderPromise;
         };
 
-        const compressImageToDataURL = (file, targetWidth = 600, targetHeight = 950, quality = 0.9, fitMode = 'stretch') => {
+        const compressImageToDataURL = (file, targetWidth = 600, targetHeight = 950, quality = 0.9, fitMode = 'contain') => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = (event) => {
@@ -517,8 +517,12 @@
                             const scale = Math.max(targetWidth / img.width, targetHeight / img.height);
                             const renderW = img.width * scale, renderH = img.height * scale;
                             ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);
-                        } else {
+                        } else if (fitMode === 'stretch') {
                             ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                        } else {
+                            const scale = Math.min(targetWidth / img.width, targetHeight / img.height);
+                            const renderW = img.width * scale, renderH = img.height * scale;
+                            ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);
                         }
                         resolve(canvas.toDataURL('image/jpeg', quality));
                     };
@@ -1738,7 +1742,7 @@ const resetTestInventory = async () => {
                     return selected.length && ids.length === 1 ? ids[0] : 'all';
                 });
                 const [previewZoom, setPreviewZoom] = useState(58);
-                const [artworkFitMode, setArtworkFitMode] = useState('stretch');
+                const [artworkFitMode, setArtworkFitMode] = useState('contain');
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
                 const [qrMoveEnabled, setQrMoveEnabled] = useState(true);
                 const [qrDragPosition, setQrDragPosition] = useState(() => {
@@ -2052,8 +2056,8 @@ const resetTestInventory = async () => {
                                                         const side = printConfig.activeSide;
                                                         const isHorizontal = printConfig.templateType === 'pvc-horizontal';
                                                         const isPoster = printConfig.templateType === '10x15';
-                                                        const targetWidth = isPoster ? 1200 : isHorizontal ? 1712 : 1080;
-                                                        const targetHeight = isPoster ? 1800 : isHorizontal ? 1080 : 1712;
+                                                        const targetWidth = isPoster ? 1800 : isHorizontal ? 1712 : 1080;
+                                                        const targetHeight = isPoster ? 1200 : isHorizontal ? 1080 : 1712;
 
                                                         try {
                                                             const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, artworkFitMode);
@@ -2151,7 +2155,7 @@ const resetTestInventory = async () => {
 
                                 <div className="flex flex-wrap items-center gap-2 no-print text-xs text-slate-400">
                                     <span>Ajuste de imagen:</span>
-                                    <button type="button" onClick={()=>setArtworkFitMode('stretch')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='stretch'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Diseño completo</button>
+                                    <button type="button" onClick={()=>setArtworkFitMode('contain')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='contain'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Automático · imagen completa</button>
                                     <button type="button" onClick={()=>setArtworkFitMode('cover')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='cover'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Sin deformar (recorta)</button>
                                     <span className="text-[10px]">Vuelve a cargar la imagen para aplicar el ajuste.</span>
                                 </div>
