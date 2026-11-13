@@ -2430,6 +2430,11 @@ const resetTestInventory = async () => {
                 const [devicesLoading, setDevicesLoading] = useState(false);
                 const [deviceActionBusy, setDeviceActionBusy] = useState(false);
                 const [pairingInfo, setPairingInfo] = useState(null);
+                const [showRevokedDevices, setShowRevokedDevices] = useState(false);
+                const [googleCloudBusy, setGoogleCloudBusy] = useState(false);
+                const [googleCloudMessage, setGoogleCloudMessage] = useState('');
+                const [cloudProjectInput, setCloudProjectInput] = useState(googleCloudConfig.projectId || '');
+                const [cloudOAuthInput, setCloudOAuthInput] = useState(googleCloudConfig.oauthClientId || driveConfig.clientId || '');
                 useEffect(() => {
                     const refresh = () => setPlacesUsage(readPlacesUsage());
                     window.addEventListener('tocaqui-places-usage-updated', refresh);
@@ -2512,6 +2517,186 @@ const resetTestInventory = async () => {
                         else await copyDeviceAccess(pairingInfo.url, 'Enlace de vinculación');
                     } catch (e) {
                         if (e?.name !== 'AbortError') showToast('No se pudo compartir el acceso.', 'error');
+                    }
+                };
+
+                const activeDevices = authorizedDevices.filter(device => !device.revoked_at);
+                const revokedDevices = authorizedDevices.filter(device => !!device.revoked_at);
+                const visibleDevices = showRevokedDevices ? revokedDevices : activeDevices;
+
+                const saveGoogleCloudBootstrap = () => {
+                    const projectId = cloudProjectInput.trim();
+                    const oauthClientId = cloudOAuthInput.trim();
+                    if (!projectId || !oauthClientId) {
+                        setGoogleCloudMessage('Completa Project ID y OAuth Client ID.');
+                        return false;
+                    }
+                    setGoogleCloudConfig(prev => ({ ...prev, projectId, oauthClientId, configured:true }));
+                    setGoogleCloudMessage('Configuración base guardada. Ya puedes autorizar Google Cloud.');
+                    return true;
+                };
+
+                const getGoogleCloudToken = async () => {
+                    const projectId = cloudProjectInput.trim() || googleCloudConfig.projectId;
+                    const oauthClientId = cloudOAuthInput.trim() || googleCloudConfig.oauthClientId;
+                    if (!projectId || !oauthClientId) throw new Error('Guarda Project ID y OAuth Client ID primero.');
+                    const cached = window.__tocaquiGoogleCloudToken;
+                    if (cached?.accessToken && cached.expiresAt > Date.now() + 60000) return cached.accessToken;
+                    if (!window.google?.accounts?.oauth2) throw new Error('Google Identity Services todavía no está disponible. Recarga la página.');
+                    const token = await new Promise((resolve,reject)=>{
+                        const client = window.google.accounts.oauth2.initTokenClient({
+                            client_id: oauthClientId,
+                            scope: 'https://www.googleapis.com/auth/cloud-platform',
+                            callback: response => {
+                                if (response?.error || !response?.access_token) reject(new Error(response?.error_description || response?.error || 'Google no entregó autorización.'));
+                                else resolve(response);
+                            }
+                        });
+                        client.requestAccessToken({ prompt:'consent' });
+                    });
+                    window.__tocaquiGoogleCloudToken = {
+                        accessToken: token.access_token,
+                        expiresAt: Date.now() + Math.max(300, Number(token.expires_in || 3600)) * 1000
+                    };
+                    return token.access_token;
+                };
+
+                const googleCloudFetch = async (url, token, options={}) => {
+                    const response = await fetch(url, {
+                        ...options,
+                        headers: {
+                            ...(options.body ? {'Content-Type':'application/json'} : {}),
+                            ...(options.headers || {}),
+                            Authorization: 'Bearer ' + token
+                        }
+                    });
+                    const text = await response.text();
+                    let data = {};
+                    try { data = text ? JSON.parse(text) : {}; } catch { data = { raw:text }; }
+                    if (!response.ok) throw new Error(data?.error?.message || data?.message || ('Google Cloud respondió ' + response.status));
+                    return data;
+                };
+
+                const waitGoogleOperation = async (baseUrl, operationName, token) => {
+                    if (!operationName) return {};
+                    for (let attempt=0; attempt<30; attempt++) {
+                        const result = await googleCloudFetch(baseUrl + '/' + operationName, token);
+                        if (result.done) {
+                            if (result.error) throw new Error(result.error.message || 'La operación de Google Cloud falló.');
+                            return result.response || result;
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 700));
+                    }
+                    throw new Error('Google Cloud aún está procesando la operación. Intenta actualizar en unos segundos.');
+                };
+
+                const enableGoogleService = async (projectId, service, token) => {
+                    const result = await googleCloudFetch(
+                        'https://serviceusage.googleapis.com/v1/projects/' + encodeURIComponent(projectId) + '/services/' + encodeURIComponent(service) + ':enable',
+                        token,
+                        { method:'POST', body:'{}' }
+                    );
+                    if (result.name) await waitGoogleOperation('https://serviceusage.googleapis.com/v1', result.name, token);
+                };
+
+                const refreshGoogleCloudKeys = async () => {
+                    if (googleCloudBusy) return;
+                    setGoogleCloudBusy(true);
+                    setGoogleCloudMessage('Consultando claves de Google Cloud…');
+                    try {
+                        const projectId = cloudProjectInput.trim() || googleCloudConfig.projectId;
+                        const token = await getGoogleCloudToken();
+                        const result = await googleCloudFetch(
+                            'https://apikeys.googleapis.com/v2/projects/' + encodeURIComponent(projectId) + '/locations/global/keys?showDeleted=false',
+                            token
+                        );
+                        setGoogleCloudKeys(Array.isArray(result.keys) ? result.keys : []);
+                        setGoogleCloudMessage('Claves sincronizadas con Google Cloud.');
+                    } catch (e) {
+                        setGoogleCloudMessage(e.message || 'No se pudieron cargar las claves.');
+                    } finally {
+                        setGoogleCloudBusy(false);
+                    }
+                };
+
+                const createGoogleCloudKey = async () => {
+                    if (googleCloudBusy) return;
+                    setGoogleCloudBusy(true);
+                    setGoogleCloudMessage('Preparando Google Cloud…');
+                    try {
+                        const projectId = cloudProjectInput.trim() || googleCloudConfig.projectId;
+                        const oauthClientId = cloudOAuthInput.trim() || googleCloudConfig.oauthClientId;
+                        if (!projectId || !oauthClientId) throw new Error('Completa y guarda Project ID y OAuth Client ID primero.');
+                        setGoogleCloudConfig(prev => ({...prev, projectId, oauthClientId, configured:true}));
+                        const token = await getGoogleCloudToken();
+
+                        setGoogleCloudMessage('Habilitando API Keys, Maps JavaScript y Places…');
+                        await enableGoogleService(projectId, 'apikeys.googleapis.com', token);
+                        await enableGoogleService(projectId, 'maps-backend.googleapis.com', token);
+                        await enableGoogleService(projectId, 'places.googleapis.com', token);
+
+                        setGoogleCloudMessage('Creando clave restringida para TOCAQUI…');
+                        const created = await googleCloudFetch(
+                            'https://apikeys.googleapis.com/v2/projects/' + encodeURIComponent(projectId) + '/locations/global/keys',
+                            token,
+                            {
+                                method:'POST',
+                                body: JSON.stringify({
+                                    displayName: 'TOCAQUI Places ' + new Date().toLocaleDateString('es-CL'),
+                                    restrictions: {
+                                        browserKeyRestrictions: {
+                                            allowedReferrers: [
+                                                'https://go.tocaqui.store',
+                                                'https://go.tocaqui.store/*'
+                                            ]
+                                        },
+                                        apiTargets: [
+                                            { service:'maps-backend.googleapis.com' },
+                                            { service:'places.googleapis.com' }
+                                        ]
+                                    }
+                                })
+                            }
+                        );
+                        const keyResource = created.name
+                            ? await waitGoogleOperation('https://apikeys.googleapis.com/v2', created.name, token)
+                            : created;
+                        const keyName = keyResource.name || keyResource.response?.name;
+                        if (!keyName) throw new Error('Google creó la operación, pero no devolvió el recurso de la clave.');
+                        const keyData = await googleCloudFetch('https://apikeys.googleapis.com/v2/' + keyName + '/keyString', token);
+                        if (!keyData.keyString) throw new Error('No se pudo recuperar la nueva clave.');
+                        setGoogleApiKey(keyData.keyString);
+                        setKeyInput(keyData.keyString);
+                        setGoogleCloudConfig(prev => ({...prev, projectId, oauthClientId, configured:true, activeKeyName:keyName, lastCreatedAt:new Date().toISOString()}));
+                        const list = await googleCloudFetch(
+                            'https://apikeys.googleapis.com/v2/projects/' + encodeURIComponent(projectId) + '/locations/global/keys?showDeleted=false',
+                            token
+                        );
+                        setGoogleCloudKeys(Array.isArray(list.keys) ? list.keys : []);
+                        setGoogleCloudMessage('Nueva clave creada, restringida y aplicada a TOCAQUI.');
+                    } catch (e) {
+                        setGoogleCloudMessage(e.message || 'No se pudo crear la clave.');
+                    } finally {
+                        setGoogleCloudBusy(false);
+                    }
+                };
+
+                const useGoogleCloudKey = async key => {
+                    if (googleCloudBusy || !key?.name) return;
+                    setGoogleCloudBusy(true);
+                    setGoogleCloudMessage('Aplicando clave seleccionada…');
+                    try {
+                        const token = await getGoogleCloudToken();
+                        const result = await googleCloudFetch('https://apikeys.googleapis.com/v2/' + key.name + '/keyString', token);
+                        if (!result.keyString) throw new Error('Google no devolvió la clave.');
+                        setGoogleApiKey(result.keyString);
+                        setKeyInput(result.keyString);
+                        setGoogleCloudConfig(prev => ({...prev, activeKeyName:key.name}));
+                        setGoogleCloudMessage('Clave aplicada a Google Places en TOCAQUI.');
+                    } catch (e) {
+                        setGoogleCloudMessage(e.message || 'No se pudo aplicar la clave.');
+                    } finally {
+                        setGoogleCloudBusy(false);
                     }
                 };
 
