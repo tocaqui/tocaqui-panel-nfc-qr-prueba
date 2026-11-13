@@ -513,7 +513,19 @@
                         ctx.fillRect(0, 0, targetWidth, targetHeight);
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
-                        if (fitMode === 'cover') {
+                        if (fitMode === 'smart-horizontal') {
+                            // Keep the entire composition readable; fill the unused sides with a
+                            // softly blurred extension rather than cropping the headline or footer.
+                            const coverScale = Math.max(targetWidth / img.width, targetHeight / img.height);
+                            const coverW = img.width * coverScale, coverH = img.height * coverScale;
+                            ctx.save();
+                            ctx.filter = 'blur(35px)';
+                            ctx.drawImage(img, (targetWidth-coverW)/2-45, (targetHeight-coverH)/2-45, coverW+90, coverH+90);
+                            ctx.restore();
+                            const scale = Math.min(targetWidth / img.width, targetHeight / img.height);
+                            const renderW = img.width * scale, renderH = img.height * scale;
+                            ctx.drawImage(img, (targetWidth-renderW)/2, (targetHeight-renderH)/2, renderW, renderH);
+                        } else if (fitMode === 'cover') {
                             const scale = Math.max(targetWidth / img.width, targetHeight / img.height);
                             const renderW = img.width * scale, renderH = img.height * scale;
                             ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);
@@ -1754,7 +1766,7 @@ const resetTestInventory = async () => {
                     const isHorizontal=printConfig.templateType==='pvc-horizontal';
                     const width=isPoster?1200:isHorizontal?1712:1080;
                     const height=isPoster?1800:isHorizontal?1080:1712;
-                    compressImageToDataURL(original,width,height,0.92,artworkFitMode).then(adapted=>{
+                    compressImageToDataURL(original,width,height,0.92,isHorizontal && artworkFitMode==='cover' ? 'smart-horizontal' : artworkFitMode).then(adapted=>{
                         if(cancelled)return;
                         setPrintConfig(prev=>({...prev,theme:'custom',...(side==='front'?{customFrontBg:adapted}:{customBackBg:adapted})}));
                     }).catch(err=>console.error('No se pudo adaptar imagen al formato',err));
@@ -2077,7 +2089,7 @@ const resetTestInventory = async () => {
 
                                                         try {
                                                             setOriginalArtwork(prev=>({...prev,[side]:file}));
-                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, artworkFitMode);
+                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, isHorizontal && artworkFitMode==='cover' ? 'smart-horizontal' : artworkFitMode);
                                                             setPrintConfig(prev => ({
                                                                 ...prev,
                                                                 theme: 'custom',
