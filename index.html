@@ -91,6 +91,29 @@
                 display: block !important;
                 visibility: visible !important;
             }
+            /* El área imprimible vive dentro del main marcado no-print.
+               Al imprimir A4 hay que restaurar ese ancestro; un hijo no puede
+               hacerse visible si su padre tiene display:none. */
+            main.tocaqui-app-main.no-print {
+                display: block !important;
+                overflow: visible !important;
+                padding: 0 !important;
+                width: auto !important;
+                height: auto !important;
+            }
+            #root > div {
+                min-height: 0 !important;
+                background: #ffffff !important;
+            }
+            #root > div > .flex-1.flex.overflow-hidden {
+                display: block !important;
+                overflow: visible !important;
+            }
+            main.tocaqui-app-main > div {
+                max-width: none !important;
+                margin: 0 !important;
+                overflow: visible !important;
+            }
             #print-area-wrapper,
             #print-area-wrapper * {
                 -webkit-print-color-adjust: exact !important;
