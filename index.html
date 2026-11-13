@@ -2873,22 +2873,84 @@ const resetTestInventory = async () => {
                             </div>
                         </div>
 
-                        <div className="glass-panel p-6 rounded-2xl space-y-4">
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                                <i className="fa-brands fa-google text-blue-400"></i> Google Places API Key
-                            </h2>
-                            <div className="flex gap-2">
-                                <input
-                                    type="password"
-                                    value={keyInput}
-                                    onChange={e => setKeyInput(e.target.value)}
-                                    placeholder="AIzaSyB..."
-                                    className="flex-1 glass-input px-3.5 py-2.5 rounded-xl text-sm font-mono"
-                                />
-                                <button onClick={saveSettings} className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2.5 rounded-xl text-xs">
-                                    Guardar Key
+                        <div className="glass-panel p-6 rounded-2xl space-y-4 border border-blue-500/20">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                <div>
+                                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                        <i className="fa-brands fa-google text-blue-400"></i> Google Cloud · Claves de Maps / Places
+                                    </h2>
+                                    <p className="text-xs text-slate-400 mt-1">Crea, rota y selecciona la clave que usa TOCAQUI sin volver al panel de Google para la operación diaria.</p>
+                                </div>
+                                <span className={googleApiKey?'shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold text-emerald-300':'shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold text-amber-300'}>
+                                    <i className={googleApiKey?'fa-solid fa-circle-check mr-1':'fa-solid fa-triangle-exclamation mr-1'}></i>{googleApiKey?'Clave activa':'Sin clave activa'}
+                                </span>
+                            </div>
+
+                            <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-300 flex items-center justify-center text-xs font-bold">1</span>
+                                    <div><div className="text-sm font-semibold text-white">Configuración inicial</div><div className="text-[11px] text-slate-500">Se hace una sola vez por proyecto.</div></div>
+                                </div>
+                                <input type="text" value={cloudProjectInput} onChange={e=>setCloudProjectInput(e.target.value)} placeholder="Google Cloud Project ID" className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono"/>
+                                <input type="text" value={cloudOAuthInput} onChange={e=>setCloudOAuthInput(e.target.value)} placeholder="OAuth Client ID ...apps.googleusercontent.com" className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono"/>
+                                <button type="button" onClick={saveGoogleCloudBootstrap} className="w-full rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 py-2.5 text-xs font-semibold text-white">
+                                    <i className="fa-solid fa-floppy-disk mr-2"></i>Guardar configuración base
                                 </button>
                             </div>
+
+                            <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 flex items-center justify-center text-xs font-bold">2</span>
+                                    <div><div className="text-sm font-semibold text-white">Administrar claves</div><div className="text-[11px] text-slate-500">Google pedirá autorización de tu cuenta cuando sea necesario.</div></div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <button type="button" disabled={googleCloudBusy} onClick={createGoogleCloudKey} className="rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-3 px-3 text-xs font-bold text-white">
+                                        <i className="fa-solid fa-key mr-2"></i>{googleCloudBusy?'Procesando…':'Generar nueva clave'}
+                                    </button>
+                                    <button type="button" disabled={googleCloudBusy} onClick={refreshGoogleCloudKeys} className="rounded-xl border border-cyan-500/25 bg-cyan-500/10 hover:bg-cyan-500/15 disabled:opacity-50 py-3 px-3 text-xs font-bold text-cyan-200">
+                                        <i className="fa-solid fa-rotate mr-2"></i>Sincronizar claves
+                                    </button>
+                                </div>
+                                {googleCloudMessage&&<div className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-[11px] text-slate-300">{googleCloudBusy&&<i className="fa-solid fa-spinner fa-spin mr-2 text-blue-300"></i>}{googleCloudMessage}</div>}
+                            </div>
+
+                            <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div>
+                                        <div className="text-sm font-semibold text-white">Claves del proyecto</div>
+                                        <div className="text-[11px] text-slate-500">{googleCloudKeys.length ? googleCloudKeys.length + ' encontrada(s)' : 'Pulsa Sincronizar claves para consultar Google Cloud.'}</div>
+                                    </div>
+                                </div>
+                                {googleCloudKeys.length>0&&(
+                                    <div className="space-y-2 max-h-72 overflow-y-auto">
+                                        {googleCloudKeys.map(key=>{
+                                            const inUse = googleCloudConfig.activeKeyName===key.name;
+                                            return (
+                                                <div key={key.name} className="rounded-xl border border-slate-800 bg-slate-900/70 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="text-sm font-semibold text-white truncate">{key.displayName||'Clave Google Cloud'}</span>
+                                                            {inUse&&<span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-300">EN USO</span>}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-500 mt-1">Creada: {key.createTime?new Date(key.createTime).toLocaleString('es-CL'):'Sin fecha'} · Restricción web + Maps/Places</div>
+                                                    </div>
+                                                    {!inUse&&<button type="button" disabled={googleCloudBusy} onClick={()=>useGoogleCloudKey(key)} className="shrink-0 rounded-lg border border-blue-500/25 bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-200 disabled:opacity-50">Usar en TOCAQUI</button>}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            <details className="rounded-2xl border border-slate-800 bg-slate-950/35 p-4">
+                                <summary className="cursor-pointer text-xs font-semibold text-slate-300">Clave manual / respaldo</summary>
+                                <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                                    <input type="password" value={keyInput} onChange={e=>setKeyInput(e.target.value)} placeholder="AIzaSyB..." className="flex-1 glass-input px-3.5 py-2.5 rounded-xl text-sm font-mono"/>
+                                    <button type="button" onClick={saveSettings} className="rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 text-xs">Guardar manualmente</button>
+                                </div>
+                            </details>
+
+                            <p className="text-[10px] leading-4 text-slate-500">Las nuevas claves se crean con restricción de navegador para <span className="font-mono text-slate-400">go.tocaqui.store</span> y restricciones para Maps JavaScript API y Places API. Generar otra clave no reinicia cuotas ni facturación del proyecto.</p>
                         </div>
 
                         <div className="glass-panel p-6 rounded-2xl space-y-3">
