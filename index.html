@@ -1763,7 +1763,7 @@ const resetTestInventory = async () => {
                     const isHorizontal=printConfig.templateType==='pvc-horizontal';
                     const width=isPoster?1200:isHorizontal?1712:1080;
                     const height=isPoster?1800:isHorizontal?1080:1712;
-                    compressImageToDataURL(original,width,height,0.92,isHorizontal && artworkFitMode==='cover' ? 'contain' : artworkFitMode).then(adapted=>{
+                    compressImageToDataURL(original,width,height,0.92,artworkFitMode).then(adapted=>{
                         if(cancelled)return;
                         setPrintConfig(prev=>({...prev,theme:'custom',...(side==='front'?{customFrontBg:adapted}:{customBackBg:adapted})}));
                     }).catch(err=>console.error('No se pudo adaptar imagen al formato',err));
@@ -2088,7 +2088,7 @@ const resetTestInventory = async () => {
 
                                                         try {
                                                             setOriginalArtwork(prev=>({...prev,[side]:file}));
-                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, isHorizontal && artworkFitMode==='cover' ? 'contain' : artworkFitMode);
+                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, artworkFitMode);
                                                             setPrintConfig(prev => ({
                                                                 ...prev,
                                                                 theme: 'custom',
