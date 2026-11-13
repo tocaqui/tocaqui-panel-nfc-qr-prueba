@@ -2729,7 +2729,7 @@ const resetTestInventory = async () => {
                 const [selectedPlace, setSelectedPlace] = useState(qr.businessName ? { name: qr.businessName, address: qr.businessAddress || '', placeId: qr.placeId || 'ChIJMock' } : null);
                 const [presetType, setPresetType] = useState(qr.functionType || 'review_gate');
                 const [customUrl, setCustomUrl] = useState(qr.dynamicUrl || '');
-                const [assignedClient, setAssignedClient] = useState(qr.clientId || clients[0]?.id || '');
+                const [assignedClient, setAssignedClient] = useState(qr.clientId || '');
 
                 const [placeSuggestions, setPlaceSuggestions] = useState([]);
                 const [placesLoading, setPlacesLoading] = useState(false);
@@ -2917,142 +2917,118 @@ const resetTestInventory = async () => {
                 };
 
                 return (
-                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div className="glass-panel w-full max-w-xl rounded-2xl p-6 border border-slate-700 max-h-[90vh] overflow-y-auto">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-bold text-lg text-white">Configurar Tarjeta {cardNumber(qr)}</h3>
-                                <button onClick={() => setActivateModal({ open: false, qr: null })} className="text-slate-400"><i className="fa-solid fa-xmark text-lg"></i></button>
+                    <div className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+                        <div className="w-full max-w-2xl max-h-[94dvh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl">
+                            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-950/95 backdrop-blur px-4 sm:px-5 py-4">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-300 flex items-center justify-center"><i className="fa-solid fa-id-card"></i></span>
+                                    <div className="min-w-0">
+                                        <h3 className="font-bold text-white text-base sm:text-lg">{qr.status==='active'?'Editar asignación':'Asignar tarjeta'}</h3>
+                                        <p className="text-[11px] text-slate-400 font-mono truncate">{qr.trackingCode}</p>
+                                    </div>
+                                </div>
+                                <button type="button" onClick={() => setActivateModal({open:false,qr:null})} className="w-9 h-9 shrink-0 rounded-xl bg-slate-800 text-slate-300" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
                             </div>
 
-                                <div className="space-y-5">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">1. Vincular a Cliente</label>
-                                        <div className="max-h-40 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2" role="group" aria-label="Seleccionar cliente">
-                                            {clients.map(c => <button key={c.id} type="button" aria-pressed={assignedClient===c.id} onClick={()=>setAssignedClient(c.id)}
-                                                className={`rounded-lg border p-2.5 text-left text-xs ${assignedClient===c.id?'border-blue-400 bg-blue-600/20 text-white':'border-slate-700 bg-slate-900 text-slate-300'}`}>
-                                                <span className="block font-semibold truncate">{c.name}</span><span className="block text-[10px] text-slate-400 truncate">{c.company}</span>
-                                            </button>)}
-                                        </div>
+                            <div className="p-4 sm:p-5 space-y-4">
+                                <section className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <span className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-300 flex items-center justify-center text-xs font-bold">1</span>
+                                        <div><h4 className="text-sm font-bold text-white">Cliente</h4><p className="text-[11px] text-slate-500">Opcional. Define a quién pertenece la tarjeta.</p></div>
+                                    </div>
+                                    <select value={assignedClient} onChange={e=>setAssignedClient(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-sm">
+                                        <option value="">Sin cliente asignado</option>
+                                        {clients.map(c=><option key={c.id} value={c.id}>{c.name}{c.company?' · '+c.company:''}</option>)}
+                                    </select>
+                                </section>
+
+                                <section className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <span className="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-300 flex items-center justify-center text-xs font-bold">2</span>
+                                        <div><h4 className="text-sm font-bold text-white">Negocio</h4><p className="text-[11px] text-slate-500">Busca y confirma el local que recibirá la tarjeta.</p></div>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">2. Vincular negocio por Place ID real</label>
-                                        {!googleApiKey ? (
-                                            <p className="text-xs text-amber-300 mb-2">Google Places está listo para integrarse, pero falta guardar la API Key en Configuración & APIs. Mientras tanto puedes ingresar el Place ID oficial manualmente.</p>
-                                        ) : (
-                                            <p className="text-xs text-emerald-300 mb-2">Búsqueda real de Google Places habilitada. También puedes usar el Place ID oficial manualmente.</p>
-                                        )}
-                                        <input type="text" className="w-full glass-input px-3 py-2 mb-2" placeholder="Nombre comercial" value={manualBusinessName} onChange={e=>setManualBusinessName(e.target.value)}/>
-                                        <input type="text" className="w-full glass-input px-3 py-2 mb-2" placeholder="Place ID (ChIJ...)" value={manualPlaceId} onChange={e=>setManualPlaceId(e.target.value)}/>
-                                        <button type="button" onClick={()=>{if(manualPlaceId.trim()&&manualBusinessName.trim())setSelectedPlace({name:manualBusinessName.trim(),address:'',placeId:manualPlaceId.trim()})}} className="bg-slate-700 rounded px-3 py-2 text-xs mb-2">Aplicar Place ID</button>
-
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                placeholder={googleApiKey ? "Buscar negocio real en Google..." : "Guarda la API Key para buscar negocios..."}
-                                                value={searchQuery}
-                                                disabled={!googleApiKey}
-                                                onChange={e => { setSearchQuery(e.target.value); setSelectedPlace(null); }}
-                                                className="w-full glass-input px-3.5 py-2.5 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                            />
-                                            {placesLoading && (
-                                                <i className="fa-solid fa-spinner fa-spin absolute right-3 top-3 text-blue-400 text-sm"></i>
+                                    {selectedPlace ? (
+                                        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3 flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <div className="text-sm font-semibold text-white truncate">{selectedPlace.name}</div>
+                                                <div className="text-[11px] text-slate-400 truncate">{selectedPlace.address||selectedPlace.placeId}</div>
+                                            </div>
+                                            <button type="button" onClick={()=>{setSelectedPlace(null);setSearchQuery('');}} className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-200">Cambiar</button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <div className="relative">
+                                                <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
+                                                <input type="text" placeholder={googleApiKey?'Buscar negocio en Google...':'Google Places no está configurado'} value={searchQuery} disabled={!googleApiKey} onChange={e=>{setSearchQuery(e.target.value);setSelectedPlace(null);}} className="w-full glass-input pl-9 pr-9 py-3 rounded-xl text-sm disabled:opacity-50"/>
+                                                {placesLoading&&<i className="fa-solid fa-spinner fa-spin absolute right-3 top-3.5 text-cyan-400 text-xs"></i>}
+                                            </div>
+                                            {placesError&&<p className="text-[11px] text-rose-300 mt-2">{placesError}</p>}
+                                            {searchQuery&&placeSuggestions.length>0&&(
+                                                <div className="mt-2 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 divide-y divide-slate-800">
+                                                    {placeSuggestions.map((prediction,idx)=>(
+                                                        <button type="button" key={prediction.placeId||idx} onClick={()=>selectGooglePlace(prediction)} className="w-full px-3 py-3 hover:bg-slate-900 text-left flex items-center justify-between gap-3">
+                                                            <span className="min-w-0"><span className="block text-sm font-semibold text-white truncate">{prediction.mainText?.text||prediction.text?.text||'Negocio'}</span><span className="block text-[11px] text-slate-500 truncate">{prediction.secondaryText?.text||''}</span></span>
+                                                            <i className="fa-solid fa-chevron-right text-slate-600 text-xs"></i>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             )}
                                         </div>
-                                        {placesError && <p className="text-[11px] text-red-300 mt-2">{placesError}</p>}
-                                        {searchQuery && !selectedPlace && placeSuggestions.length > 0 && (
-                                            <div className="mt-2 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-800">
-                                                {placeSuggestions.map((prediction, idx) => (
-                                                    <button
-                                                        type="button"
-                                                        key={prediction.placeId || idx}
-                                                        onClick={() => selectGooglePlace(prediction)}
-                                                        className="w-full p-3 hover:bg-slate-800 cursor-pointer text-xs flex justify-between items-center text-left"
-                                                    >
-                                                        <div className="min-w-0">
-                                                            <div className="font-bold text-white truncate">{prediction.mainText?.text || prediction.text?.text || 'Negocio'}</div>
-                                                            <div className="text-slate-400 truncate">{prediction.secondaryText?.text || prediction.text?.text || ''}</div>
-                                                        </div>
-                                                        <span className="text-blue-400 font-mono text-[10px] ml-3 flex-shrink-0">Seleccionar</span>
-                                                    </button>
-                                                ))}
-                                                <div className="px-3 py-2 text-[10px] text-slate-500 text-right">Resultados de Google</div>
-                                            </div>
-                                        )}
-                                        {selectedPlace && (
-                                            <div className="mt-2 bg-blue-600/10 border border-blue-500/30 p-3 rounded-xl flex justify-between items-center text-xs">
-                                                <div><div className="font-bold text-white">{selectedPlace.name}</div><div className="text-slate-400">{selectedPlace.address}</div></div>
-                                                <button onClick={() => setSelectedPlace(null)} className="text-slate-400 hover:text-red-400">Cambiar</button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-300 uppercase mb-2">3. Función de Destino</label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {[
-                                                { id: 'review_gate', name: 'Filtro 5 Estrellas (Review Gate)' },
-                                                { id: 'google_review', name: 'Directo Google Reviews' },
-                                                { id: 'custom_url', name: 'URL Personalizada / PDF' }
-                                            ].map(fn => (
-                                                <button key={fn.id} type="button" onClick={() => setPresetType(fn.id)} className={`p-3 rounded-xl border text-xs font-semibold text-left ${presetType === fn.id ? 'bg-blue-600/30 border-blue-500 text-white' : 'bg-slate-800/40 border-slate-700/60 text-slate-400'}`}>
-                                                    {fn.name}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {presetType === 'custom_url' && (
-                                        <input type="url" value={customUrl} onChange={e => setCustomUrl(e.target.value)} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono" placeholder="https://..." />
                                     )}
 
-                                    {!deviceCredential && <div className="glass-panel p-4 rounded-2xl border border-blue-500/20 space-y-2">
-                                        <label className="block text-xs font-semibold text-slate-300 uppercase">Vincular dispositivo (una sola vez)</label>
-                                        <p className="text-[11px] text-slate-400">Código de autorización, sin correo ni contraseña.</p>
-                                        <input value={pairCode} onChange={e=>setPairCode(e.target.value.trim().toLowerCase())} className="w-full glass-input px-3.5 py-3 rounded-xl text-xs font-mono" placeholder="Código de vinculación" autoComplete="off" />
-                                        {pairError && <p role="alert" className="text-[11px] text-red-300">{pairError}</p>}
-                                        <button type="button" onClick={pairDevice} disabled={pairBusy||!/^[a-f0-9]{64}$/.test(pairCode)} className="w-full py-2.5 bg-blue-600 rounded-xl text-sm font-semibold text-white disabled:opacity-40">{pairBusy?'Vinculando...':'Vincular dispositivo'}</button>
-                                    </div>}
-                                    {deviceCredential && <p className="text-[11px] text-emerald-300">Dispositivo vinculado. Usa tu PIN para activar.</p>}
-                                    <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 space-y-2">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div>
-                                                <label className="block text-xs font-semibold text-slate-300 uppercase">4. PIN de activación</label>
-                                                <p className="text-[10px] text-slate-500 mt-0.5">El PIN autoriza durante 5 minutos el cambio a estado activo.</p>
-                                            </div>
-                                            {pinVerified && (
-                                                <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">VERIFICADO</span>
-                                            )}
+                                    <details className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                                        <summary className="cursor-pointer text-xs font-semibold text-slate-300">Ingresar negocio manualmente / Place ID</summary>
+                                        <div className="mt-3 space-y-2">
+                                            <input type="text" className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" placeholder="Nombre comercial" value={manualBusinessName} onChange={e=>setManualBusinessName(e.target.value)}/>
+                                            <input type="text" className="w-full glass-input px-3 py-2.5 rounded-xl text-xs font-mono" placeholder="Place ID (ChIJ...)" value={manualPlaceId} onChange={e=>setManualPlaceId(e.target.value)}/>
+                                            <button type="button" onClick={()=>{if(manualPlaceId.trim()&&manualBusinessName.trim())setSelectedPlace({name:manualBusinessName.trim(),address:'',placeId:manualPlaceId.trim()});else showToast('Completa nombre y Place ID.','warning');}} className="w-full rounded-xl bg-slate-800 py-2.5 text-xs font-semibold text-white">Usar estos datos</button>
                                         </div>
-                                        <input
-                                            type="password"
-                                            inputMode="numeric"
-                                            autoComplete="one-time-code"
-                                            maxLength="4"
-                                            value={pinEntered}
-                                            onChange={e => {
-                                                setPinEntered(e.target.value.replace(/\D/g, '').slice(0, 4));
-                                                setPinError(false);
-                                                setPinVerified(false);
-                                            }}
-                                            className={`w-full glass-input px-3.5 py-3 rounded-xl text-center text-lg font-mono font-bold tracking-[0.45em] ${pinError ? 'border-red-500/70' : ''}`}
-                                            placeholder="••••"
-                                            aria-label="PIN de activación"
-                                        />
-                                        {pinError && <p className="text-[11px] text-red-300">PIN inválido, bloqueado o no autorizado.</p>}
-                                        {!cloudReady && cloudError && (
-                                            <p className="text-[11px] text-amber-300">{cloudError}</p>
-                                        )}
-                                    </div>
+                                    </details>
+                                </section>
 
-                                    <button
-                                        onClick={handleConfirmActivation}
-                                        disabled={activationSaving}
-                                        className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 disabled:opacity-50 disabled:cursor-wait text-white font-bold rounded-xl shadow-lg"
-                                    >
-                                        {activationSaving ? 'Validando y activando...' : 'Guardar y Activar Tarjeta'}
-                                    </button>
-                                </div>
+                                <section className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <span className="w-8 h-8 rounded-lg bg-violet-500/10 text-violet-300 flex items-center justify-center text-xs font-bold">3</span>
+                                        <div><h4 className="text-sm font-bold text-white">Destino</h4><p className="text-[11px] text-slate-500">Qué ocurrirá al acercar NFC o escanear el QR.</p></div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                        {[
+                                            {id:'review_gate',icon:'fa-star-half-stroke',name:'Experiencia + reseña',desc:'1–3 privado · 4–5 Google'},
+                                            {id:'google_review',icon:'fa-star',name:'Google Reviews',desc:'Reseña directa'},
+                                            {id:'custom_url',icon:'fa-link',name:'URL personalizada',desc:'Menú, PDF o web'}
+                                        ].map(fn=>(
+                                            <button key={fn.id} type="button" onClick={()=>setPresetType(fn.id)} className={presetType===fn.id?'rounded-xl border border-blue-400 bg-blue-500/15 p-3 text-left':'rounded-xl border border-slate-700 bg-slate-950/35 p-3 text-left'}>
+                                                <i className={'fa-solid '+fn.icon+(presetType===fn.id?' text-blue-300':' text-slate-500')}></i>
+                                                <span className="block mt-2 text-xs font-bold text-white">{fn.name}</span>
+                                                <span className="block mt-1 text-[10px] leading-4 text-slate-500">{fn.desc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {presetType==='custom_url'&&<input type="url" value={customUrl} onChange={e=>setCustomUrl(e.target.value)} className="w-full glass-input px-3 py-3 rounded-xl text-xs font-mono mt-3" placeholder="https://..."/>}
+                                </section>
+
+                                <section className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-300 flex items-center justify-center text-xs font-bold">4</span>
+                                        <div><h4 className="text-sm font-bold text-white">Autorizar y guardar</h4><p className="text-[11px] text-slate-500">Confirma el cambio con el PIN del taller.</p></div>
+                                    </div>
+                                    {!deviceCredential&&(
+                                        <div className="mb-3 rounded-xl border border-blue-500/25 bg-blue-500/10 p-3 space-y-2">
+                                            <p className="text-xs text-blue-200 font-semibold">Este navegador todavía no está autorizado.</p>
+                                            <input value={pairCode} onChange={e=>setPairCode(e.target.value.trim().toLowerCase())} className="w-full glass-input px-3 py-2.5 rounded-xl text-xs font-mono" placeholder="Código de vinculación"/>
+                                            {pairError&&<p className="text-[11px] text-rose-300">{pairError}</p>}
+                                            <button type="button" onClick={pairDevice} disabled={pairBusy||!/^[a-f0-9]{64}$/.test(pairCode)} className="w-full rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white disabled:opacity-40">{pairBusy?'Vinculando...':'Autorizar navegador'}</button>
+                                        </div>
+                                    )}
+                                    <input type="password" inputMode="numeric" autoComplete="one-time-code" maxLength="4" value={pinEntered} onChange={e=>{setPinEntered(e.target.value.replace(/\D/g,'').slice(0,4));setPinError(false);setPinVerified(false);}} className={pinError?'w-full glass-input px-3.5 py-3 rounded-xl text-center text-xl font-mono font-bold tracking-[0.5em] border-rose-500/70':'w-full glass-input px-3.5 py-3 rounded-xl text-center text-xl font-mono font-bold tracking-[0.5em]'} placeholder="••••" aria-label="PIN de activación"/>
+                                    {pinError&&<p className="text-[11px] text-rose-300 mt-2">PIN inválido, bloqueado o no autorizado.</p>}
+                                </section>
+
+                                <button onClick={handleConfirmActivation} disabled={activationSaving} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 disabled:opacity-50 text-white font-bold shadow-lg">
+                                    {activationSaving?'Guardando y activando…':qr.status==='active'?'Guardar cambios':'Guardar y activar tarjeta'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 );
