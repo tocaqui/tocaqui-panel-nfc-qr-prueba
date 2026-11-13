@@ -2124,21 +2124,6 @@ const resetTestInventory = async () => {
                                         </div>
                                         <span className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[10px] font-mono text-blue-300">{printConfig.qrSizePx}px</span>
                                     </div>
-                                    <div>
-                                        <div className="flex justify-between text-xs text-slate-300 mb-1">
-                                            <span>Tamaño del QR:</span>
-                                            <span className="font-mono font-bold text-blue-400">{printConfig.qrSizePx} px</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="35"
-                                            max="130"
-                                            value={printConfig.qrSizePx}
-                                            onChange={e => setPrintConfig(prev => ({ ...prev, qrSizePx: parseInt(e.target.value) }))}
-                                            className="w-full accent-blue-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
-                                        />
-                                    </div>
-
                                     <div className="grid grid-cols-2 gap-2">
                                         {[
                                             { id: 'transparent', label: 'Transparente' },
@@ -2175,6 +2160,20 @@ const resetTestInventory = async () => {
                                             <span className="text-[11px] text-emerald-400">Posición guardada: {Math.round(qrDragPosition.x)}% · {Math.round(qrDragPosition.y)}%</span>
                                             <button type="button" onClick={() => { setQrDragPosition(null); setQrDragDraft(null); localStorage.removeItem('tocaqui_print_qr_position_v1'); showToast('Posición del QR restablecida.', 'info'); }} className="text-xs text-cyan-300 underline">Restablecer</button>
                                         </div>}
+                                        <div className="pt-2 border-t border-slate-800">
+                                            <div className="flex justify-between text-xs text-slate-300 mb-1">
+                                                <span>Tamaño del QR:</span>
+                                                <span className="font-mono font-bold text-blue-400">{printConfig.qrSizePx} px</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min="35"
+                                                max="130"
+                                                value={printConfig.qrSizePx}
+                                                onChange={e => setPrintConfig(prev => ({ ...prev, qrSizePx: parseInt(e.target.value) }))}
+                                                className="w-full accent-blue-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
+                                            />
+                                        </div>
                                     </div>
 
                                 </div>
