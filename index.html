@@ -733,7 +733,7 @@ const m=[a,b,c].map(rows=>rows.map(x=>({...x.data,id:x.id})));
 last.current={qrs:m[0],clients:m[1],templates:m[2]};
 setQrs(m[0]);setClients(m[1]);setTemplates(m[2].length?m[2]:INITIAL_TEMPLATES);
 initialized.current=true;setCloudReady(true);
-}catch(e){if(live)setCloudError(e.message)}})();return()=>{live=false}},[cloud]);
+}catch(e){if(live)setCloudError(e.message)}})();return()=>{live=false}},[cloud,authRevision]);
 const queue=React.useRef(Promise.resolve());
 const sync=(name,table,items)=>{if(!cloudReady||!initialized.current)return;
 const prev=last.current[name];if(JSON.stringify(prev)===JSON.stringify(items))return;
