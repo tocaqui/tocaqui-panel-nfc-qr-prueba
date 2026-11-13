@@ -2446,7 +2446,6 @@ const resetTestInventory = async () => {
                         const result = await workshopApi({ action:'createPairing', session:workshopSession });
                         if (!result.code || !result.pairingUrl) throw new Error('El servidor no devolvió la clave de vinculación.');
                         setPairingInfo({ code:result.code, url:result.pairingUrl, expiresAt:result.expiresAt });
-                        showToast('Clave temporal generada. Se abrió la ventana de acceso.', 'success');
                     } catch (e) {
                         showToast(e.message || 'No se pudo generar el acceso.', 'error');
                     } finally {
