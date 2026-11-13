@@ -555,55 +555,65 @@
       setToast({ show: true, msg, type });
       setTimeout(() => setToast({ show: false, msg: "", type: "info" }), 3500);
     };
-    const createBatch = (count) => {
+    const createBatch = async (count) => {
+      if (!cloudReady || !initialized.current) {
+        showToast("Inicia sesion y conecta Supabase antes de generar tarjetas.", "warning");
+        return;
+      }
+      if (!Number.isInteger(count) || count < 1 || count > 500) {
+        showToast("Cantidad invalida (1 a 500).", "warning");
+        return;
+      }
       const newItems = [];
+      const existing = new Set(qrs.map((q) => q.id));
       for (let i = 0; i < count; i++) {
-        const code = generateUID();
+        let code;
+        do {
+          const bytes = crypto.getRandomValues(new Uint8Array(12));
+          code = "TAG-" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+        } while (existing.has(code));
+        existing.add(code);
         newItems.push({
-          id: code,
-          trackingCode: code,
-          status: "pending",
-          clientId: null,
-          functionType: null,
-          placeId: null,
-          businessName: null,
-          businessAddress: null,
-          dynamicUrl: "",
-          createdAt: Date.now(),
-          scans: 0,
-          history: [
-            { timestamp: Date.now(), type: "creation", description: "C\xF3digo generado en lote A4" }
-          ]
+          id: code, trackingCode: code, status: "pending", clientId: null,
+          functionType: null, placeId: null, businessName: null,
+          businessAddress: null, dynamicUrl: "", createdAt: Date.now(),
+          scans: 0, history: [{ timestamp: Date.now(), type: "creation", description: "Tarjeta registrada en Supabase" }]
         });
       }
+      const { error } = await cloud2.from("tocaqui_admin_qr_cards").insert(
+        newItems.map((item) => ({ id: item.id, data: item }))
+      );
+      if (error) {
+        setCloudError("No se pudo registrar el lote: " + error.message);
+        showToast("Error de base de datos. No imprimas estas tarjetas.", "warning");
+        return;
+      }
+      last.current = { ...last.current, qrs: [...newItems, ...last.current.qrs] };
       setQrs((prev) => [...newItems, ...prev]);
       setSelectedQrIdsForSheet(newItems.map((item) => item.id));
-      showToast(`Generados ${count} QRs en lote. Listos para impresi\xF3n A4.`, "success");
+      showToast("Lote guardado en Supabase. Tarjetas listas para imprimir.", "success");
     };
-    const updateQR = (id, fields) => {
-      setQrs((prev) => prev.map((item) => {
-        if (item.id === id) {
-          const newHistory = [...item.history || []];
-          if (fields.dynamicUrl && fields.dynamicUrl !== item.dynamicUrl) {
-            newHistory.push({
-              timestamp: Date.now(),
-              type: "update",
-              description: `Cambio de URL: ${item.dynamicUrl || "vac\xEDa"} \u2192 ${fields.dynamicUrl}`
-            });
-          }
-          if (fields.clientId && fields.clientId !== item.clientId) {
-            const cl = clients.find((c) => c.id === fields.clientId);
-            newHistory.push({
-              timestamp: Date.now(),
-              type: "assignment",
-              description: `Asignada a cliente: ${cl ? cl.name : fields.clientId}`
-            });
-          }
-          return { ...item, ...fields, history: newHistory };
-        }
-        return item;
-      }));
-      showToast("Tarjeta actualizada correctamente.", "success");
+    const updateQR = async (id, fields) => {
+      if (!cloudReady || !initialized.current) {
+        showToast("No se puede activar o modificar sin conexion a Supabase.", "warning");
+        return;
+      }
+      const item = qrs.find((q) => q.id === id);
+      if (!item) return;
+      const history = [...(item.history || [])];
+      if (fields.dynamicUrl && fields.dynamicUrl !== item.dynamicUrl) history.push({ timestamp: Date.now(), type: "update", description: "Destino actualizado" });
+      if (fields.clientId && fields.clientId !== item.clientId) history.push({ timestamp: Date.now(), type: "assignment", description: "Cliente asignado" });
+      const updated = { ...item, ...fields, history };
+      const { data, error } = await cloud2.from("tocaqui_admin_qr_cards")
+        .update({ data: updated }).eq("id", id).select("id");
+      if (error || !data || data.length !== 1) {
+        setCloudError("No se pudo guardar la tarjeta: " + (error?.message || "sin confirmacion"));
+        showToast("No se guardo la activacion. Revisa autorizacion/PIN.", "warning");
+        return;
+      }
+      last.current = { ...last.current, qrs: last.current.qrs.map((q) => q.id === id ? updated : q) };
+      setQrs((prev) => prev.map((q) => q.id === id ? updated : q));
+      showToast("Tarjeta guardada en Supabase.", "success");
     };
     const deleteQR = (id) => {
       setConfirmModal({
