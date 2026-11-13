@@ -122,11 +122,12 @@
             .print-artwork-img {
                 display: block !important;
                 position: absolute !important;
-                inset: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
+                inset: 1.2mm !important;
+                width: calc(100% - 2.4mm) !important;
+                height: calc(100% - 2.4mm) !important;
                 object-fit: cover !important;
                 object-position: center !important;
+                border-radius: 2.2mm !important;
                 z-index: 0 !important;
             }
             #print-area-wrapper .card-pvc-vertical > *:not(.print-artwork-img),
@@ -224,6 +225,20 @@
             background-position: center;
             border: 1px dashed rgba(0, 0, 0, 0.25);
             box-sizing: border-box;
+        }
+
+        /* Zona segura de fabricación: el PVC mantiene su medida física,
+           pero el arte queda 1,2 mm dentro del borde de corte. */
+        .print-artwork-img {
+            display: block;
+            position: absolute;
+            inset: 1.2mm;
+            width: calc(100% - 2.4mm);
+            height: calc(100% - 2.4mm);
+            object-fit: cover;
+            object-position: center;
+            border-radius: 2.2mm;
+            z-index: 0;
         }
 
         /* Exact physical A4 layout shared by screen preview and print. */
@@ -1402,11 +1417,13 @@ const resetTestInventory = async () => {
                                             <span className="text-slate-400">Escaneos <strong className="text-slate-200 font-mono ml-1">{qr.scans || 0}</strong></span>
                                             {qr.dynamicUrl && <span className="text-blue-400 truncate max-w-[55%]" title={qr.dynamicUrl}>{qr.dynamicUrl}</span>}
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button onClick={() => setIndividualQr(qr)} className="rounded-xl bg-cyan-600/15 border border-cyan-500/30 text-cyan-300 py-2.5 text-xs font-semibold"><i className="fa-solid fa-qrcode mr-1"></i> Ver QR / NFC</button>
-                                            <button onClick={() => setActivateModal({ open: true, qr })} className="rounded-xl bg-blue-600/15 border border-blue-500/30 text-blue-300 py-2.5 text-xs font-semibold"><i className="fa-solid fa-gear mr-1"></i> Configurar</button>
-                                            <button onClick={() => writeWebNFC(qr.trackingCode)} className="rounded-xl bg-purple-600/15 border border-purple-500/30 text-purple-300 py-2.5 text-xs font-semibold"><i className="fa-solid fa-nfc-symbol mr-1"></i> Grabar NFC</button>
-                                            <button onClick={() => deleteQR(qr.id)} className="rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 py-2.5 text-xs font-semibold"><i className="fa-solid fa-trash-can mr-1"></i> Eliminar</button>
+                                        <div className="rounded-2xl border border-slate-800 bg-slate-950/35 p-2.5 space-y-2">
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button onClick={() => setIndividualQr(qr)} className="rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-200 py-2.5 px-2 text-xs font-semibold flex items-center justify-center gap-2"><i className="fa-solid fa-qrcode"></i><span>QR / NFC</span></button>
+                                                <button onClick={() => setActivateModal({ open: true, qr })} className="rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-200 py-2.5 px-2 text-xs font-semibold flex items-center justify-center gap-2"><i className="fa-solid fa-pen-to-square"></i><span>{qr.status === 'active' ? 'Editar' : 'Asignar'}</span></button>
+                                                <button onClick={() => writeWebNFC(qr.trackingCode)} className="rounded-xl bg-violet-500/10 border border-violet-500/25 text-violet-200 py-2.5 px-2 text-xs font-semibold flex items-center justify-center gap-2"><i className="fa-solid fa-nfc-symbol"></i><span>Grabar NFC</span></button>
+                                                <button onClick={() => deleteQR(qr.id)} className="rounded-xl bg-rose-500/5 border border-rose-500/20 text-rose-300 py-2.5 px-2 text-xs font-semibold flex items-center justify-center gap-2"><i className="fa-regular fa-trash-can"></i><span>Eliminar</span></button>
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -1467,33 +1484,37 @@ const resetTestInventory = async () => {
                                                     <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-300">
                                                         {qr.scans || 0}
                                                     </td>
-                                                    <td className="py-3.5 px-4 text-right space-x-1.5">
-                                                        <button
-                                                            onClick={() => writeWebNFC(qr.trackingCode)}
-                                                            className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 px-2 py-1.5 rounded-lg text-xs"
-                                                            title="Grabar NFC (Android Chrome)"
-                                                        >
-                                                            <i className="fa-solid fa-nfc-symbol"></i>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setIndividualQr(qr)}
-                                                            className="bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
-                                                            title={'Ver QR ' + qr.trackingCode}
-                                                        >
-                                                            <i className="fa-solid fa-qrcode mr-1"></i> Ver QR
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setActivateModal({ open: true, qr })}
-                                                            className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
-                                                        >
-                                                            <i className="fa-solid fa-gear mr-1"></i> Configurar
-                                                        </button>
-                                                        <button
-                                                            onClick={() => deleteQR(qr.id)}
-                                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2 py-1.5 rounded-lg text-xs"
-                                                        >
-                                                            <i className="fa-solid fa-trash-can"></i>
-                                                        </button>
+                                                    <td className="py-3.5 px-4">
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            <button
+                                                                onClick={() => setIndividualQr(qr)}
+                                                                className="h-9 px-3 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200 border border-cyan-500/25 text-xs font-semibold inline-flex items-center gap-1.5"
+                                                                title={'Ver QR y enlace NFC de ' + qr.trackingCode}
+                                                            >
+                                                                <i className="fa-solid fa-qrcode"></i><span>QR</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setActivateModal({ open: true, qr })}
+                                                                className="h-9 px-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-200 border border-blue-500/25 text-xs font-semibold inline-flex items-center gap-1.5"
+                                                                title={qr.status === 'active' ? 'Editar asignación' : 'Asignar negocio'}
+                                                            >
+                                                                <i className="fa-solid fa-pen-to-square"></i><span>{qr.status === 'active' ? 'Editar' : 'Asignar'}</span>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => writeWebNFC(qr.trackingCode)}
+                                                                className="h-9 w-9 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-200 border border-violet-500/25 inline-flex items-center justify-center"
+                                                                title="Grabar enlace en NFC"
+                                                            >
+                                                                <i className="fa-solid fa-nfc-symbol"></i>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteQR(qr.id)}
+                                                                className="h-9 w-9 rounded-lg bg-rose-500/5 hover:bg-rose-500/15 text-rose-300 border border-rose-500/20 inline-flex items-center justify-center"
+                                                                title="Eliminar tarjeta"
+                                                            >
+                                                                <i className="fa-regular fa-trash-can"></i>
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -1910,7 +1931,7 @@ const resetTestInventory = async () => {
                             className={cardClass}
                             style={{
                                 background: bgToUse
-                                    ? `#ffffff url("${bgToUse}") center/cover no-repeat`
+                                    ? '#ffffff'
                                     : printConfig.theme === 'gold-luxury'
                                     ? 'linear-gradient(135deg, #0f172a 0%, #312e81 100%)'
                                     : printConfig.theme === 'clean-white'
@@ -1919,7 +1940,7 @@ const resetTestInventory = async () => {
                                 color: printConfig.theme === 'clean-white' ? '#0f172a' : '#ffffff'
                             }}
                         >
-                            {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" className="print-artwork-img absolute inset-0 w-full h-full object-cover pointer-events-none" style={{display:'none'}} />}
+                            {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" className="print-artwork-img pointer-events-none" />}
                             {side === 'back' && <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
                                 <span className="truncate max-w-[120px]">{item.businessName || 'NFC CARD'}</span>
                                 <i className="fa-solid fa-nfc-symbol text-xs text-blue-400"></i>
