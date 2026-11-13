@@ -129,7 +129,16 @@
             }
         }
 
-        /* Screen Preview A4 Sheet Box */
+        /* The printable DOM is hidden on screen, but must be visible for window.print(). */
+        @media print {
+            body * { visibility: hidden !important; }
+            #print-area-wrapper, #print-area-wrapper * { visibility: visible !important; }
+            #print-area-wrapper { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; }
+            #print-area-wrapper .print-page-a4 { break-after: page; }
+            #print-area-wrapper .print-page-a4:last-child { break-after: auto; page-break-after: auto !important; }
+            #print-area-wrapper img { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+        }
+                /* Screen Preview A4 Sheet Box */
         .a4-sheet-preview {
             width: 210mm;
             min-height: 297mm;
@@ -513,19 +522,7 @@
                         ctx.fillRect(0, 0, targetWidth, targetHeight);
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
-                        if (fitMode === 'smart-horizontal') {
-                            // Keep the entire composition readable; fill the unused sides with a
-                            // softly blurred extension rather than cropping the headline or footer.
-                            const coverScale = Math.max(targetWidth / img.width, targetHeight / img.height);
-                            const coverW = img.width * coverScale, coverH = img.height * coverScale;
-                            ctx.save();
-                            ctx.filter = 'blur(35px)';
-                            ctx.drawImage(img, (targetWidth-coverW)/2-45, (targetHeight-coverH)/2-45, coverW+90, coverH+90);
-                            ctx.restore();
-                            const scale = Math.min(targetWidth / img.width, targetHeight / img.height);
-                            const renderW = img.width * scale, renderH = img.height * scale;
-                            ctx.drawImage(img, (targetWidth-renderW)/2, (targetHeight-renderH)/2, renderW, renderH);
-                        } else if (fitMode === 'cover') {
+                        if (fitMode === 'cover') {
                             const scale = Math.max(targetWidth / img.width, targetHeight / img.height);
                             const renderW = img.width * scale, renderH = img.height * scale;
                             ctx.drawImage(img, (targetWidth - renderW) / 2, (targetHeight - renderH) / 2, renderW, renderH);
@@ -1766,7 +1763,7 @@ const resetTestInventory = async () => {
                     const isHorizontal=printConfig.templateType==='pvc-horizontal';
                     const width=isPoster?1200:isHorizontal?1712:1080;
                     const height=isPoster?1800:isHorizontal?1080:1712;
-                    compressImageToDataURL(original,width,height,0.92,isHorizontal && artworkFitMode==='cover' ? 'smart-horizontal' : artworkFitMode).then(adapted=>{
+                    compressImageToDataURL(original,width,height,0.92,isHorizontal && artworkFitMode==='cover' ? 'contain' : artworkFitMode).then(adapted=>{
                         if(cancelled)return;
                         setPrintConfig(prev=>({...prev,theme:'custom',...(side==='front'?{customFrontBg:adapted}:{customBackBg:adapted})}));
                     }).catch(err=>console.error('No se pudo adaptar imagen al formato',err));
@@ -1863,7 +1860,7 @@ const resetTestInventory = async () => {
                             className={cardClass}
                             style={{
                                 background: bgToUse
-                                    ? `#ffffff url("${bgToUse}") center/cover no-repeat`
+                                    ? '#ffffff'
                                     : printConfig.theme === 'gold-luxury'
                                     ? 'linear-gradient(135deg, #0f172a 0%, #312e81 100%)'
                                     : printConfig.theme === 'clean-white'
@@ -1872,6 +1869,7 @@ const resetTestInventory = async () => {
                                 color: printConfig.theme === 'clean-white' ? '#0f172a' : '#ffffff'
                             }}
                         >
+                            {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'fill',pointerEvents:'none',zIndex:0}} />}
                             {side === 'back' && <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
                                 <span className="truncate max-w-[120px]">{item.businessName || 'NFC CARD'}</span>
                                 <i className="fa-solid fa-nfc-symbol text-xs text-blue-400"></i>
@@ -2089,7 +2087,7 @@ const resetTestInventory = async () => {
 
                                                         try {
                                                             setOriginalArtwork(prev=>({...prev,[side]:file}));
-                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, isHorizontal && artworkFitMode==='cover' ? 'smart-horizontal' : artworkFitMode);
+                                                            const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, isHorizontal && artworkFitMode==='cover' ? 'contain' : artworkFitMode);
                                                             setPrintConfig(prev => ({
                                                                 ...prev,
                                                                 theme: 'custom',
