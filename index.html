@@ -1744,6 +1744,22 @@ const resetTestInventory = async () => {
                 const [previewZoom, setPreviewZoom] = useState(58);
                 const [artworkFitMode, setArtworkFitMode] = useState('cover');
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
+                const [originalArtwork, setOriginalArtwork] = useState({front:null,back:null});
+                useEffect(() => {
+                    let cancelled=false;
+                    const side=printConfig.activeSide;
+                    const original=originalArtwork[side];
+                    if(!original)return;
+                    const isPoster=printConfig.templateType==='10x15';
+                    const isHorizontal=printConfig.templateType==='pvc-horizontal';
+                    const width=isPoster?1200:isHorizontal?1712:1080;
+                    const height=isPoster?1800:isHorizontal?1080:1712;
+                    compressImageToDataURL(original,width,height,0.92,artworkFitMode).then(adapted=>{
+                        if(cancelled)return;
+                        setPrintConfig(prev=>({...prev,theme:'custom',...(side==='front'?{customFrontBg:adapted}:{customBackBg:adapted})}));
+                    }).catch(err=>console.error('No se pudo adaptar imagen al formato',err));
+                    return ()=>{cancelled=true};
+                },[printConfig.templateType,printConfig.activeSide,artworkFitMode,originalArtwork]);
                 const [qrMoveEnabled, setQrMoveEnabled] = useState(true);
                 const [qrDragPosition, setQrDragPosition] = useState(() => {
                     try {
@@ -2060,6 +2076,7 @@ const resetTestInventory = async () => {
                                                         const targetHeight = isPoster ? 1800 : isHorizontal ? 1080 : 1712;
 
                                                         try {
+                                                            setOriginalArtwork(prev=>({...prev,[side]:file}));
                                                             const adaptedImage = await compressImageToDataURL(file, targetWidth, targetHeight, 0.92, artworkFitMode);
                                                             setPrintConfig(prev => ({
                                                                 ...prev,
@@ -2157,7 +2174,7 @@ const resetTestInventory = async () => {
                                     <span>Ajuste de imagen:</span>
                                     <button type="button" onClick={()=>setArtworkFitMode('cover')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='cover'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Automático · llenar formato</button>
                                     <button type="button" onClick={()=>setArtworkFitMode('contain')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='contain'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Imagen completa (márgenes)</button>
-                                    <span className="text-[10px]">Vuelve a cargar la imagen para aplicar el ajuste.</span>
+                                    <span className="text-[10px]">El ajuste se actualiza automáticamente al cambiar de formato.</span>
                                 </div>
                                 <div className="flex items-center gap-2 no-print text-xs text-slate-400">
                                     <span>Vista reducida</span>
