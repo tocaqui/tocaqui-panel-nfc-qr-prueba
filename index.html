@@ -682,6 +682,17 @@
             useEffect(()=>{try{localStorage.setItem('nfc_qrs_v6',JSON.stringify(qrs))}catch(e){}},[qrs]);
 useEffect(()=>{try{localStorage.setItem('nfc_clients_v6',JSON.stringify(clients))}catch(e){}},[clients]);
 useEffect(()=>{try{localStorage.setItem('nfc_templates_v6',JSON.stringify(templates))}catch(e){}},[templates]);
+const [pairCodeLogin,setPairCodeLogin]=useState(()=>new URLSearchParams(location.search).get('vincular')||'');
+const [pairingBusyLogin,setPairingBusyLogin]=useState(false);
+const pairWorkshopDevice=async()=>{
+ setPairingBusyLogin(true);setCloudError('');
+ try{
+ const res=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify({action:'pair',code:pairCodeLogin.trim().toLowerCase(),label:/iPhone|iPad/i.test(navigator.userAgent)?'iPhone TOCAQUI':'Computador TOCAQUI'})});
+ const result=await res.json();if(!res.ok||!result.ok)throw new Error(result.error||'No se pudo vincular');
+ localStorage.setItem('tocaqui_device_credential_v1',result.credential);setPairCodeLogin('');
+ history.replaceState(null,'',location.pathname);setCloudError('Dispositivo autorizado. Ingresa tu PIN para acceder.');
+ }catch(e){setCloudError(e.message)}finally{setPairingBusyLogin(false)}
+};
 const [loginPin,setLoginPin]=useState('');
 const [loginBusy,setLoginBusy]=useState(false);
 const [authRevision,setAuthRevision]=useState(0);
@@ -2850,7 +2861,12 @@ const resetTestInventory = async () => {
                           <h2 className="text-lg font-bold text-white">Acceso privado TOCAQUI</h2>
                           <p className="text-sm text-slate-300">Ingresa el PIN de cuatro dígitos del taller. Se verificará en Supabase desde este dispositivo autorizado.</p>
                           <input type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength="4" autoComplete="off" required value={loginPin} onChange={e=>setLoginPin(e.target.value.replace(/\D/g,''))} placeholder="PIN de cuatro dígitos" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white text-center tracking-widest" />
-                          {cloudError && <p role="alert" className="text-amber-300 text-xs">{cloudError}</p>}
+                          <div className="space-y-2 border-t border-slate-700 pt-3">
+ <p className="text-xs text-slate-400">Primera vez en este iPhone o computador: introduce el código de vinculación entregado por el administrador.</p>
+ <input type="text" value={pairCodeLogin} onChange={e=>setPairCodeLogin(e.target.value.trim())} placeholder="Código de vinculación del dispositivo" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-2 text-white text-xs" />
+ <button type="button" disabled={pairingBusyLogin||!/^[a-f0-9]{64}$/.test(pairCodeLogin.trim().toLowerCase())} onClick={pairWorkshopDevice} className="w-full rounded-xl bg-slate-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">{pairingBusyLogin?'Vinculando...':'Autorizar este dispositivo'}</button>
+ </div>
+ {cloudError && <p role="alert" className="text-amber-300 text-xs">{cloudError}</p>}
                           <button disabled={loginBusy} type="submit" className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white disabled:opacity-60">{loginBusy?'Verificando...':'Entrar al taller'}</button>
                         </form>
                       </div>
