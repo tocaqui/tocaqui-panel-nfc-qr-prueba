@@ -299,6 +299,42 @@
                 .tocaqui-dashboard .dashboard-hero { border-radius: 18px; }
             }
         }
+
+        /* Phase 2: consistent operational cards, controls and responsive hierarchy. */
+        @media screen {
+            .tocaqui-dashboard .metric-card {
+                background: linear-gradient(145deg,#101d33,#0b1427) !important;
+                border: 1px solid rgba(96,165,250,.19) !important;
+                box-shadow: 0 8px 26px rgba(0,0,0,.14);
+                min-height: 126px;
+            }
+            .tocaqui-dashboard .metric-card:hover {
+                border-color: rgba(96,165,250,.55) !important;
+                transform: translateY(-1px);
+            }
+            .tocaqui-operation-page > .glass-panel,
+            .tocaqui-operation-page .glass-panel {
+                border-color: rgba(96,165,250,.16);
+            }
+            .tocaqui-operation-page h1 {
+                letter-spacing: -.025em;
+                line-height: 1.2;
+            }
+            .tocaqui-operation-page button {
+                min-height: 40px;
+            }
+            .tocaqui-operation-page input,
+            .tocaqui-operation-page select {
+                min-height: 42px;
+            }
+            @media (max-width: 639px) {
+                .tocaqui-dashboard .metric-card { min-height: 116px; padding: 14px !important; }
+                .tocaqui-operation-page { gap: 16px !important; }
+                .tocaqui-operation-page h1 { font-size: 1.25rem !important; }
+                .tocaqui-operation-page .glass-panel { border-radius: 16px; }
+                .tocaqui-operation-page button { min-height: 44px; }
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -1104,7 +1140,7 @@ const resetTestInventory = async () => {
                 const [productType, setProductType] = useState('pvc-vertical');
 
                 return (
-                    <div className="max-w-2xl mx-auto space-y-6">
+                    <div className="tocaqui-operation-page max-w-2xl mx-auto space-y-6">
                         <BackToDashboardButton />
 
                         <div>
@@ -1208,7 +1244,7 @@ const resetTestInventory = async () => {
                 }, [qrs, search, statusFilter, batchFilter]);
 
                 return (
-                    <div className="space-y-6">
+                    <div className="tocaqui-operation-page space-y-6">
                         <BackToDashboardButton />
 
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -1413,7 +1449,7 @@ const resetTestInventory = async () => {
                     const totalScans = clientQrs.reduce((acc, curr) => acc + (curr.scans || 0), 0);
 
                     return (
-                        <div className="space-y-6">
+                        <div className="tocaqui-operation-page space-y-6">
                             <BackToDashboardButton label="Volver al Directorio de Clientes" targetTab="clients" />
 
                             <div className="glass-panel p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
