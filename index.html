@@ -682,6 +682,19 @@
             useEffect(()=>{try{localStorage.setItem('nfc_qrs_v6',JSON.stringify(qrs))}catch(e){}},[qrs]);
 useEffect(()=>{try{localStorage.setItem('nfc_clients_v6',JSON.stringify(clients))}catch(e){}},[clients]);
 useEffect(()=>{try{localStorage.setItem('nfc_templates_v6',JSON.stringify(templates))}catch(e){}},[templates]);
+const [loginEmail,setLoginEmail]=useState('');
+const [loginPassword,setLoginPassword]=useState('');
+const [loginBusy,setLoginBusy]=useState(false);
+const [authRevision,setAuthRevision]=useState(0);
+const signInAdmin=async(e)=>{
+  e.preventDefault();setLoginBusy(true);setCloudError('');
+  try {
+    const {error}=await cloud.auth.signInWithPassword({email:loginEmail.trim(),password:loginPassword});
+    if(error)throw error;
+    setLoginPassword('');setAuthRevision(v=>v+1);
+  }catch(err){setCloudError('Acceso Supabase: '+err.message)}
+  finally{setLoginBusy(false)}
+};
 const [cloudReady,setCloudReady]=useState(false);
 const [serverAnalytics,setServerAnalytics]=useState({scans:null,activations:null});
 useEffect(()=>{
@@ -720,7 +733,7 @@ const m=[a,b,c].map(rows=>rows.map(x=>({...x.data,id:x.id})));
 last.current={qrs:m[0],clients:m[1],templates:m[2]};
 setQrs(m[0]);setClients(m[1]);setTemplates(m[2].length?m[2]:INITIAL_TEMPLATES);
 initialized.current=true;setCloudReady(true);
-}catch(e){if(live)setCloudError(e.message)}})();return()=>{live=false}},[cloud]);
+}catch(e){if(live)setCloudError(e.message)}})();return()=>{live=false}},[cloud,authRevision]);
 const queue=React.useRef(Promise.resolve());
 const sync=(name,table,items)=>{if(!cloudReady||!initialized.current)return;
 const prev=last.current[name];if(JSON.stringify(prev)===JSON.stringify(items))return;
@@ -2829,6 +2842,18 @@ const resetTestInventory = async () => {
             return (
                 <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
                     <TopHeader />
+                    {!cloudReady && (
+                      <div className="no-print mx-auto w-full max-w-xl p-4 sm:p-6">
+                        <form onSubmit={signInAdmin} className="rounded-2xl border border-blue-500/40 bg-slate-900 p-5 shadow-xl space-y-3">
+                          <h2 className="text-lg font-bold text-white">Conectar TOCAQUI a Supabase</h2>
+                          <p className="text-sm text-slate-300">Inicia sesión con un usuario autorizado del proyecto TOCAQUI para generar, guardar y activar tarjetas.</p>
+                          <input type="email" autoComplete="username" required value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} placeholder="Correo de administrador" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white" />
+                          <input type="password" autoComplete="current-password" required value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} placeholder="Contraseña Supabase" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white" />
+                          {cloudError && <p role="alert" className="text-amber-300 text-xs">{cloudError}</p>}
+                          <button disabled={loginBusy} type="submit" className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white disabled:opacity-60">{loginBusy?'Conectando...':'Iniciar sesión y conectar base'}</button>
+                        </form>
+                      </div>
+                    )}
                     <div className="flex-1 flex overflow-hidden">
                         {roleMode === 'admin' ? (
                             <>
