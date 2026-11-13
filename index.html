@@ -810,7 +810,7 @@ const resetTestInventory = async () => {
                     const verified=await workshopApi({action:'list',session:workshopSession});
                     const ids=new Set(newItems.map(item=>item.id));
                     savedItems=(verified.cards||[]).filter(item=>ids.has(item.id));
-                    if(savedItems.length!==newItems.length || savedItems.some(item=>!/^TQ-\\d{6,}$/.test(item.serialNumber||'')))throw new Error('La numeración no quedó confirmada en Supabase');
+                    if(savedItems.length!==newItems.length || savedItems.some(item=>!/^TQ-\d{6,}$/.test(item.serialNumber||'')))throw new Error('La numeración no quedó confirmada en Supabase');
                 }catch(e){error=e}
                 if(error){setCloudError('Error al verificar lote: '+error.message);showToast('No se verificó el lote; no imprimas estas tarjetas.','error');return;}
                 last.current={...last.current,qrs:[...savedItems,...last.current.qrs]};
