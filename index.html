@@ -1742,7 +1742,7 @@ const resetTestInventory = async () => {
                     return selected.length && ids.length === 1 ? ids[0] : 'all';
                 });
                 const [previewZoom, setPreviewZoom] = useState(58);
-                const [artworkFitMode, setArtworkFitMode] = useState('contain');
+                const [artworkFitMode, setArtworkFitMode] = useState('cover');
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
                 const [qrMoveEnabled, setQrMoveEnabled] = useState(true);
                 const [qrDragPosition, setQrDragPosition] = useState(() => {
@@ -2155,8 +2155,8 @@ const resetTestInventory = async () => {
 
                                 <div className="flex flex-wrap items-center gap-2 no-print text-xs text-slate-400">
                                     <span>Ajuste de imagen:</span>
-                                    <button type="button" onClick={()=>setArtworkFitMode('contain')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='contain'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Automático · imagen completa</button>
-                                    <button type="button" onClick={()=>setArtworkFitMode('cover')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='cover'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Sin deformar (recorta)</button>
+                                    <button type="button" onClick={()=>setArtworkFitMode('cover')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='cover'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Automático · llenar formato</button>
+                                    <button type="button" onClick={()=>setArtworkFitMode('contain')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='contain'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Imagen completa (márgenes)</button>
                                     <span className="text-[10px]">Vuelve a cargar la imagen para aplicar el ajuste.</span>
                                 </div>
                                 <div className="flex items-center gap-2 no-print text-xs text-slate-400">
