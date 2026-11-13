@@ -692,7 +692,8 @@ const workshopApi=async(payload)=>{
 };
 const signInAdmin=async(e)=>{
  e.preventDefault();setLoginBusy(true);setCloudError('');
- try{const credential=localStorage.getItem('tocaqui_device_credential_v1')||Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
+ try{const credential=localStorage.getItem('tocaqui_device_credential_v1')||'';
+ if(!credential)throw new Error('Este navegador requiere vinculación previa como dispositivo autorizado.');
  const result=await workshopApi({action:'login',credential,pin:loginPin});
  localStorage.setItem('tocaqui_device_credential_v1',credential);sessionStorage.setItem('tocaqui_workshop_session',result.session);setWorkshopSession(result.session);
  setLoginPin('');setAuthRevision(v=>v+1);
