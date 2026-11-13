@@ -96,6 +96,22 @@
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
+            .print-artwork-img {
+                display: block !important;
+                position: absolute !important;
+                inset: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                object-fit: cover !important;
+                object-position: center !important;
+                z-index: 0 !important;
+            }
+            #print-area-wrapper .card-pvc-vertical > *:not(.print-artwork-img),
+            #print-area-wrapper .card-pvc-horizontal > *:not(.print-artwork-img),
+            #print-area-wrapper .card-poster-10x15 > *:not(.print-artwork-img) {
+                position: relative;
+                z-index: 1;
+            }
             .print-page-a4 {
                 display: block !important;
                 width: 210mm !important;
@@ -1753,6 +1769,23 @@ const resetTestInventory = async () => {
 
             // 6. ADVANCED PRINT & MASSIVE A4 DUPLEX STUDIO
             const PrintView = () => {
+                const printA4Sheets = async () => {
+                    const root = document.getElementById('print-area-wrapper');
+                    if (!root) { window.print(); return; }
+                    const images = Array.from(root.querySelectorAll('img'));
+                    await Promise.all(images.map(img => {
+                        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+                        if (typeof img.decode === 'function') return img.decode().catch(() => new Promise(resolve => {
+                            img.addEventListener('load', resolve, {once:true});
+                            img.addEventListener('error', resolve, {once:true});
+                        }));
+                        return new Promise(resolve => {
+                            img.addEventListener('load', resolve, {once:true});
+                            img.addEventListener('error', resolve, {once:true});
+                        });
+                    }));
+                    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+                };
                 const [qrCodeImages, setQrCodeImages] = useState({});
                 const [printBatchFilter, setPrintBatchFilter] = useState(() => {
                     const selected = qrs.filter(q => selectedQrIdsForSheet.includes(q.id));
@@ -1862,6 +1895,7 @@ const resetTestInventory = async () => {
                                 color: printConfig.theme === 'clean-white' ? '#0f172a' : '#ffffff'
                             }}
                         >
+                            {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" className="print-artwork-img absolute inset-0 w-full h-full object-cover pointer-events-none" style={{display:'none'}} />}
                             {side === 'back' && <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
                                 <span className="truncate max-w-[120px]">{item.businessName || 'NFC CARD'}</span>
                                 <i className="fa-solid fa-nfc-symbol text-xs text-blue-400"></i>
@@ -1937,7 +1971,7 @@ const resetTestInventory = async () => {
                                 <p className="text-slate-400 text-sm mt-1">Imprime tarjetas en diseño vertical u horizontal con alineación Dúplex.</p>
                             </div>
                             <button
-                                onClick={() => window.print()}
+                                onClick={printA4Sheets}
                                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl text-xs shadow-lg shadow-emerald-600/25 flex items-center gap-2"
                             >
                                 <i className="fa-solid fa-print text-sm"></i> Imprimir Hojas A4 Dúplex
