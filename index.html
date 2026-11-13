@@ -26,6 +26,8 @@
 
     <!-- QRCode JS Library -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- Fast QR decoder fallback for browsers without BarcodeDetector -->
+    <script id="tocaqui-jsqr" src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
     <!-- FontAwesome 6 Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -1035,12 +1037,12 @@ const resetTestInventory = async () => {
 
                             <button
                                 onClick={() => setScanSimModal({ open: true, code: '', reviewGateStep: 'stars', selectedStars: 0 })}
-                                aria-label="Probar tarjeta"
-                                title="Probar una tarjeta sin escanear"
+                                aria-label="Escanear QR"
+                                title="Escanear QR de una tarjeta"
                                 className="w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                             >
-                                <i className="fa-solid fa-mobile-screen-button"></i>
-                                <span className="hidden sm:inline"><span className="hidden md:inline">Simular </span>Escaneo</span>
+                                <i className="fa-solid fa-qrcode"></i>
+                                <span className="hidden sm:inline">Escanear QR</span>
                             </button>
                         </div>
                     </div>
@@ -3058,69 +3060,81 @@ const resetTestInventory = async () => {
 
             // Preview only: does not perform a real scan or change card activation.
             const ScanSimulatorModal = () => {
-                const [query,setQuery]=useState('');
-                const [lot,setLot]=useState('all');
-                const [status,setStatus]=useState('all');
                 const [cameraOn,setCameraOn]=useState(false);
                 const [cameraError,setCameraError]=useState('');
+                const [starting,setStarting]=useState(false);
                 const videoRef=useRef(null),streamRef=useRef(null),frameRef=useRef(null);
-                const stop=()=>{if(frameRef.current)cancelAnimationFrame(frameRef.current);frameRef.current=null;if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());streamRef.current=null;setCameraOn(false);};
-                useEffect(()=>()=>{if(frameRef.current)cancelAnimationFrame(frameRef.current);if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());},[]);
+                const stop=()=>{
+                    if(frameRef.current)clearTimeout(frameRef.current);
+                    frameRef.current=null;
+                    if(streamRef.current)streamRef.current.getTracks().forEach(t=>t.stop());
+                    streamRef.current=null;
+                    setCameraOn(false);
+                    setStarting(false);
+                };
+                const close=()=>{stop();setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});};
+
                 const scanValue=value=>{
                     const match=String(value||'').match(/TAG-[A-Z0-9-]+/i);
-                    if(!match){setCameraError('Este QR no contiene un TAG de TOCAQUI.');return;}
+                    if(!match){return;}
                     const card=qrs.find(q=>q.trackingCode?.toUpperCase()===match[0].toUpperCase());
+                    if(!card){setCameraError('El QR es TOCAQUI, pero esta tarjeta no está en el inventario cargado.');return;}
                     stop();
-                    if(card){setCameraError('');setScanSimModal(prev=>({...prev,code:card.trackingCode}));}
-                    else setCameraError('El TAG leído no está en el inventario cargado.');
-                };
-                const start=async()=>{
                     setCameraError('');
-                    if(!window.isSecureContext){setCameraError('El lector necesita abrirse por HTTPS.');return;}
-                    if(!navigator.mediaDevices?.getUserMedia){setCameraError('Este navegador no permite acceso a la cámara.');return;}
+                    if(card.status!=='active'){
+                        setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});
+                        setTimeout(()=>setActivateModal({open:true,qr:card}),0);
+                    }else{
+                        setScanSimModal(prev=>({...prev,code:card.trackingCode}));
+                    }
+                };
+
+                const start=async()=>{
+                    if(starting||cameraOn)return;
+                    setStarting(true);setCameraError('');
+                    if(!window.isSecureContext){setCameraError('El lector necesita HTTPS.');setStarting(false);return;}
+                    if(!navigator.mediaDevices?.getUserMedia){setCameraError('Este navegador no permite acceso a la cámara.');setStarting(false);return;}
                     try{
-                        let detector=null,decoder=null;
+                        let detector=null;
                         if('BarcodeDetector' in window){
                             try{
                                 const supported=await BarcodeDetector.getSupportedFormats();
                                 if(supported.includes('qr_code')) detector=new BarcodeDetector({formats:['qr_code']});
                             }catch(e){}
                         }
-                        if(!detector){
-                            decoder=window.jsQR;
-                            if(!decoder) decoder=await new Promise((resolve,reject)=>{
-                                const existing=document.getElementById('tocaqui-jsqr');
-                                if(existing){
-                                    if(window.jsQR){resolve(window.jsQR);return;}
-                                    existing.addEventListener('load',()=>window.jsQR?resolve(window.jsQR):reject(new Error('decoder')),{once:true});
-                                    existing.addEventListener('error',()=>reject(new Error('decoder')),{once:true});
-                                    return;
-                                }
-                                const script=document.createElement('script');
-                                script.id='tocaqui-jsqr';
-                                script.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-                                script.crossOrigin='anonymous';
-                                script.onload=()=>window.jsQR?resolve(window.jsQR):reject(new Error('decoder'));
-                                script.onerror=()=>reject(new Error('decoder'));
-                                document.head.appendChild(script);
-                            });
-                        }
+                        const decoder=window.jsQR||null;
+                        if(!detector&&!decoder)throw new Error('No hay decodificador QR disponible.');
 
                         let stream;
                         try{
-                            stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+                            stream=await navigator.mediaDevices.getUserMedia({
+                                video:{
+                                    facingMode:{ideal:'environment'},
+                                    width:{ideal:1280,max:1920},
+                                    height:{ideal:720,max:1080}
+                                },
+                                audio:false
+                            });
                         }catch(firstError){
-                            if(firstError?.name==='NotAllowedError'||firstError?.name==='SecurityError') throw firstError;
+                            if(firstError?.name==='NotAllowedError'||firstError?.name==='SecurityError')throw firstError;
                             stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
                         }
                         streamRef.current=stream;
+                        const track=stream.getVideoTracks()[0];
+                        try{
+                            const caps=track?.getCapabilities?.();
+                            if(caps?.focusMode?.includes?.('continuous')) await track.applyConstraints({advanced:[{focusMode:'continuous'}]});
+                        }catch(e){}
+
                         const video=videoRef.current;
                         if(!video){stop();return;}
                         video.srcObject=stream;
                         await video.play();
-                        setCameraOn(true);
-                        const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
-                        let busy=false;
+                        setCameraOn(true);setStarting(false);
+
+                        const canvas=document.createElement('canvas');
+                        const ctx=canvas.getContext('2d',{willReadFrequently:true});
+                        let busy=false,passes=0;
                         const tick=async()=>{
                             if(!streamRef.current)return;
                             if(!busy&&video.readyState>=2&&video.videoWidth){
@@ -3129,74 +3143,89 @@ const resetTestInventory = async () => {
                                     if(detector){
                                         const codes=await detector.detect(video);
                                         if(codes?.[0]?.rawValue){scanValue(codes[0].rawValue);return;}
-                                    }else{
-                                        canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-                                        ctx.drawImage(video,0,0);
+                                    }else if(decoder){
+                                        const maxWidth=720;
+                                        const scale=Math.min(1,maxWidth/video.videoWidth);
+                                        canvas.width=Math.max(320,Math.round(video.videoWidth*scale));
+                                        canvas.height=Math.max(240,Math.round(video.videoHeight*scale));
+                                        ctx.drawImage(video,0,0,canvas.width,canvas.height);
                                         const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
-                                        const found=decoder(pixels.data,pixels.width,pixels.height,{inversionAttempts:'attemptBoth'});
+                                        passes++;
+                                        const found=decoder(pixels.data,pixels.width,pixels.height,{
+                                            inversionAttempts:passes%5===0?'attemptBoth':'dontInvert'
+                                        });
                                         if(found?.data){scanValue(found.data);return;}
                                     }
                                 }catch(e){}
                                 finally{busy=false;}
                             }
-                            frameRef.current=requestAnimationFrame(tick);
+                            frameRef.current=setTimeout(tick,detector?70:110);
                         };
-                        frameRef.current=requestAnimationFrame(tick);
+                        frameRef.current=setTimeout(tick,40);
                     }catch(e){
                         stop();
-                        if(e?.name==='NotAllowedError'||e?.name==='SecurityError') setCameraError('Permite el acceso a la cámara para go.tocaqui.store en el navegador.');
-                        else if(e?.name==='NotFoundError') setCameraError('No se encontró una cámara disponible en este equipo.');
-                        else if(e?.name==='NotReadableError') setCameraError('La cámara está siendo usada por otra aplicación. Ciérrala y vuelve a intentar.');
-                        else setCameraError('No se pudo iniciar el lector QR. Puedes buscar el TAG manualmente mientras revisas permisos de cámara.');
+                        if(e?.name==='NotAllowedError'||e?.name==='SecurityError')setCameraError('Permite el acceso a la cámara para go.tocaqui.store.');
+                        else if(e?.name==='NotFoundError')setCameraError('No se encontró una cámara disponible.');
+                        else if(e?.name==='NotReadableError')setCameraError('La cámara está siendo usada por otra aplicación.');
+                        else setCameraError(e?.message||'No se pudo iniciar el lector QR.');
                     }
                 };
-                const lots=[...new Map(qrs.map(q=>[q.batchId||'legacy',{id:q.batchId||'legacy',name:q.batchName||'Sin lote'}])).values()];
-                const filtered=qrs.filter(q=>(lot==='all'||(q.batchId||'legacy')===lot)&&(status==='all'||(status==='active'?q.status==='active':q.status!=='active'))&&(!query||[q.trackingCode,q.businessName,q.batchName].some(v=>String(v||'').toLowerCase().includes(query.toLowerCase())))).slice(0,25);
-                if (!scanSimModal.open) return null;
-                const scannedQr = qrs.find(q => q.trackingCode === scanSimModal.code);
-                const isActive = scannedQr?.status === 'active';
-                const close = () => {stop();setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});};
-                return (
-                    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                        <div className="glass-panel w-full max-w-md max-h-[90dvh] overflow-y-auto rounded-3xl p-5 sm:p-6 border border-slate-700 relative">
-                            <button type="button" onClick={close} aria-label="Cerrar prueba" className="absolute top-4 right-4 w-9 h-9 rounded-lg bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
-                            <div className="flex items-center gap-3 pr-10 mb-5">
-                                <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400"><i className="fa-solid fa-mobile-screen-button"></i></div>
-                                <div><h3 className="font-bold text-white text-lg">Probar una tarjeta</h3><p className="text-xs text-slate-400">Vista de prueba · no registra escaneos</p></div>
-                            </div>
-                            <video ref={videoRef} playsInline muted autoPlay className={`w-full aspect-video object-cover bg-black rounded-xl mb-2 ${cameraOn?'block':'hidden'}`}></video>
-                            <button type="button" onClick={cameraOn?stop:start} className="w-full min-h-12 bg-blue-600 text-white font-semibold rounded-xl mb-2"><i className="fa-solid fa-camera mr-2"></i>{cameraOn?'Detener cámara':'Escanear QR con cámara'}</button>
-                            {cameraError&&<p role="alert" className="text-xs text-amber-300 mb-2">{cameraError}</p>}
-                            <label htmlFor="scan-query" className="block text-xs font-semibold text-slate-300 mb-1">Buscar TAG o negocio</label>
-                            <input id="scan-query" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar tarjeta" className="glass-input w-full rounded-xl px-3 py-2.5 mb-2"/>
-                            <div className="grid grid-cols-2 gap-2 mb-3">
-                              <div><label htmlFor="scan-lot" className="text-xs text-slate-400">Lote</label><select id="scan-lot" value={lot} onChange={e=>setLot(e.target.value)} className="glass-input w-full p-2 rounded-xl text-xs"><option value="all">Todos</option>{lots.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
-                              <div><label htmlFor="scan-state" className="text-xs text-slate-400">Estado</label><select id="scan-state" value={status} onChange={e=>setStatus(e.target.value)} className="glass-input w-full p-2 rounded-xl text-xs"><option value="all">Todas</option><option value="active">Activas</option><option value="pending">Pendientes</option></select></div>
-                            </div>
-                            <label className="block text-xs font-semibold text-slate-300 mb-2">Selecciona una tarjeta (máximo 25 resultados)</label>
-                            <div className="max-h-44 overflow-y-auto space-y-1.5 rounded-xl border border-slate-700 bg-slate-950/50 p-2">
-                                {filtered.length === 0 && <p className="text-xs text-slate-400 p-3">Todavía no hay tarjetas para probar.</p>}
-                                {filtered.map(q => (
-                                    <button key={q.id} type="button" onClick={()=>setScanSimModal(prev=>({...prev,code:q.trackingCode,reviewGateStep:'stars',selectedStars:0}))} className={`w-full flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left border transition-colors ${scanSimModal.code===q.trackingCode?'border-blue-500 bg-blue-500/15':'border-transparent hover:bg-slate-800'}`}>
-                                        <span className="min-w-0"><span className="block text-sm font-mono text-white truncate">{cardNumber(q)}</span><span className="block text-[11px] text-slate-400 truncate">{q.businessName || q.batchName || 'Sin negocio asignado'}</span></span>
-                                        <span className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-full ${q.status==='active'?'bg-emerald-500/15 text-emerald-300':'bg-amber-500/15 text-amber-300'}`}>{q.status==='active'?'Activa':'Sin activar'}</span>
-                                    </button>
-                                ))}
-                            </div>
-                            {scannedQr ? (
-                                <div className="mt-4 p-4 rounded-xl border border-slate-700 bg-slate-900/70 space-y-3">
-                                    <div className="flex justify-between items-center gap-2"><span className="text-xs font-semibold text-slate-300">2. Estado de la tarjeta</span><span className={`text-xs font-bold ${isActive?'text-emerald-400':'text-amber-400'}`}>{isActive?'Activada':'Pendiente de activación'}</span></div>
-                                    <p className="text-sm text-white font-semibold">{isActive?(scannedQr.businessName||'Tarjeta activada'):'Esta tarjeta todavía no está asignada a un negocio'}</p>
-                                    {isActive ? (
-                                        <div className="space-y-2">
-                                            <p className="text-xs text-slate-400">Para comprobar el destino real, abre el enlace de la tarjeta. Esta vista no modifica su estado.</p>
-                                            {scannedQr.dynamicUrl ? <a href={scannedQr.dynamicUrl} target="_blank" rel="noreferrer" className="block text-center w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm">Abrir enlace de la tarjeta <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i></a> : <p className="text-xs text-amber-300">Esta tarjeta no tiene un enlace configurado.</p>}
-                                        </div>
-                                    ) : (
-                                        <button type="button" onClick={()=>{close();setActivateModal({open:true,qr:scannedQr})}} className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-sm">Ir a activar esta tarjeta</button>
-                                    )}
+
+                useEffect(()=>{
+                    if(!scanSimModal.open||scanSimModal.code)return;
+                    const id=setTimeout(()=>start(),90);
+                    return()=>{clearTimeout(id);stop();};
+                },[scanSimModal.open,scanSimModal.code]);
+
+                if(!scanSimModal.open)return null;
+                const scannedQr=qrs.find(q=>q.trackingCode===scanSimModal.code);
+
+                if(scannedQr?.status==='active'){
+                    return (
+                        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="glass-panel w-full max-w-sm rounded-3xl border border-emerald-500/25 p-5 sm:p-6">
+                                <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 flex items-center justify-center text-2xl"><i className="fa-solid fa-circle-check"></i></div>
+                                <h3 className="text-center text-lg font-bold text-white mt-4">Tarjeta ya asignada</h3>
+                                <p className="text-center text-xs text-slate-400 mt-1 font-mono">{scannedQr.trackingCode}</p>
+                                <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+                                    <div className="text-[10px] uppercase tracking-wider text-slate-500">Negocio</div>
+                                    <div className="text-sm font-semibold text-white mt-1">{scannedQr.businessName||'Negocio asignado'}</div>
+                                    {scannedQr.businessAddress&&<div className="text-xs text-slate-400 mt-1">{scannedQr.businessAddress}</div>}
                                 </div>
-                            ) : <p className="text-xs text-slate-400 mt-4">Elige una tarjeta para consultar su estado y acceder a la acción correspondiente.</p>}
+                                <div className="grid grid-cols-2 gap-2 mt-4">
+                                    <button type="button" onClick={()=>setScanSimModal({open:true,code:'',reviewGateStep:'stars',selectedStars:0})} className="rounded-xl bg-blue-600 text-white py-3 text-sm font-semibold"><i className="fa-solid fa-qrcode mr-2"></i>Escanear otra</button>
+                                    <button type="button" onClick={close} className="rounded-xl bg-slate-800 text-slate-200 py-3 text-sm font-semibold">Cerrar</button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+                        <div className="w-full max-w-xl rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl overflow-hidden">
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+                                <div>
+                                    <h3 className="font-bold text-white">Escanear QR TOCAQUI</h3>
+                                    <p className="text-[11px] text-slate-400">Apunta al QR. La detección es automática.</p>
+                                </div>
+                                <button type="button" onClick={close} aria-label="Cerrar lector" className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div className="p-3 sm:p-4">
+                                <div className="relative overflow-hidden rounded-2xl bg-black border border-slate-800 aspect-[4/3]">
+                                    <video ref={videoRef} playsInline muted autoPlay className="absolute inset-0 w-full h-full object-cover"></video>
+                                    <div className="absolute inset-[8%] rounded-3xl border-2 border-cyan-400/90 shadow-[0_0_0_999px_rgba(2,6,23,.16)] pointer-events-none">
+                                        <span className="absolute -top-0.5 -left-0.5 w-9 h-9 border-t-4 border-l-4 border-cyan-300 rounded-tl-2xl"></span>
+                                        <span className="absolute -top-0.5 -right-0.5 w-9 h-9 border-t-4 border-r-4 border-cyan-300 rounded-tr-2xl"></span>
+                                        <span className="absolute -bottom-0.5 -left-0.5 w-9 h-9 border-b-4 border-l-4 border-cyan-300 rounded-bl-2xl"></span>
+                                        <span className="absolute -bottom-0.5 -right-0.5 w-9 h-9 border-b-4 border-r-4 border-cyan-300 rounded-br-2xl"></span>
+                                    </div>
+                                    {starting&&<div className="absolute inset-0 flex items-center justify-center bg-black/45 text-white text-sm"><i className="fa-solid fa-spinner fa-spin mr-2"></i>Iniciando cámara…</div>}
+                                    {cameraOn&&<div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/65 border border-white/15 px-3 py-1.5 text-[11px] text-white">Acerca el QR hasta llenar el recuadro</div>}
+                                </div>
+                                {cameraError&&<div role="alert" className="mt-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">{cameraError}</div>}
+                                {!cameraOn&&!starting&&<button type="button" onClick={start} className="mt-3 w-full rounded-xl bg-blue-600 hover:bg-blue-500 py-3 text-sm font-bold text-white"><i className="fa-solid fa-camera mr-2"></i>Activar cámara</button>}
+                            </div>
                         </div>
                     </div>
                 );
