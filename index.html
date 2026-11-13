@@ -1859,6 +1859,7 @@ const resetTestInventory = async () => {
                             key={item.id}
                             className={cardClass}
                             style={{
+                                isolation: 'isolate',
                                 background: bgToUse
                                     ? '#ffffff'
                                     : printConfig.theme === 'gold-luxury'
@@ -1869,7 +1870,7 @@ const resetTestInventory = async () => {
                                 color: printConfig.theme === 'clean-white' ? '#0f172a' : '#ffffff'
                             }}
                         >
-                            {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'fill',pointerEvents:'none',zIndex:0}} />}
+                            {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'fill',pointerEvents:'none',zIndex:-1}} />}
                             {side === 'back' && <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
                                 <span className="truncate max-w-[120px]">{item.businessName || 'NFC CARD'}</span>
                                 <i className="fa-solid fa-nfc-symbol text-xs text-blue-400"></i>
