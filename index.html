@@ -2398,6 +2398,11 @@ const resetTestInventory = async () => {
                 const [oldPinInput,setOldPinInput]=useState('');
                 const [keyInput, setKeyInput] = useState(googleApiKey);
                 const [placesUsage, setPlacesUsage] = useState(readPlacesUsage);
+                const [authorizedDevices, setAuthorizedDevices] = useState([]);
+                const [currentDeviceId, setCurrentDeviceId] = useState('');
+                const [devicesLoading, setDevicesLoading] = useState(false);
+                const [deviceActionBusy, setDeviceActionBusy] = useState(false);
+                const [pairingInfo, setPairingInfo] = useState(null);
                 useEffect(() => {
                     const refresh = () => setPlacesUsage(readPlacesUsage());
                     window.addEventListener('tocaqui-places-usage-updated', refresh);
@@ -2415,6 +2420,72 @@ const resetTestInventory = async () => {
  setGoogleApiKey(keyInput);showToast('Configuración guardada. PIN actualizado en Supabase.','success');
  }catch(e){showToast(e.message,'error')}
  };
+
+                const loadAuthorizedDevices = async () => {
+                    if (!workshopSession) return;
+                    setDevicesLoading(true);
+                    try {
+                        const result = await workshopApi({ action:'devices', session:workshopSession });
+                        setAuthorizedDevices(Array.isArray(result.devices) ? result.devices : []);
+                        setCurrentDeviceId(result.currentDeviceId || '');
+                    } catch (e) {
+                        showToast(e.message || 'No se pudieron cargar los equipos.', 'error');
+                    } finally {
+                        setDevicesLoading(false);
+                    }
+                };
+
+                useEffect(() => {
+                    if (cloudReady && workshopSession) void loadAuthorizedDevices();
+                }, [cloudReady, workshopSession]);
+
+                const generateDevicePairing = async () => {
+                    if (deviceActionBusy) return;
+                    setDeviceActionBusy(true);
+                    try {
+                        const result = await workshopApi({ action:'createPairing', session:workshopSession });
+                        setPairingInfo({ code:result.code, url:result.pairingUrl, expiresAt:result.expiresAt });
+                        showToast('Código temporal generado. Vence en 15 minutos.', 'success');
+                    } catch (e) {
+                        showToast(e.message || 'No se pudo generar el acceso.', 'error');
+                    } finally {
+                        setDeviceActionBusy(false);
+                    }
+                };
+
+                const revokeAuthorizedDevice = async (deviceId) => {
+                    if (deviceActionBusy || deviceId === currentDeviceId) return;
+                    setDeviceActionBusy(true);
+                    try {
+                        await workshopApi({ action:'revokeDevice', session:workshopSession, deviceId });
+                        await loadAuthorizedDevices();
+                        showToast('Equipo revocado. Sus sesiones quedaron cerradas.', 'success');
+                    } catch (e) {
+                        showToast(e.message || 'No se pudo revocar el equipo.', 'error');
+                    } finally {
+                        setDeviceActionBusy(false);
+                    }
+                };
+
+                const copyDeviceAccess = async (value, label) => {
+                    try {
+                        await navigator.clipboard.writeText(value);
+                        showToast(label + ' copiado.', 'success');
+                    } catch {
+                        showToast('No se pudo copiar automáticamente.', 'info');
+                    }
+                };
+
+                const shareDeviceAccess = async () => {
+                    if (!pairingInfo?.url) return;
+                    const text = 'Acceso temporal TOCAQUI. Abre este enlace para vincular tu navegador. Luego ingresa el PIN de 4 dígitos.';
+                    try {
+                        if (navigator.share) await navigator.share({ title:'Vincular equipo TOCAQUI', text, url:pairingInfo.url });
+                        else await copyDeviceAccess(pairingInfo.url, 'Enlace de vinculación');
+                    } catch (e) {
+                        if (e?.name !== 'AbortError') showToast('No se pudo compartir el acceso.', 'error');
+                    }
+                };
 
                 return (
                     <div className="max-w-3xl mx-auto space-y-6">
@@ -2443,6 +2514,68 @@ const resetTestInventory = async () => {
                                 <button onClick={saveSettings} className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-xl text-xs">
                                     Guardar PIN
                                 </button>
+                            </div>
+                        </div>
+
+                        <div className="glass-panel p-6 rounded-2xl space-y-4 border border-cyan-500/20">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div>
+                                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                        <i className="fa-solid fa-laptop-shield text-cyan-400"></i> Equipos autorizados
+                                    </h2>
+                                    <p className="text-xs text-slate-400 mt-1">Cada navegador se autoriza por separado. Genera un acceso temporal para Safari, otro computador o un teléfono.</p>
+                                </div>
+                                <button type="button" disabled={deviceActionBusy} onClick={generateDevicePairing} className="shrink-0 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">
+                                    <i className="fa-solid fa-key mr-2"></i>{deviceActionBusy ? 'Generando…' : 'Generar acceso'}
+                                </button>
+                            </div>
+
+                            {pairingInfo && (
+                                <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-4 space-y-3">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 shrink-0 rounded-xl bg-cyan-500/10 text-cyan-300 flex items-center justify-center"><i className="fa-solid fa-link"></i></div>
+                                        <div className="min-w-0">
+                                            <div className="text-sm font-bold text-white">Acceso temporal listo</div>
+                                            <div className="text-[11px] text-amber-300 mt-0.5">Un solo uso · vence en 15 minutos · el PIN sigue siendo obligatorio</div>
+                                        </div>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-3">
+                                        <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Código</div>
+                                        <div className="font-mono text-xs text-slate-200 break-all">{pairingInfo.code}</div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                        <button type="button" onClick={()=>copyDeviceAccess(pairingInfo.code,'Código')} className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-semibold text-slate-200"><i className="fa-solid fa-copy mr-2"></i>Copiar código</button>
+                                        <button type="button" onClick={()=>copyDeviceAccess(pairingInfo.url,'Enlace')} className="rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2.5 text-xs font-semibold text-blue-200"><i className="fa-solid fa-link mr-2"></i>Copiar enlace</button>
+                                        <button type="button" onClick={shareDeviceAccess} className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs font-semibold text-emerald-200"><i className="fa-solid fa-share-nodes mr-2"></i>Enviar</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Dispositivos registrados</span>
+                                    <button type="button" onClick={loadAuthorizedDevices} disabled={devicesLoading} className="text-xs text-cyan-300 disabled:opacity-50"><i className="fa-solid fa-rotate mr-1"></i>Actualizar</button>
+                                </div>
+                                {devicesLoading ? (
+                                    <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-xs text-slate-400"><i className="fa-solid fa-spinner fa-spin mr-2"></i>Cargando equipos…</div>
+                                ) : authorizedDevices.length ? authorizedDevices.map(device => {
+                                    const current = device.id === currentDeviceId;
+                                    const revoked = !!device.revoked_at;
+                                    return (
+                                        <div key={device.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/45 p-3">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${revoked?'bg-rose-500/10 text-rose-300':'bg-emerald-500/10 text-emerald-300'}`}><i className={`fa-solid ${device.device_label?.toLowerCase().includes('iphone')?'fa-mobile-screen-button':'fa-laptop'}`}></i></div>
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-semibold text-white truncate">{device.device_label || 'Equipo TOCAQUI'} {current && <span className="ml-1 text-[10px] rounded-full bg-blue-500/15 text-blue-300 px-2 py-0.5">Este equipo</span>}</div>
+                                                    <div className="text-[11px] text-slate-500">{revoked ? 'Revocado' : device.last_used_at ? 'Último acceso: ' + new Date(device.last_used_at).toLocaleString('es-CL') : 'Aún sin uso registrado'}</div>
+                                                </div>
+                                            </div>
+                                            {!revoked && !current && <button type="button" disabled={deviceActionBusy} onClick={()=>revokeAuthorizedDevice(device.id)} className="rounded-lg border border-rose-500/25 bg-rose-500/5 px-3 py-2 text-xs font-semibold text-rose-300 disabled:opacity-50"><i className="fa-solid fa-ban mr-1.5"></i>Revocar</button>}
+                                        </div>
+                                    );
+                                }) : (
+                                    <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-xs text-slate-400">No hay equipos registrados.</div>
+                                )}
                             </div>
                         </div>
 
