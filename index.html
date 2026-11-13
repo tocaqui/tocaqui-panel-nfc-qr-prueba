@@ -788,21 +788,33 @@ const signInAdmin=async(e)=>{
  }catch(err){setCloudError(err.message)}finally{setLoginBusy(false)}
 };
 const [cloudReady,setCloudReady]=useState(false);
-const [serverAnalytics,setServerAnalytics]=useState({scans:null,activations:null});
+const [serverAnalytics,setServerAnalytics]=useState({scans:null,activations:null,perCard:{},perClient:{},perBusiness:{},updatedAt:null});
+const getCardScans=(qr)=>Number(serverAnalytics.perCard?.[qr?.id]||0);
+const getClientScans=(clientId)=>Number(serverAnalytics.perClient?.[clientId]||0);
 useEffect(()=>{
-  if(!cloudReady || adminTab!=='dashboard')return;
+  if(!cloudReady || !workshopSession)return;
   let alive=true;
   const load=async()=>{
-    const [scans,activations]=await Promise.all([
-      cloud.from('tocaqui_card_events').select('id',{count:'exact',head:true}).eq('event_type','scan'),
-      cloud.from('tocaqui_card_events').select('id',{count:'exact',head:true}).eq('event_type','activation')
-    ]);
-    if(alive)setServerAnalytics({scans:scans.error?null:scans.count,activations:activations.error?null:activations.count});
+    try{
+      const result=await workshopApi({action:'analytics',session:workshopSession});
+      if(alive)setServerAnalytics({
+        scans:Number(result.totalScans||0),
+        activations:Number(result.totalActivations||0),
+        perCard:result.perCard||{},
+        perClient:result.perClient||{},
+        perBusiness:result.perBusiness||{},
+        updatedAt:result.updatedAt||null
+      });
+    }catch(e){
+      if(alive)setServerAnalytics(prev=>({...prev,scans:null,activations:null}));
+    }
   };
   load();
   const interval=setInterval(load,30000);
-  return()=>{alive=false;clearInterval(interval)};
-},[cloud,cloudReady,adminTab]);
+  const onFocus=()=>load();
+  window.addEventListener('focus',onFocus);
+  return()=>{alive=false;clearInterval(interval);window.removeEventListener('focus',onFocus)};
+},[cloudReady,workshopSession]);
 const [cloudError,setCloudError]=useState('');
 const last=React.useRef({qrs:[],clients:[],templates:[]});
 const initialized=React.useRef(false);
@@ -1414,7 +1426,7 @@ const resetTestInventory = async () => {
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between text-xs border-t border-slate-800 pt-2">
-                                            <span className="text-slate-400">Escaneos <strong className="text-slate-200 font-mono ml-1">{qr.scans || 0}</strong></span>
+                                            <span className="text-slate-400">Escaneos <strong className="text-slate-200 font-mono ml-1">{getCardScans(qr)}</strong></span>
                                             {qr.dynamicUrl && <span className="text-blue-400 truncate max-w-[55%]" title={qr.dynamicUrl}>{qr.dynamicUrl}</span>}
                                         </div>
                                         <div className="rounded-2xl border border-slate-800 bg-slate-950/35 p-2.5 space-y-2">
@@ -1482,7 +1494,7 @@ const resetTestInventory = async () => {
                                                         )}
                                                     </td>
                                                     <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-300">
-                                                        {qr.scans || 0}
+                                                        {getCardScans(qr)}
                                                     </td>
                                                     <td className="py-3.5 px-4">
                                                         <div className="flex items-center justify-end gap-1.5">
@@ -1537,7 +1549,7 @@ const resetTestInventory = async () => {
                 if (adminTab === 'client-detail' && selectedClientDetailId) {
                     const client = clients.find(c => c.id === selectedClientDetailId);
                     const clientQrs = qrs.filter(q => q.clientId === selectedClientDetailId);
-                    const totalScans = clientQrs.reduce((acc, curr) => acc + (curr.scans || 0), 0);
+                    const totalScans = clientQrs.reduce((acc, curr) => acc + getCardScans(curr), 0);
 
                     return (
                         <div className="tocaqui-operation-page space-y-6">
@@ -1587,7 +1599,7 @@ const resetTestInventory = async () => {
                                         <div key={qr.id} className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
                                             <div className="flex justify-between items-start">
                                                 <span className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded">ID: {cardNumber(qr)}</span>
-                                                <span className="text-xs text-slate-400 font-mono"><i className="fa-solid fa-bolt text-amber-400 mr-1"></i>{qr.scans || 0} escaneos</span>
+                                                <span className="text-xs text-slate-400 font-mono"><i className="fa-solid fa-bolt text-amber-400 mr-1"></i>{getCardScans(qr)} escaneos</span>
                                             </div>
                                             <h4 className="font-bold text-white">{qr.businessName || 'Tarjeta Sin Nombre'}</h4>
                                             <div className="p-2.5 bg-slate-950 rounded-lg text-xs font-mono text-blue-400 truncate border border-slate-800/80">{qr.dynamicUrl || 'Sin enlace'}</div>
@@ -2343,7 +2355,7 @@ const resetTestInventory = async () => {
                                 <div key={qr.id} className="glass-panel p-5 rounded-2xl space-y-3">
                                     <div className="flex justify-between items-start">
                                         <span className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded">ID: {cardNumber(qr)}</span>
-                                        <span className="text-xs text-slate-400 font-mono"><i className="fa-solid fa-eye mr-1"></i>{qr.scans || 0} lecturas</span>
+                                        <span className="text-xs text-slate-400 font-mono"><i className="fa-solid fa-eye mr-1"></i>{getCardScans(qr)} lecturas</span>
                                     </div>
                                     <h3 className="font-bold text-white">{qr.businessName || 'Mi Tarjeta'}</h3>
                                     <div className="p-3 bg-slate-900 rounded-xl text-xs font-mono text-blue-400 truncate border border-slate-800">{qr.dynamicUrl || 'Sin enlace'}</div>
@@ -2445,7 +2457,8 @@ const resetTestInventory = async () => {
                     try {
                         const result = await workshopApi({ action:'createPairing', session:workshopSession });
                         if (!result.code || !result.pairingUrl) throw new Error('El servidor no devolvió la clave de vinculación.');
-                        setPairingInfo({ code:result.code, url:result.pairingUrl, expiresAt:result.expiresAt });
+                        const qrImage = await generateQRBase64(result.pairingUrl, 360);
+                        setPairingInfo({ code:result.code, url:result.pairingUrl, expiresAt:result.expiresAt, qrImage });
                     } catch (e) {
                         showToast(e.message || 'No se pudo generar el acceso.', 'error');
                     } finally {
@@ -2507,7 +2520,14 @@ const resetTestInventory = async () => {
                                         </button>
                                     </div>
 
-                                    <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-900 p-4">
+                                    {pairingInfo.qrImage && (
+                                        <div className="mt-5 flex flex-col items-center gap-2 rounded-2xl border border-cyan-500/25 bg-white p-4">
+                                            <img src={pairingInfo.qrImage} alt="QR para vincular equipo TOCAQUI" className="w-48 h-48 object-contain" />
+                                            <div className="text-[11px] font-semibold text-slate-700 text-center">Escanea con Safari u otro teléfono para vincular el equipo</div>
+                                        </div>
+                                    )}
+
+                                    <div className="mt-3 rounded-2xl border border-slate-700 bg-slate-900 p-4">
                                         <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Clave temporal</div>
                                         <div className="font-mono text-sm sm:text-base leading-7 text-cyan-200 break-all select-all">{pairingInfo.code}</div>
                                     </div>
@@ -2583,6 +2603,11 @@ const resetTestInventory = async () => {
                                             <div className="text-[11px] text-amber-300 mt-0.5">Un solo uso · vence en 15 minutos · el PIN sigue siendo obligatorio</div>
                                         </div>
                                     </div>
+                                    {pairingInfo.qrImage && (
+                                        <div className="flex justify-center rounded-xl bg-white p-3">
+                                            <img src={pairingInfo.qrImage} alt="QR de acceso temporal" className="w-40 h-40 object-contain" />
+                                        </div>
+                                    )}
                                     <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-3">
                                         <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Código</div>
                                         <div className="font-mono text-xs text-slate-200 break-all">{pairingInfo.code}</div>
