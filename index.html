@@ -2606,10 +2606,7 @@ const resetTestInventory = async () => {
                     try {
                         const projectId = cloudProjectInput.trim() || googleCloudConfig.projectId;
                         const token = await getGoogleCloudToken();
-                        const result = await googleCloudFetch(
-                            'https://apikeys.googleapis.com/v2/projects/' + encodeURIComponent(projectId) + '/locations/global/keys?showDeleted=false',
-                            token
-                        );
+                        const result = await workshopApi({action:'googleCloudListKeys',session:workshopSession,accessToken:token,projectId});
                         setGoogleCloudKeys(Array.isArray(result.keys) ? result.keys : []);
                         setGoogleCloudMessage('Claves sincronizadas con Google Cloud.');
                     } catch (e) {
@@ -2627,56 +2624,16 @@ const resetTestInventory = async () => {
                         const projectId = cloudProjectInput.trim() || googleCloudConfig.projectId;
                         const oauthClientId = cloudOAuthInput.trim() || googleCloudConfig.oauthClientId;
                         if (!projectId || !oauthClientId) throw new Error('Completa y guarda Project ID y OAuth Client ID primero.');
-                        setGoogleCloudConfig(prev => ({...prev, projectId, oauthClientId, configured:true}));
                         const token = await getGoogleCloudToken();
-
-                        setGoogleCloudMessage('Habilitando API Keys, Maps JavaScript y Places…');
-                        await enableGoogleService(projectId, 'apikeys.googleapis.com', token);
-                        await enableGoogleService(projectId, 'maps-backend.googleapis.com', token);
-                        await enableGoogleService(projectId, 'places.googleapis.com', token);
-
-                        setGoogleCloudMessage('Creando clave restringida para TOCAQUI…');
-                        const created = await googleCloudFetch(
-                            'https://apikeys.googleapis.com/v2/projects/' + encodeURIComponent(projectId) + '/locations/global/keys',
-                            token,
-                            {
-                                method:'POST',
-                                body: JSON.stringify({
-                                    displayName: 'TOCAQUI Places ' + new Date().toLocaleDateString('es-CL'),
-                                    restrictions: {
-                                        browserKeyRestrictions: {
-                                            allowedReferrers: [
-                                                'https://go.tocaqui.store',
-                                                'https://go.tocaqui.store/*'
-                                            ]
-                                        },
-                                        apiTargets: [
-                                            { service:'maps-backend.googleapis.com' },
-                                            { service:'places.googleapis.com' }
-                                        ]
-                                    }
-                                })
-                            }
-                        );
-                        const keyResource = created.name
-                            ? await waitGoogleOperation('https://apikeys.googleapis.com/v2', created.name, token)
-                            : created;
-                        const keyName = keyResource.name || keyResource.response?.name;
-                        if (!keyName) throw new Error('Google creó la operación, pero no devolvió el recurso de la clave.');
-                        const keyData = await googleCloudFetch('https://apikeys.googleapis.com/v2/' + keyName + '/keyString', token);
-                        if (!keyData.keyString) throw new Error('No se pudo recuperar la nueva clave.');
-                        setGoogleApiKey(keyData.keyString);
-                        setKeyInput(keyData.keyString);
-                        setGoogleCloudConfig(prev => ({...prev, projectId, oauthClientId, configured:true, activeKeyName:keyName, lastCreatedAt:new Date().toISOString()}));
-                        const list = await googleCloudFetch(
-                            'https://apikeys.googleapis.com/v2/projects/' + encodeURIComponent(projectId) + '/locations/global/keys?showDeleted=false',
-                            token
-                        );
-                        setGoogleCloudKeys(Array.isArray(list.keys) ? list.keys : []);
-                        setGoogleCloudMessage('Nueva clave creada, restringida y aplicada a TOCAQUI.');
+                        setGoogleCloudMessage('Habilitando APIs y creando clave restringida…');
+                        const result = await workshopApi({action:'googleCloudCreateKey',session:workshopSession,accessToken:token,projectId});
+                        if (!result.keyString || !result.keyName) throw new Error('Google no devolvió la nueva clave.');
+                        setGoogleApiKey(result.keyString);
+                        setKeyInput(result.keyString);
+                        setGoogleCloudKeys(Array.isArray(result.keys) ? result.keys : []);
+                        setGoogleCloudConfig(prev => ({...prev, projectId, oauthClientId, configured:true, activeKeyName:result.keyName, lastCreatedAt:new Date().toISOString()}));
                     } catch (e) {
                         setGoogleCloudMessage(e.message || 'No se pudo crear la clave.');
-                    } finally {
                         setGoogleCloudBusy(false);
                     }
                 };
@@ -2687,18 +2644,17 @@ const resetTestInventory = async () => {
                     setGoogleCloudMessage('Aplicando clave seleccionada…');
                     try {
                         const token = await getGoogleCloudToken();
-                        const result = await googleCloudFetch('https://apikeys.googleapis.com/v2/' + key.name + '/keyString', token);
+                        const result = await workshopApi({action:'googleCloudKeyString',session:workshopSession,accessToken:token,keyName:key.name});
                         if (!result.keyString) throw new Error('Google no devolvió la clave.');
                         setGoogleApiKey(result.keyString);
                         setKeyInput(result.keyString);
                         setGoogleCloudConfig(prev => ({...prev, activeKeyName:key.name}));
-                        setGoogleCloudMessage('Clave aplicada a Google Places en TOCAQUI.');
                     } catch (e) {
                         setGoogleCloudMessage(e.message || 'No se pudo aplicar la clave.');
-                    } finally {
                         setGoogleCloudBusy(false);
                     }
                 };
+
 
                 return (
                     <div className="max-w-3xl mx-auto space-y-6">
