@@ -203,6 +203,21 @@
 .tq-dashboard .glass-panel{background:linear-gradient(150deg,#101d33,#0b1427)!important;border:1px solid #2563eb55!important;border-radius:20px!important;box-shadow:0 14px 30px #0003}
 @media(max-width:639px){.tq-dashboard .tq-hero{padding:18px}}
 }
+
+        /* Premium operational modules: visual only, never print layout */
+        @media screen {
+          .tq-ops { --tq-accent:#3b82f6; }
+          .tq-ops > div > h1, .tq-ops > div > div > h1 {font-size:clamp(1.45rem,2.5vw,2rem);font-weight:800;letter-spacing:-.035em}
+          .tq-ops > .glass-panel, .tq-ops > div > .glass-panel {background:linear-gradient(145deg,#101d33,#0b1427)!important;border:1px solid rgba(59,130,246,.25)!important;border-radius:20px!important;box-shadow:0 16px 34px rgba(0,0,0,.17)}
+          .tq-ops .glass-input {border-radius:12px!important;min-height:44px}
+          .tq-ops button {transition:filter .18s,transform .18s}
+          .tq-ops button:hover {filter:brightness(1.12)}
+          .tq-ops .overflow-x-auto {border-radius:14px;scrollbar-color:#2563eb #0b1427}
+          .tq-ops table thead {background:#101d33}
+          .tq-ops table tbody tr:hover {background:rgba(59,130,246,.07)}
+          .tq-batch > div:nth-child(2), .tq-cards > div:nth-child(2), .tq-clients > div:nth-child(2), .tq-templates > div:nth-child(2), .tq-print > div:nth-child(2) {border-left:3px solid #06b6d4;padding-left:16px}
+          @media(max-width:639px){.tq-ops .glass-panel{border-radius:16px!important}.tq-ops .overflow-x-auto{max-width:calc(100vw - 32px)}}
+        }
     </style>
 </head>
 <body class="min-h-screen">
