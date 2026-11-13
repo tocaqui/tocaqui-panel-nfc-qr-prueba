@@ -682,18 +682,33 @@
             useEffect(()=>{try{localStorage.setItem('nfc_qrs_v6',JSON.stringify(qrs))}catch(e){}},[qrs]);
 useEffect(()=>{try{localStorage.setItem('nfc_clients_v6',JSON.stringify(clients))}catch(e){}},[clients]);
 useEffect(()=>{try{localStorage.setItem('nfc_templates_v6',JSON.stringify(templates))}catch(e){}},[templates]);
-const [loginEmail,setLoginEmail]=useState('');
-const [loginPassword,setLoginPassword]=useState('');
+const [pairCodeLogin,setPairCodeLogin]=useState(()=>new URLSearchParams(location.search).get('vincular')||'');
+const [pairingBusyLogin,setPairingBusyLogin]=useState(false);
+const pairWorkshopDevice=async()=>{
+ setPairingBusyLogin(true);setCloudError('');
+ try{
+ const res=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify({action:'pair',code:pairCodeLogin.trim().toLowerCase(),label:/iPhone|iPad/i.test(navigator.userAgent)?'iPhone TOCAQUI':'Computador TOCAQUI'})});
+ const result=await res.json();if(!res.ok||!result.ok)throw new Error(result.error||'No se pudo vincular');
+ localStorage.setItem('tocaqui_device_credential_v1',result.credential);setPairCodeLogin('');
+ history.replaceState(null,'',location.pathname);setCloudError('Dispositivo autorizado. Ingresa tu PIN para acceder.');
+ }catch(e){setCloudError(e.message)}finally{setPairingBusyLogin(false)}
+};
+const [loginPin,setLoginPin]=useState('');
 const [loginBusy,setLoginBusy]=useState(false);
 const [authRevision,setAuthRevision]=useState(0);
+const [workshopSession,setWorkshopSession]=useState(()=>sessionStorage.getItem('tocaqui_workshop_session')||'');
+const workshopApi=async(payload)=>{
+ const res=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify(payload)});
+ const json=await res.json();if(!res.ok||!json.ok)throw new Error(json.error||'Acceso rechazado');return json;
+};
 const signInAdmin=async(e)=>{
-  e.preventDefault();setLoginBusy(true);setCloudError('');
-  try {
-    const {error}=await cloud.auth.signInWithPassword({email:loginEmail.trim(),password:loginPassword});
-    if(error)throw error;
-    setLoginPassword('');setAuthRevision(v=>v+1);
-  }catch(err){setCloudError('Acceso Supabase: '+err.message)}
-  finally{setLoginBusy(false)}
+ e.preventDefault();setLoginBusy(true);setCloudError('');
+ try{const credential=localStorage.getItem('tocaqui_device_credential_v1')||'';
+ if(!credential)throw new Error('Este navegador requiere vinculación previa como dispositivo autorizado.');
+ const result=await workshopApi({action:'login',credential,pin:loginPin});
+ localStorage.setItem('tocaqui_device_credential_v1',credential);sessionStorage.setItem('tocaqui_workshop_session',result.session);setWorkshopSession(result.session);
+ setLoginPin('');setAuthRevision(v=>v+1);
+ }catch(err){setCloudError(err.message)}finally{setLoginBusy(false)}
 };
 const [cloudReady,setCloudReady]=useState(false);
 const [serverAnalytics,setServerAnalytics]=useState({scans:null,activations:null});
@@ -714,36 +729,29 @@ useEffect(()=>{
 const [cloudError,setCloudError]=useState('');
 const last=React.useRef({qrs:[],clients:[],templates:[]});
 const initialized=React.useRef(false);
-useEffect(()=>{let live=true;(async()=>{try{const {data:{session}}=await cloud.auth.getSession();if(!session){setCloudError('Modo local: datos solo en este navegador; activacion en nube no disponible sin autorizacion.');return;} const loadAllRows = async table => {
-  const all = [];
-  const pageSize = 500;
-  for (let offset = 0; ; offset += pageSize) {
-    const result = await cloud.from(table).select('id,data').order('id',{ascending:true}).range(offset,offset+pageSize-1);
-    if (result.error) throw result.error;
-    const rows = result.data || [];
-    all.push(...rows);
-    if (rows.length < pageSize) break;
-    if (offset > 100000) throw new Error('Límite de seguridad de paginación excedido');
-  }
-  return all;
-};
-const [a,b,c]=await Promise.all(['tocaqui_admin_qr_cards','tocaqui_admin_qr_clients','tocaqui_admin_qr_templates'].map(loadAllRows));
-if(!live)return;
-const m=[a,b,c].map(rows=>rows.map(x=>({...x.data,id:x.id})));
-last.current={qrs:m[0],clients:m[1],templates:m[2]};
-setQrs(m[0]);setClients(m[1]);setTemplates(m[2].length?m[2]:INITIAL_TEMPLATES);
-initialized.current=true;setCloudReady(true);
-}catch(e){if(live)setCloudError(e.message)}})();return()=>{live=false}},[cloud,authRevision]);
+useEffect(()=>{let live=true;initialized.current=false;setCloudReady(false);
+ if(!workshopSession)return;
+ (async()=>{try{
+ const result=await workshopApi({action:'list',session:workshopSession});if(!live)return;
+ const m=[result.cards,result.clients,result.templates];
+ last.current={qrs:m[0],clients:m[1],templates:m[2]};
+ setQrs(m[0]);setClients(m[1]);setTemplates(m[2].length?m[2]:INITIAL_TEMPLATES);
+ initialized.current=true;setCloudReady(true);setCloudError('');
+ }catch(e){if(live){setCloudError(e.message);sessionStorage.removeItem('tocaqui_workshop_session');setWorkshopSession('');}}})();
+ return()=>{live=false};
+},[workshopSession,authRevision]);
 const queue=React.useRef(Promise.resolve());
 const sync=(name,table,items)=>{if(!cloudReady||!initialized.current)return;
-const prev=last.current[name];if(JSON.stringify(prev)===JSON.stringify(items))return;
-last.current={...last.current,[name]:items};
-queue.current=queue.current.then(async()=>{
-const changed=items.filter(x=>!prev.some(p=>p.id===x.id&&JSON.stringify(p)===JSON.stringify(x)));
-if(changed.length){const {error}=await cloud.from(table).upsert(changed.map(x=>({id:x.id,data:x})),{onConflict:'id'});if(error)throw error;}
-const deleted=prev.filter(x=>!items.some(y=>y.id===x.id)).map(x=>x.id);
-if(deleted.length){const {error}=await cloud.from(table).delete().in('id',deleted);if(error)throw error;}
-}).catch(e=>setCloudError('Error guardando: '+e.message));};
+ const prev=last.current[name];if(JSON.stringify(prev)===JSON.stringify(items))return;
+ last.current={...last.current,[name]:items};
+ queue.current=queue.current.then(async()=>{
+ const kind=name==='qrs'?'cards':name;
+ const changed=items.filter(x=>!prev.some(p=>p.id===x.id&&JSON.stringify(p)===JSON.stringify(x)));
+ if(changed.length)await workshopApi({action:'save',session:workshopSession,kind,items:changed});
+ const deleted=prev.filter(x=>!items.some(y=>y.id===x.id)).map(x=>x.id);
+ if(deleted.length)await workshopApi({action:'delete',session:workshopSession,kind,ids:deleted});
+ }).catch(e=>setCloudError('Error guardando: '+e.message));
+};
 useEffect(()=>sync('qrs','tocaqui_admin_qr_cards',qrs),[qrs,cloudReady]);
 useEffect(()=>sync('clients','tocaqui_admin_qr_clients',clients),[clients,cloudReady]);
 useEffect(()=>sync('templates','tocaqui_admin_qr_templates',templates),[templates,cloudReady]);
@@ -755,18 +763,13 @@ const resetTestInventory = async () => {
                     if (!cloudReady) throw new Error('Se requiere conexión autorizada a Supabase para reiniciar sin dejar registros antiguos en la nube.');
                     if (cloudReady) {
                         await queue.current;
-                        for (const table of ['tocaqui_admin_qr_cards','tocaqui_admin_qr_clients']) {
-                            const {data,error} = await cloud.from(table).select('id');
-                            if (error) throw error;
-                            const ids = (data||[]).map(x=>x.id);
-                            for (let i=0;i<ids.length;i+=100) {
-                                const result=await cloud.from(table).delete().in('id',ids.slice(i,i+100)).select('id');
-                                if(result.error) throw result.error;
-                                if((result.data||[]).length!==ids.slice(i,i+100).length) throw new Error('No se pudieron eliminar todos los registros de '+table);
-                            }
-                            const check=await cloud.from(table).select('id',{count:'exact',head:true});
-                            if(check.error || check.count!==0) throw new Error('El reinicio en nube no pudo verificarse en '+table);
-                        }
+                        for (const kind of ['cards','clients']) {
+ const result=await workshopApi({action:'list',session:workshopSession});
+ const ids=result[kind].map(x=>x.id);
+ for(let i=0;i<ids.length;i+=100)await workshopApi({action:'delete',session:workshopSession,kind,ids:ids.slice(i,i+100)});
+ const verify=await workshopApi({action:'list',session:workshopSession});
+ if(verify[kind].length)throw new Error('No se verificó el reinicio de '+kind);
+ }
                     } else if (cloudError && qrs.length === 0 && clients.length === 0) {
                         throw new Error('No hay registros locales para reiniciar.');
                     }
@@ -786,7 +789,7 @@ const resetTestInventory = async () => {
             };
 
             const createBatch = async (count, batchName = '', productType = 'pvc-vertical') => {
-                if (!cloudReady || !initialized.current) { showToast('Inicia sesión en Supabase para generar tarjetas.', 'error'); return; }
+                if (!cloudReady || !initialized.current) { showToast('Ingresa tu PIN para generar tarjetas.', 'error'); return; }
                 if (!Number.isInteger(count) || count < 1 || count > 500) { showToast('Cantidad inválida (1 a 500).', 'error'); return; }
                 const batchId = 'LOTE-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + crypto.randomUUID().slice(0,8).toUpperCase();
                 const existing = new Set(qrs.map(q => q.id));
@@ -799,7 +802,7 @@ const resetTestInventory = async () => {
                         dynamicUrl:'', createdAt:Date.now(), scans:0,
                         history:[{timestamp:Date.now(),type:'creation',description:'Tarjeta registrada en Supabase'}] };
                 });
-                const {error} = await cloud.from('tocaqui_admin_qr_cards').insert(newItems.map(item=>({id:item.id,data:item})));
+                let error=null;try{await workshopApi({action:'save',session:workshopSession,kind:'cards',items:newItems})}catch(e){error=e}
                 if(error){setCloudError('Error al generar lote: '+error.message);showToast('No se guardó el lote; no imprimas estas tarjetas.','error');return;}
                 last.current={...last.current,qrs:[...newItems,...last.current.qrs]};
                 setQrs(prev=>[...newItems,...prev]);
@@ -808,13 +811,13 @@ const resetTestInventory = async () => {
             };
 
             const updateQR = async (id, fields) => {
-                if(!cloudReady || !initialized.current){showToast('Se requiere sesión de Supabase para activar tarjetas.','error');return;}
+                if(!cloudReady || !initialized.current){showToast('Ingresa tu PIN para administrar tarjetas.','error');return;}
                 const item=qrs.find(q=>q.id===id);if(!item)return;
                 const history=[...(item.history||[])];
                 if(fields.dynamicUrl && fields.dynamicUrl!==item.dynamicUrl)history.push({timestamp:Date.now(),type:'update',description:'Destino actualizado'});
                 if(fields.clientId && fields.clientId!==item.clientId)history.push({timestamp:Date.now(),type:'assignment',description:'Cliente asignado'});
                 const updated={...item,...fields,history};
-                const {data,error}=await cloud.from('tocaqui_admin_qr_cards').update({data:updated}).eq('id',id).select('id');
+                let data=null,error=null;try{await workshopApi({action:'save',session:workshopSession,kind:'cards',items:[updated]});data=[{id}]}catch(e){error=e}
                 if(error || !data || data.length!==1){
                     setCloudError('Error al guardar tarjeta: '+(error?.message||'sin confirmación'));
                     showToast('Activación no guardada. Verifica autorización y PIN.','error');return;
@@ -2271,7 +2274,8 @@ const resetTestInventory = async () => {
 
             // 8. SETTINGS VIEW
             const SettingsView = () => {
-                const [pinInput, setPinInput] = useState(masterPin);
+                const [pinInput, setPinInput] = useState('');
+                const [oldPinInput,setOldPinInput]=useState('');
                 const [keyInput, setKeyInput] = useState(googleApiKey);
                 const [placesUsage, setPlacesUsage] = useState(readPlacesUsage);
                 useEffect(() => {
@@ -2281,10 +2285,16 @@ const resetTestInventory = async () => {
                 }, []);
 
 
-                const saveSettings = () => {
-                    setGoogleApiKey(keyInput);
-                    showToast('La clave de Google se guardó solo en este navegador. El PIN se administra en Supabase.', 'info');
-                };
+                const saveSettings = async () => {
+ try{
+ if(pinInput||oldPinInput){
+ if(!/^[0-9]{4}$/.test(pinInput)||!/^[0-9]{4}$/.test(oldPinInput))throw new Error('Ingresa PIN actual y nuevo PIN de cuatro dígitos');
+ await workshopApi({action:'changePin',session:workshopSession,currentPin:oldPinInput,newPin:pinInput});
+ setMasterPin(pinInput);localStorage.removeItem('nfc_master_pin_v6');setPinInput('');setOldPinInput('');
+ }
+ setGoogleApiKey(keyInput);showToast('Configuración guardada. PIN actualizado en Supabase.','success');
+ }catch(e){showToast(e.message,'error')}
+ };
 
                 return (
                     <div className="max-w-3xl mx-auto space-y-6">
@@ -2300,15 +2310,18 @@ const resetTestInventory = async () => {
                                 <i className="fa-solid fa-lock text-amber-400"></i> PIN Maestro de Activación (4 dígitos)
                             </h2>
                             <div className="flex gap-2 max-w-xs">
+                                <input type="password" inputMode="numeric" maxLength="4" value={oldPinInput} onChange={e=>setOldPinInput(e.target.value.replace(/\D/g,''))} placeholder="PIN actual" className="glass-input px-2 py-2 rounded-xl w-28" />
                                 <input
-                                    type="text"
+                                    type="password"
+                                    inputMode="numeric"
                                     maxLength="4"
+                                    placeholder="Nuevo PIN"
                                     value={pinInput}
                                     onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
                                     className="glass-input px-4 py-2 rounded-xl font-mono text-center font-bold text-lg tracking-widest w-32"
                                 />
                                 <button onClick={saveSettings} className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-xl text-xs">
-                                    Guardar configuración local
+                                    Guardar PIN
                                 </button>
                             </div>
                         </div>
@@ -2845,16 +2858,20 @@ const resetTestInventory = async () => {
                     {!cloudReady && (
                       <div className="no-print mx-auto w-full max-w-xl p-4 sm:p-6">
                         <form onSubmit={signInAdmin} className="rounded-2xl border border-blue-500/40 bg-slate-900 p-5 shadow-xl space-y-3">
-                          <h2 className="text-lg font-bold text-white">Conectar TOCAQUI a Supabase</h2>
-                          <p className="text-sm text-slate-300">Inicia sesión con un usuario autorizado del proyecto TOCAQUI para generar, guardar y activar tarjetas.</p>
-                          <input type="email" autoComplete="username" required value={loginEmail} onChange={e=>setLoginEmail(e.target.value)} placeholder="Correo de administrador" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white" />
-                          <input type="password" autoComplete="current-password" required value={loginPassword} onChange={e=>setLoginPassword(e.target.value)} placeholder="Contraseña Supabase" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white" />
-                          {cloudError && <p role="alert" className="text-amber-300 text-xs">{cloudError}</p>}
-                          <button disabled={loginBusy} type="submit" className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white disabled:opacity-60">{loginBusy?'Conectando...':'Iniciar sesión y conectar base'}</button>
+                          <h2 className="text-lg font-bold text-white">Acceso privado TOCAQUI</h2>
+                          <p className="text-sm text-slate-300">Ingresa el PIN de cuatro dígitos del taller. Se verificará en Supabase desde este dispositivo autorizado.</p>
+                          <input type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength="4" autoComplete="off" required value={loginPin} onChange={e=>setLoginPin(e.target.value.replace(/\D/g,''))} placeholder="PIN de cuatro dígitos" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white text-center tracking-widest" />
+                          <div className="space-y-2 border-t border-slate-700 pt-3">
+ <p className="text-xs text-slate-400">Primera vez en este iPhone o computador: introduce el código de vinculación entregado por el administrador.</p>
+ <input type="text" value={pairCodeLogin} onChange={e=>setPairCodeLogin(e.target.value.trim())} placeholder="Código de vinculación del dispositivo" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-2 text-white text-xs" />
+ <button type="button" disabled={pairingBusyLogin||!/^[a-f0-9]{64}$/.test(pairCodeLogin.trim().toLowerCase())} onClick={pairWorkshopDevice} className="w-full rounded-xl bg-slate-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">{pairingBusyLogin?'Vinculando...':'Autorizar este dispositivo'}</button>
+ </div>
+ {cloudError && <p role="alert" className="text-amber-300 text-xs">{cloudError}</p>}
+                          <button disabled={loginBusy} type="submit" className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white disabled:opacity-60">{loginBusy?'Verificando...':'Entrar al taller'}</button>
                         </form>
                       </div>
                     )}
-                    <div className="flex-1 flex overflow-hidden">
+                    <div className={"flex-1 flex overflow-hidden "+(!cloudReady?"hidden":"")}>
                         {roleMode === 'admin' ? (
                             <>
                                 <AdminSidebar />
