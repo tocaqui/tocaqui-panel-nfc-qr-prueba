@@ -2257,9 +2257,80 @@ const resetTestInventory = async () => {
                                     </div>
                                 </div>
 
-                                <div className="glass-panel p-5 rounded-2xl space-y-3 max-h-60 overflow-y-auto">
+                                <div className="glass-panel p-5 rounded-2xl space-y-4 border border-cyan-500/20">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h3 className="text-xs font-bold text-cyan-300 uppercase"><i className="fa-solid fa-layer-group mr-2"></i>Composición mixta A4</h3>
+                                            <p className="text-[11px] text-slate-400 mt-1">Mezcla Google, Facebook, Instagram, WhatsApp u otros diseños en una misma hoja usando el mismo formato físico.</p>
+                                        </div>
+                                        <div className="shrink-0 text-right">
+                                            <div className="text-xl font-bold text-white">{compositionItems.length}</div>
+                                            <div className="text-[10px] text-slate-500">{compositionItems.length ? Math.ceil(compositionItems.length/itemsPerPage) : 0} hoja(s)</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-2">
+                                        <label className="text-[11px] text-slate-400">QR / tarjeta que se imprimirá</label>
+                                        <select value={printMixCardId} onChange={e=>setPrintMixCardId(e.target.value)} className="glass-input w-full rounded-xl px-3 py-2.5 text-xs">
+                                            <option value="">Seleccionar tarjeta</option>
+                                            {qrs.map(q=><option key={q.id} value={q.id}>{cardNumber(q)} · {q.businessName||'Sin negocio'}</option>)}
+                                        </select>
+
+                                        <label className="text-[11px] text-slate-400 mt-1">Diseño / categoría</label>
+                                        <select value={printMixTemplateId} onChange={e=>setPrintMixTemplateId(e.target.value)} className="glass-input w-full rounded-xl px-3 py-2.5 text-xs">
+                                            <option value="">Seleccionar plantilla</option>
+                                            {mixTemplates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+
+                                        <div className="grid grid-cols-[110px_1fr] gap-2 mt-1">
+                                            <div>
+                                                <label className="block text-[11px] text-slate-400 mb-1">Cantidad</label>
+                                                <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 overflow-hidden">
+                                                    <button type="button" onClick={()=>setPrintMixQty(q=>Math.max(1,Number(q||1)-1))} className="w-9 h-10 text-slate-300">−</button>
+                                                    <input type="number" min="1" max="50" value={printMixQty} onChange={e=>setPrintMixQty(Math.max(1,Math.min(50,Number(e.target.value)||1)))} className="w-10 flex-1 bg-transparent text-center text-sm font-bold text-white outline-none"/>
+                                                    <button type="button" onClick={()=>setPrintMixQty(q=>Math.min(50,Number(q||1)+1))} className="w-9 h-10 text-slate-300">+</button>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-end">
+                                                <button type="button" onClick={addToPrintComposition} disabled={!printMixCardId||!printMixTemplateId} className="w-full h-10 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-xs font-bold text-white">
+                                                    <i className="fa-solid fa-plus mr-2"></i>Añadir a composición
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {mixTemplates.length===0&&<div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-[11px] text-amber-200">No hay plantillas guardadas para este formato. Créala primero en Biblioteca Plantillas.</div>}
+
+                                    {compositionGroups.length>0&&(
+                                        <div className="space-y-2 border-t border-slate-800 pt-3">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] font-bold uppercase text-slate-400">Contenido de las hojas</span>
+                                                <button type="button" onClick={()=>setPrintComposition([])} className="text-[11px] text-rose-300">Vaciar</button>
+                                            </div>
+                                            {compositionGroups.map(group=>(
+                                                <div key={group.key} className="rounded-xl border border-slate-800 bg-slate-950/45 p-2.5 flex items-center justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <div className="text-xs font-semibold text-white truncate">{group.tpl.name}</div>
+                                                        <div className="text-[10px] text-slate-500 truncate">{cardNumber(group.card)} · {group.card.businessName||'Sin negocio'}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <button type="button" onClick={()=>removeOneComposition(group.card.id,group.tpl.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-300">−</button>
+                                                        <span className="w-7 text-center text-sm font-bold text-cyan-200">{group.count}</span>
+                                                        <button type="button" onClick={()=>addOneComposition(group.card.id,group.tpl.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-300">+</button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-[11px] text-slate-300">
+                                                <i className="fa-solid fa-circle-info text-blue-300 mr-2"></i>
+                                                Capacidad: <strong className="text-white">{itemsPerPage}</strong> por hoja. {compositionItems.length===0 ? 'Añade diseños para comenzar.' : compositionItems.length%itemsPerPage===0 ? 'La última hoja queda completa.' : 'Quedan ' + (itemsPerPage-(compositionItems.length%itemsPerPage)) + ' espacio(s) libres en la última hoja.'}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="glass-panel p-5 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
                                     <div className="flex justify-between items-center">
-                                        <h3 className="text-xs font-bold text-slate-300 uppercase">Seleccionar para imprimir ({selectedItems.length})</h3>
+                                        <h3 className="text-xs font-bold text-slate-300 uppercase">Selección directa {printComposition.length ? '(en pausa mientras uses composición mixta)' : '(' + selectedItems.length + ')'}</h3>
                                         <button onClick={toggleSelectAll} className="text-[11px] text-blue-400 font-semibold">
                                             {visiblePrintQrs.every(q=>selectedQrIdsForSheet.includes(q.id)) ? 'Desmarcar lote' : 'Marcar lote'}
                                         </button>
@@ -2270,7 +2341,7 @@ const resetTestInventory = async () => {
                                             <button type="button" onClick={()=>setPrintBatchFilter('all')} className={`shrink-0 rounded-xl border px-3 py-2 text-xs ${printBatchFilter==='all'?'border-blue-400 bg-blue-600/20 text-white':'border-slate-700 text-slate-400'}`}>Todos</button>
                                             {printBatches.map(batch=><button type="button" key={batch.id} onClick={()=>{setPrintBatchFilter(batch.id);const first=qrs.find(q=>(q.batchId||'legacy')===batch.id);if(first){setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType,theme:/blanco|blanca|white/i.test(batch.name)?'clean-white':/negro|negra|black/i.test(batch.name)?'gold-luxury':prev.theme}));setSelectedQrIdsForSheet(qrs.filter(q=>(q.batchId||'legacy')===batch.id).map(q=>q.id));}}} className={`shrink-0 rounded-xl border px-3 py-2 text-xs ${printBatchFilter===batch.id?'border-blue-400 bg-blue-600/20 text-white':'border-slate-700 text-slate-400'}`}>{batch.name} · {qrs.filter(q=>(q.batchId||'legacy')===batch.id).length}</button>)}
                                         </div>
-                                        <div className="text-[11px] text-slate-500">Se imprimen solo las tarjetas del lote seleccionado.</div>
+                                        <div className="text-[11px] text-slate-500">{printComposition.length ? 'La composición mixta de arriba controla la impresión.' : 'Usa el lote como filtro para encontrar tarjetas; puedes seleccionar tarjetas de distintos lotes.'}</div>
                                         {printBatchFilter !== 'all' && <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-2.5 flex items-center gap-2">
                                             <i className="fa-solid fa-layer-group text-blue-400"></i>
                                             <div className="min-w-0"><span className="block text-[10px] uppercase text-slate-400">Lote seleccionado</span><strong className="block truncate text-sm text-white">{printBatches.find(b=>b.id===printBatchFilter)?.name || 'Tarjetas anteriores'}</strong><span className="text-[10px] text-slate-400 font-mono">{printBatchFilter}</span></div>
