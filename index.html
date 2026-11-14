@@ -925,8 +925,8 @@ const resetTestInventory = async () => {
             // El número visible se asigna en Supabase; el TAG original permanece como destino QR/NFC.
             const cardNumber = card => card.serialNumber || card.trackingCode || card.id;
             const createBatch = async (count, batchName = '', productType = 'pvc-vertical') => {
-                if (!cloudReady || !initialized.current) { showToast('Ingresa tu PIN para generar tarjetas.', 'error'); return; }
-                if (!Number.isInteger(count) || count < 1 || count > 500) { showToast('Cantidad inválida (1 a 500).', 'error'); return; }
+                if (!cloudReady || !initialized.current) { showToast('Ingresa tu PIN para generar tarjetas.', 'error'); return null; }
+                if (!Number.isInteger(count) || count < 1 || count > 500) { showToast('Cantidad inválida (1 a 500).', 'error'); return null; }
                 const batchId = 'LOTE-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + crypto.randomUUID().slice(0,8).toUpperCase();
                 const existing = new Set(qrs.map(q => q.id));
                 const newItems = Array.from({length:count}, () => {
@@ -946,11 +946,12 @@ const resetTestInventory = async () => {
                     savedItems=(verified.cards||[]).filter(item=>ids.has(item.id));
                     if(savedItems.length!==newItems.length || savedItems.some(item=>!/^TQ-\d{6,}$/.test(item.serialNumber||'')))throw new Error('La numeración no quedó confirmada en Supabase');
                 }catch(e){error=e}
-                if(error){setCloudError('Error al verificar lote: '+error.message);showToast('No se verificó el lote; no imprimas estas tarjetas.','error');return;}
+                if(error){setCloudError('Error al verificar lote: '+error.message);showToast('No se verificó el lote; no imprimas estas tarjetas.','error');return null;}
                 last.current={...last.current,qrs:[...savedItems,...last.current.qrs]};
                 setQrs(prev=>[...savedItems,...prev]);
                 setSelectedQrIdsForSheet(newItems.map(item=>item.id));
-                showToast('Lote guardado en Supabase. Listo para impresión.','success');
+                showToast('Lote guardado en Supabase. Listo para continuar.','success');
+                return {batchId, items:savedItems};
             };
 
             const updateQR = async (id, fields) => {
