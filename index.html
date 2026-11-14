@@ -1283,88 +1283,237 @@ const resetTestInventory = async () => {
             // 2. BATCH GENERATOR VIEW
             const BatchView = () => {
                 const [count, setCount] = useState(10);
-                const [batchName, setBatchName] = useState('Google Negro');
+                const [batchName, setBatchName] = useState('Lote nuevo');
                 const [productType, setProductType] = useState('pvc-vertical');
+                const [selectedBatchId, setSelectedBatchId] = useState('');
+                const [creatingBatch, setCreatingBatch] = useState(false);
+
+                const formatMeta = {
+                    'pvc-vertical': { label:'PVC vertical', icon:'fa-id-card', perSheet:10 },
+                    'pvc-horizontal': { label:'PVC horizontal', icon:'fa-address-card', perSheet:10 },
+                    '10x15': { label:'Cartel 10 × 15', icon:'fa-image', perSheet:2 }
+                };
+                const activeFormat = formatMeta[productType] || formatMeta['pvc-vertical'];
+                const estimatedSheets = Math.ceil(Math.max(1, Number(count)||1) / activeFormat.perSheet);
+
+                const batchGroups = useMemo(() => {
+                    const map = new Map();
+                    qrs.filter(q=>q.batchId).forEach(card => {
+                        const id = card.batchId;
+                        if (!map.has(id)) {
+                            map.set(id, {
+                                id,
+                                name: card.batchName || 'Lote sin nombre',
+                                productType: card.productType || 'pvc-vertical',
+                                cards: [],
+                                createdAt: card.createdAt || 0
+                            });
+                        }
+                        const group = map.get(id);
+                        group.cards.push(card);
+                        group.createdAt = Math.min(group.createdAt || card.createdAt || 0, card.createdAt || group.createdAt || 0);
+                    });
+                    return [...map.values()].sort((x,y)=>(y.createdAt||0)-(x.createdAt||0));
+                }, [qrs]);
+
+                const selectedBatch = batchGroups.find(batch=>batch.id===selectedBatchId) || null;
+
+                const openBatchInPrint = batch => {
+                    if (!batch) return;
+                    setPrintComposition([]);
+                    setSelectedQrIdsForSheet(batch.cards.map(card=>card.id));
+                    setPrintConfig(prev=>({...prev,templateType:batch.productType||'pvc-vertical'}));
+                    setAdminTab('print');
+                };
+
+                const handleCreateBatch = async event => {
+                    event.preventDefault();
+                    if (creatingBatch) return;
+                    setCreatingBatch(true);
+                    try {
+                        const result = await createBatch(Number(count), batchName, productType);
+                        if (result?.batchId) {
+                            setSelectedBatchId(result.batchId);
+                            setBatchName('Lote nuevo');
+                        }
+                    } finally {
+                        setCreatingBatch(false);
+                    }
+                };
 
                 return (
-                    <div className="tocaqui-operation-page max-w-2xl mx-auto space-y-6">
+                    <div className="tocaqui-operation-page max-w-6xl mx-auto space-y-5">
                         <BackToDashboardButton />
 
-                        <div>
-                            <h1 className="text-2xl font-bold text-white tracking-tight">Generar Lote de Tarjetas NFC</h1>
-                            <p className="text-slate-400 text-sm mt-1">Crea múltiples códigos dinámicos listos para ser impresos por hojas A4.</p>
+                        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                            <div>
+                                <div className="text-[10px] uppercase tracking-[.18em] text-blue-300 font-bold mb-1">Fabricación & trazabilidad</div>
+                                <h1 className="text-2xl font-bold text-white tracking-tight">Centro de Lotes</h1>
+                                <p className="text-slate-400 text-sm mt-1">Crea, revisa y prepara lotes de tarjetas con TAG únicos antes de asignar diseños o destinos.</p>
+                            </div>
+                            <div className="text-xs text-slate-500">
+                                <span className="text-white font-semibold">{batchGroups.length}</span> lotes · <span className="text-white font-semibold">{qrs.filter(q=>q.batchId).length}</span> tarjetas
+                            </div>
                         </div>
 
-                        <div className="glass-panel p-6 rounded-2xl space-y-6">
-                            <form onSubmit={(e) => { e.preventDefault(); createBatch(count, batchName, productType); setPrintConfig(prev => ({...prev, templateType: productType, theme: /blanco|blanca|white/i.test(batchName) ? 'clean-white' : /negro|negra|black/i.test(batchName) ? 'gold-luxury' : prev.theme})); setAdminTab('print'); }} className="space-y-5">
-                                <div>
-                                    <label htmlFor="batch-name" className="block text-sm font-medium text-slate-300 mb-2">Nombre del lote</label>
-                                    <input id="batch-name" type="text" maxLength="80" required value={batchName} onChange={e => setBatchName(e.target.value)} placeholder="Ej. Google Blanco" className="w-full glass-input px-4 py-3 rounded-xl text-sm" />
-                                </div>
-                                <div>
-                                    <label htmlFor="batch-format" className="block text-sm font-medium text-slate-300 mb-2">Formato de fabricación</label>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" role="group" aria-label="Formato de fabricación">
-                                        {[
-                                            ['pvc-vertical','fa-id-card','PVC vertical','9 por A4'],
-                                            ['pvc-horizontal','fa-address-card','PVC horizontal','10 por A4'],
-                                            ['10x15','fa-image','Cartel 10 × 15','2 por A4']
-                                        ].map(([value,icon,title,subtitle]) => <button key={value} type="button" aria-pressed={productType===value} onClick={()=>setProductType(value)}
-                                            className={`rounded-xl border p-3 text-left transition-colors ${productType===value?'border-blue-400 bg-blue-600/20 text-white':'border-slate-700 bg-slate-900/80 text-slate-300'}`}>
-                                            <i className={`fa-solid ${icon} text-blue-400 mr-2`}></i><span className="text-xs font-semibold">{title}</span>
-                                            <span className="block text-[10px] text-slate-400 mt-1">{subtitle}</span>
-                                        </button>)}
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900/55 overflow-hidden">
+                            <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr]">
+                                <section className="p-4 sm:p-5 border-b lg:border-b-0 lg:border-r border-slate-800">
+                                    <div className="mb-4">
+                                        <h2 className="text-sm font-bold text-white">Crear nuevo lote</h2>
+                                        <p className="text-[11px] text-slate-500 mt-1">El lote solo define fabricación y cantidad. El diseño y la activación se asignan después.</p>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Cantidad de Tarjetas a Generar</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="200"
-                                        value={count}
-                                        onChange={e => setCount(Math.max(1, parseInt(e.target.value) || 1))}
-                                        className="w-full glass-input px-4 py-3 rounded-xl font-mono text-lg font-bold"
-                                        required
-                                    />
-                                    <p className="text-xs text-slate-400 mt-2">
-                                        💡 <span className="text-emerald-400 font-semibold">Cálculo de Ahorro:</span> PVC horizontal: 10 por A4 · PVC vertical: 9 por A4 · Cartel: 2 por A4.
-                                    </p>
-                                </div>
 
-                                <div className="grid grid-cols-5 gap-2">
-                                    {[10, 20, 30, 50, 100].map(val => (
-                                        <button
-                                            key={val}
-                                            type="button"
-                                            onClick={() => setCount(val)}
-                                            className={`py-2 rounded-xl text-xs font-semibold font-mono border transition-all ${count === val ? 'bg-blue-600/30 text-blue-300 border-blue-500' : 'bg-slate-800/40 text-slate-400 border-slate-700/50 hover:bg-slate-800'}`}
-                                        >
-                                            {val} ({val/10} A4)
+                                    <form onSubmit={handleCreateBatch} className="space-y-4">
+                                        <div>
+                                            <label htmlFor="batch-name" className="block text-xs font-semibold text-slate-300 mb-1.5">Nombre del lote</label>
+                                            <input id="batch-name" type="text" maxLength="80" required value={batchName} onChange={e=>setBatchName(e.target.value)} placeholder="Ej. Pedido Restaurante Tokio" className="w-full glass-input px-3.5 py-2.5 rounded-xl text-sm" />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Formato</label>
+                                            <div className="grid grid-cols-3 gap-1.5">
+                                                {Object.entries(formatMeta).map(([value,meta])=>(
+                                                    <button key={value} type="button" onClick={()=>setProductType(value)} className={`rounded-xl border px-2 py-2.5 text-center ${productType===value?'border-blue-400 bg-blue-500/15 text-white':'border-slate-700 bg-slate-950/40 text-slate-400'}`}>
+                                                        <i className={`fa-solid ${meta.icon} block mb-1 text-blue-300`}></i>
+                                                        <span className="block text-[10px] font-semibold leading-tight">{meta.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                <label className="text-xs font-semibold text-slate-300">Cantidad</label>
+                                                <span className="text-[10px] text-slate-500">{activeFormat.perSheet} por A4 · aprox. {estimatedSheets} hoja(s)</span>
+                                            </div>
+                                            <input type="number" min="1" max="500" value={count} onChange={e=>setCount(Math.max(1,Math.min(500,parseInt(e.target.value)||1)))} className="w-full glass-input px-3.5 py-2.5 rounded-xl font-mono text-lg font-bold" required />
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                {[2,5,10,20,50,100,200].map(val=>(
+                                                    <button key={val} type="button" onClick={()=>setCount(val)} className={`min-w-10 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border ${count===val?'border-blue-400 bg-blue-500/20 text-blue-200':'border-slate-700 text-slate-400'}`}>{val}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl bg-slate-950/45 border border-slate-800 px-3 py-2.5 flex items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Resumen</div>
+                                                <div className="text-xs text-slate-300 mt-0.5">{count} TAG únicos · {activeFormat.label}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-lg font-bold text-white">{estimatedSheets}</div>
+                                                <div className="text-[9px] text-slate-500">A4 aprox.</div>
+                                            </div>
+                                        </div>
+
+                                        <button type="submit" disabled={creatingBatch} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-sm">
+                                            {creatingBatch?<><i className="fa-solid fa-spinner fa-spin mr-2"></i>Generando lote…</>:<><i className="fa-solid fa-layer-group mr-2"></i>Crear lote de {count}</>}
                                         </button>
-                                    ))}
-                                </div>
+                                    </form>
+                                </section>
 
-                                <button
-                                    type="submit"
-                                    className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/25 flex justify-center items-center gap-2"
-                                >
-                                    <i className="fa-solid fa-wand-magic-sparkles"></i>
-                                    Generar {count} Código(s) e Ir al Estudio A4
-                                </button>
-                            </form>
+                                <section className="min-w-0">
+                                    <div className="px-4 sm:px-5 py-3 border-b border-slate-800 flex items-center justify-between">
+                                        <div>
+                                            <h2 className="text-sm font-bold text-white">Lotes recientes</h2>
+                                            <p className="text-[11px] text-slate-500">Pulsa un lote para ver su detalle.</p>
+                                        </div>
+                                    </div>
+
+                                    {batchGroups.length ? (
+                                        <div className="divide-y divide-slate-800">
+                                            {batchGroups.map(batch=>{
+                                                const meta=formatMeta[batch.productType]||formatMeta['pvc-vertical'];
+                                                const active=batch.cards.filter(card=>card.status==='active').length;
+                                                const pending=batch.cards.length-active;
+                                                return (
+                                                    <button type="button" key={batch.id} onClick={()=>setSelectedBatchId(batch.id)} className="w-full px-4 sm:px-5 py-3.5 text-left hover:bg-slate-800/35 transition-colors">
+                                                        <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
+                                                            <div className="min-w-0">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <span className="text-sm font-semibold text-white truncate">{batch.name}</span>
+                                                                    <span className="text-[9px] rounded-full border border-slate-700 px-2 py-0.5 text-slate-400">{meta.label}</span>
+                                                                </div>
+                                                                <div className="text-[10px] text-slate-500 font-mono mt-1 truncate">{batch.id}</div>
+                                                                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] mt-1.5">
+                                                                    <span className="text-slate-300">{batch.cards.length} tarjetas</span>
+                                                                    <span className="text-emerald-300">{active} activas</span>
+                                                                    <span className="text-amber-300">{pending} pendientes</span>
+                                                                    <span className="text-slate-500">{batch.createdAt?new Date(batch.createdAt).toLocaleDateString('es-CL'):'Sin fecha'}</span>
+                                                                </div>
+                                                            </div>
+                                                            <i className="fa-solid fa-chevron-right text-slate-600"></i>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="p-8 text-center text-sm text-slate-500">Aún no hay lotes creados.</div>
+                                    )}
+                                </section>
+                            </div>
                         </div>
-                        <div className="glass-panel p-4 rounded-xl border border-rose-500/20 space-y-3">
-                            <button type="button" onClick={()=>setResetOpen(v=>!v)} className="w-full flex items-center justify-between text-left text-xs font-semibold text-rose-300">
-                                <span><i className="fa-solid fa-rotate-left mr-2"></i>Reiniciar inventario de pruebas</span><i className="fa-solid fa-chevron-down"></i>
-                            </button>
-                            {resetOpen && <div className="space-y-3">
-                                <p className="text-xs text-slate-400">Elimina los lotes, códigos TAG y clientes de prueba de este panel y, si hay sesión autorizada, de sus tablas en Supabase. No modifica el PIN, los dispositivos autorizados ni las rutas públicas. Los identificadores existentes dejarán de estar disponibles en este inventario.</p>
-                                <label className="block text-xs text-slate-300">Escribe REINICIAR TOCAQUI para confirmar</label>
+
+                        <details className="rounded-xl border border-rose-500/15 bg-rose-500/[0.03] px-4 py-3">
+                            <summary className="cursor-pointer text-xs font-semibold text-rose-300"><i className="fa-solid fa-rotate-left mr-2"></i>Herramientas de pruebas</summary>
+                            <div className="pt-3 space-y-3">
+                                <p className="text-xs text-slate-500">Reinicia inventario y datos de prueba. No modifica PIN, equipos autorizados ni rutas públicas.</p>
                                 <input value={resetConfirmText} onChange={e=>setResetConfirmText(e.target.value)} className="w-full glass-input px-3 py-2 rounded-lg text-sm" placeholder="REINICIAR TOCAQUI"/>
-                                {!cloudReady && <p className="text-[11px] text-amber-300">Conecta una sesión autorizada a Supabase antes de reiniciar. Así se borran los registros del navegador y la nube de forma coherente.</p>}
-                                <button type="button" disabled={resetBusy||!cloudReady||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio de pruebas'}</button>
-                            </div>}
-                        </div>
+                                <button type="button" disabled={resetBusy||!cloudReady||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio'}</button>
+                            </div>
+                        </details>
+
+                        {selectedBatch && (
+                            <div className="fixed inset-0 z-[90] bg-black/65 backdrop-blur-sm no-print" onClick={()=>setSelectedBatchId('')}>
+                                <aside className="absolute right-0 top-0 h-full w-full sm:max-w-md bg-slate-950 border-l border-slate-800 shadow-2xl overflow-y-auto" onClick={e=>e.stopPropagation()}>
+                                    <div className="sticky top-0 bg-slate-950/95 backdrop-blur border-b border-slate-800 px-4 py-4 flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="text-[10px] uppercase tracking-[.18em] text-blue-300 font-bold">Detalle del lote</div>
+                                            <h3 className="text-lg font-bold text-white truncate mt-0.5">{selectedBatch.name}</h3>
+                                        </div>
+                                        <button type="button" onClick={()=>setSelectedBatchId('')} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
+                                    </div>
+
+                                    {(()=>{
+                                        const meta=formatMeta[selectedBatch.productType]||formatMeta['pvc-vertical'];
+                                        const total=selectedBatch.cards.length;
+                                        const active=selectedBatch.cards.filter(card=>card.status==='active').length;
+                                        const pending=total-active;
+                                        const clients=new Set(selectedBatch.cards.map(card=>card.clientId).filter(Boolean)).size;
+                                        return (
+                                            <div className="p-4 space-y-5">
+                                                <div>
+                                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider">Identificador</div>
+                                                    <div className="text-xs font-mono text-slate-300 mt-1 break-all">{selectedBatch.id}</div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-x-5 gap-y-4 border-y border-slate-800 py-4">
+                                                    <div><div className="text-2xl font-bold text-white">{total}</div><div className="text-[10px] text-slate-500">Tarjetas</div></div>
+                                                    <div><div className="text-2xl font-bold text-white">{Math.ceil(total/meta.perSheet)}</div><div className="text-[10px] text-slate-500">A4 aprox.</div></div>
+                                                    <div><div className="text-lg font-bold text-emerald-300">{active}</div><div className="text-[10px] text-slate-500">Activas</div></div>
+                                                    <div><div className="text-lg font-bold text-amber-300">{pending}</div><div className="text-[10px] text-slate-500">Pendientes</div></div>
+                                                </div>
+
+                                                <div className="space-y-2 text-xs">
+                                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Formato</span><span className="text-slate-200 font-semibold">{meta.label}</span></div>
+                                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Creado</span><span className="text-slate-200">{selectedBatch.createdAt?new Date(selectedBatch.createdAt).toLocaleString('es-CL'):'Sin fecha'}</span></div>
+                                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Clientes asociados</span><span className="text-slate-200">{clients}</span></div>
+                                                    <div className="flex justify-between gap-3"><span className="text-slate-500">TAG</span><span className="text-slate-200">Todos únicos</span></div>
+                                                </div>
+
+                                                <div className="border-t border-slate-800 pt-4 space-y-2">
+                                                    <button type="button" onClick={()=>openBatchInPrint(selectedBatch)} className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-3 text-sm font-bold text-white">
+                                                        <i className="fa-solid fa-print mr-2"></i>Preparar impresión
+                                                    </button>
+                                                    <p className="text-[10px] text-slate-500 text-center">La distribución de diseños y activación masiva se aplicarán sobre este lote sin cambiar sus TAG.</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </aside>
+                            </div>
+                        )}
                     </div>
                 );
             };
