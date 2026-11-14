@@ -1094,7 +1094,7 @@ const resetTestInventory = async () => {
                                 </div>
                                 {menuItems.map(item => (
                                     <button
-                                        key={item.id}
+                                        key={item._printEntryId || item.id}
                                         aria-current={adminTab === item.id ? "page" : undefined}
                                         onClick={() => { setAdminTab(item.id); setMobileSidebarOpen(false); }}
                                         className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${adminTab === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'}`}
@@ -1932,9 +1932,67 @@ const resetTestInventory = async () => {
                 const itemsPerPage = printConfig.templateType === '10x15' ? 2 : 10;
                 const printBatches = useMemo(() => [...new Map(qrs.map(q => [q.batchId || 'legacy', {id:q.batchId || 'legacy',name:q.batchName || 'Tarjetas anteriores'}])).values()], [qrs]);
                 const visiblePrintQrs = useMemo(() => qrs.filter(q => printBatchFilter === 'all' || (q.batchId || 'legacy') === printBatchFilter), [qrs, printBatchFilter]);
+                const mixTemplates = useMemo(() => templates.filter(t => t.category === printConfig.templateType), [templates, printConfig.templateType]);
+
+                useEffect(() => {
+                    if (!printMixCardId && qrs[0]) setPrintMixCardId(qrs[0].id);
+                    if (!mixTemplates.some(t=>t.id===printMixTemplateId)) setPrintMixTemplateId(mixTemplates[0]?.id || '');
+                }, [qrs, mixTemplates, printMixCardId, printMixTemplateId]);
+
+                const compositionItems = useMemo(() => {
+                    return printComposition.map(entry => {
+                        const card = qrs.find(q => q.id === entry.cardId);
+                        const tpl = templates.find(t => t.id === entry.templateId);
+                        if (!card || !tpl || tpl.category !== printConfig.templateType) return null;
+                        return {...card, _printEntryId:entry.id, _printTemplate:tpl};
+                    }).filter(Boolean);
+                }, [printComposition, qrs, templates, printConfig.templateType]);
+
                 const selectedItems = useMemo(() => {
-                    return visiblePrintQrs.filter(q => selectedQrIdsForSheet.includes(q.id));
-                }, [visiblePrintQrs, selectedQrIdsForSheet]);
+                    if (compositionItems.length) return compositionItems;
+                    return qrs.filter(q => selectedQrIdsForSheet.includes(q.id));
+                }, [compositionItems, qrs, selectedQrIdsForSheet]);
+
+                const compositionGroups = useMemo(() => {
+                    const map = new Map();
+                    printComposition.forEach(entry => {
+                        const card = qrs.find(q=>q.id===entry.cardId);
+                        const tpl = templates.find(t=>t.id===entry.templateId);
+                        if (!card || !tpl || tpl.category !== printConfig.templateType) return;
+                        const key = entry.cardId + '|' + entry.templateId;
+                        const prev = map.get(key) || {key,card,tpl,count:0};
+                        prev.count++;
+                        map.set(key,prev);
+                    });
+                    return [...map.values()];
+                }, [printComposition,qrs,templates,printConfig.templateType]);
+
+                const addToPrintComposition = () => {
+                    const card = qrs.find(q=>q.id===printMixCardId);
+                    const tpl = mixTemplates.find(t=>t.id===printMixTemplateId);
+                    const qty = Math.max(1, Math.min(50, Number(printMixQty)||1));
+                    if (!card || !tpl) { showToast('Selecciona una tarjeta y una plantilla.', 'warning'); return; }
+                    const stamp = Date.now().toString(36);
+                    const entries = Array.from({length:qty},(_,idx)=>({
+                        id:'PRINT-'+stamp+'-'+idx+'-'+Math.random().toString(36).slice(2,7),
+                        cardId:card.id,
+                        templateId:tpl.id
+                    }));
+                    setPrintComposition(prev=>[...prev,...entries]);
+                };
+
+                const removeOneComposition = (cardId,templateId) => {
+                    setPrintComposition(prev=>{
+                        const idx=[...prev].reverse().findIndex(x=>x.cardId===cardId&&x.templateId===templateId);
+                        if(idx<0)return prev;
+                        const real=prev.length-1-idx;
+                        return prev.filter((_,i)=>i!==real);
+                    });
+                };
+
+                const addOneComposition = (cardId,templateId) => {
+                    setPrintComposition(prev=>[...prev,{id:'PRINT-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),cardId,templateId}]);
+                };
 
                 const pages = useMemo(() => {
                     const result = [];
@@ -1961,6 +2019,8 @@ const resetTestInventory = async () => {
 
                 const renderCardContent = (item, side = printConfig.activeSide) => {
                     const qrImg = qrCodeImages[item.id] || '';
+                    const itemTemplate = item._printTemplate || null;
+                    const effectiveTheme = itemTemplate?.defaultTheme || printConfig.theme;
 
                     const alignY = printConfig.qrPosY === 'top' ? 'items-start pt-2' : printConfig.qrPosY === 'bottom' ? 'items-end pb-2' : 'items-center';
                     const alignX = printConfig.qrPosX === 'left' ? 'justify-start pl-2' : printConfig.qrPosX === 'right' ? 'justify-end pr-2' : 'justify-center';
@@ -1969,7 +2029,9 @@ const resetTestInventory = async () => {
                         printConfig.templateType === 'pvc-horizontal' ? "card-pvc-horizontal p-3 flex flex-col justify-between mx-auto" :
                         "card-poster-10x15 p-5 flex flex-col justify-between mx-auto";
 
-                    const bgToUse = side === 'front' ? printConfig.customFrontBg : printConfig.customBackBg;
+                    const bgToUse = itemTemplate
+                        ? (side === 'front' ? itemTemplate.frontBg : itemTemplate.backBg)
+                        : (side === 'front' ? printConfig.customFrontBg : printConfig.customBackBg);
 
                     return (
                         <div
@@ -1978,12 +2040,12 @@ const resetTestInventory = async () => {
                             style={{
                                 background: bgToUse
                                     ? '#ffffff'
-                                    : printConfig.theme === 'gold-luxury'
+                                    : effectiveTheme === 'gold-luxury'
                                     ? 'linear-gradient(135deg, #0f172a 0%, #312e81 100%)'
-                                    : printConfig.theme === 'clean-white'
+                                    : effectiveTheme === 'clean-white'
                                     ? '#ffffff'
                                     : 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)',
-                                color: printConfig.theme === 'clean-white' ? '#0f172a' : '#ffffff'
+                                color: effectiveTheme === 'clean-white' ? '#0f172a' : '#ffffff'
                             }}
                         >
                             {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" className="print-artwork-img pointer-events-none" />}
@@ -2102,7 +2164,7 @@ const resetTestInventory = async () => {
                                                 {id:'10x15',icon:'fa-image',title:'Cartel 10 × 15',desc:'2 horizontales / A4'}
                                             ].map(format => (
                                                 <button key={format.id} type="button" aria-pressed={printConfig.templateType===format.id}
-                                                    onClick={() => setPrintConfig(prev => ({...prev,templateType:format.id}))}
+                                                    onClick={() => { if (format.id!==printConfig.templateType && printComposition.length) setPrintComposition([]); setPrintConfig(prev => ({...prev,templateType:format.id})); }}
                                                     className={`min-w-0 rounded-xl border p-3 text-left transition-colors ${printConfig.templateType===format.id?'bg-blue-600/20 border-blue-400 text-white':'bg-slate-900/70 border-slate-700 text-slate-300 hover:border-slate-500'}`}>
                                                     <i className={`fa-solid ${format.icon} text-blue-400 mr-2`}></i><span className="text-xs font-bold">{format.title}</span>
                                                     <span className="block text-[10px] text-slate-400 mt-1">{format.desc}</span>
