@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
+    const TOCAQUI_BUILD = '2026.11.14.1532';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -689,6 +693,23 @@
             const [selectedClientDetailId, setSelectedClientDetailId] = useState(null);
             const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+            useEffect(() => {
+                let cancelled = false;
+                const checkBuild = async () => {
+                    try {
+                        const response = await fetch(location.pathname + '?buildcheck=' + Date.now(), { cache:'no-store' });
+                        const html = await response.text();
+                        const match = html.match(/TOCAQUI_BUILD\s*=\s*['"]([^'"]+)['"]/);
+                        if (!cancelled && match?.[1] && match[1] !== TOCAQUI_BUILD) {
+                            location.replace(location.pathname + '?v=' + encodeURIComponent(match[1]));
+                        }
+                    } catch (e) {}
+                };
+                const first = setTimeout(checkBuild, 2500);
+                const interval = setInterval(checkBuild, 300000);
+                return () => { cancelled = true; clearTimeout(first); clearInterval(interval); };
+            }, []);
+
             // Print & Studio Configuration State
             const [printConfig, setPrintConfig] = useState({
                 templateType: 'pvc-vertical',
@@ -1112,6 +1133,7 @@ const resetTestInventory = async () => {
                                         <div>
                                             <div className="text-xs font-semibold text-slate-200">A4 Master Mode</div>
                                             <div className="text-[10px] text-slate-400 font-mono">PIN validado en servidor</div>
+                                            <div className="text-[9px] text-slate-600 font-mono mt-1">Build {TOCAQUI_BUILD}</div>
                                         </div>
                                     </div>
                                 </div>
