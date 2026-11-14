@@ -2035,7 +2035,7 @@ const resetTestInventory = async () => {
 
                     return (
                         <div
-                            key={item.id}
+                            key={item._printEntryId || item.id}
                             className={cardClass}
                             style={{
                                 background: bgToUse
