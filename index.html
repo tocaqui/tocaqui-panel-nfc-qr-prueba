@@ -1641,13 +1641,32 @@ const resetTestInventory = async () => {
 
                         {selectedBatch && (
                             <div className="fixed inset-0 z-[90] bg-black/65 backdrop-blur-sm no-print" onClick={()=>setSelectedBatchId('')}>
-                                <aside className="absolute right-0 top-0 h-full w-full sm:max-w-md bg-slate-950 border-l border-slate-800 shadow-2xl overflow-y-auto" onClick={e=>e.stopPropagation()}>
-                                    <div className="sticky top-0 bg-slate-950/95 backdrop-blur border-b border-slate-800 px-4 py-4 flex items-center justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <div className="text-[10px] uppercase tracking-[.18em] text-blue-300 font-bold">Detalle del lote</div>
-                                            <h3 className="text-lg font-bold text-white truncate mt-0.5">{selectedBatch.name}</h3>
+                                <aside className="absolute right-0 top-0 h-full w-full sm:max-w-2xl bg-slate-950 border-l border-slate-800 shadow-2xl overflow-y-auto" onClick={e=>e.stopPropagation()}>
+                                    <div className="sticky top-0 z-20 bg-slate-950/95 backdrop-blur border-b border-slate-800">
+                                        <div className="px-4 sm:px-5 py-4 flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <div className="text-[10px] uppercase tracking-[.18em] text-blue-300 font-bold">Centro operativo del lote</div>
+                                                <h3 className="text-lg font-bold text-white truncate mt-0.5">{selectedBatch.name}</h3>
+                                                <div className="text-[10px] font-mono text-slate-500 truncate mt-0.5">{selectedBatch.id}</div>
+                                            </div>
+                                            <button type="button" onClick={()=>setSelectedBatchId('')} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
                                         </div>
-                                        <button type="button" onClick={()=>setSelectedBatchId('')} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
+                                        <div className="px-3 sm:px-5 overflow-x-auto">
+                                            <div className="flex min-w-max gap-1 pb-2">
+                                                {[
+                                                    ['summary','Resumen','fa-list-check'],
+                                                    ['distribution','Distribución','fa-swatchbook'],
+                                                    ['activation','Activación','fa-bolt'],
+                                                    ['print','Impresión','fa-print'],
+                                                    ['verification','Verificación','fa-shield-check']
+                                                ].map(tab=>(
+                                                    <button key={tab[0]} type="button" onClick={()=>setSelectedBatchTab(tab[0])}
+                                                        className={selectedBatchTab===tab[0]?'px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold':'px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-800 text-xs font-semibold'}>
+                                                        <i className={'fa-solid '+tab[2]+' mr-1.5'}></i>{tab[1]}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {(()=>{
@@ -1655,39 +1674,191 @@ const resetTestInventory = async () => {
                                         const total=selectedBatch.cards.length;
                                         const active=selectedBatch.cards.filter(card=>card.status==='active').length;
                                         const pending=total-active;
-                                        const clients=new Set(selectedBatch.cards.map(card=>card.clientId).filter(Boolean)).size;
+                                        const clientCount=new Set(selectedBatch.cards.map(card=>card.clientId).filter(Boolean)).size;
+                                        const uniqueTags=new Set(selectedBatch.cards.map(card=>card.trackingCode||card.id)).size;
+                                        const duplicateTags=Math.max(0,total-uniqueTags);
+                                        const distributionPercent=total?Math.round(distributedCards.length/total*100):0;
                                         return (
-                                            <div className="p-4 space-y-5">
-                                                <div>
-                                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider">Identificador</div>
-                                                    <div className="text-xs font-mono text-slate-300 mt-1 break-all">{selectedBatch.id}</div>
-                                                </div>
+                                            <div className="p-4 sm:p-5">
+                                                {selectedBatchTab==='summary'&&(
+                                                    <div className="space-y-5">
+                                                        <div className="grid grid-cols-4 gap-3 border-b border-slate-800 pb-5">
+                                                            <div><div className="text-2xl font-bold text-white">{total}</div><div className="text-[10px] text-slate-500">Tarjetas</div></div>
+                                                            <div><div className="text-2xl font-bold text-emerald-300">{active}</div><div className="text-[10px] text-slate-500">Activas</div></div>
+                                                            <div><div className="text-2xl font-bold text-amber-300">{pending}</div><div className="text-[10px] text-slate-500">Pendientes</div></div>
+                                                            <div><div className="text-2xl font-bold text-cyan-300">{distributedCards.length}</div><div className="text-[10px] text-slate-500">Con diseño</div></div>
+                                                        </div>
 
-                                                <div className="grid grid-cols-2 gap-x-5 gap-y-4 border-y border-slate-800 py-4">
-                                                    <div><div className="text-2xl font-bold text-white">{total}</div><div className="text-[10px] text-slate-500">Tarjetas</div></div>
-                                                    <div><div className="text-2xl font-bold text-white">{Math.ceil(total/meta.perSheet)}</div><div className="text-[10px] text-slate-500">A4 aprox.</div></div>
-                                                    <div><div className="text-lg font-bold text-emerald-300">{active}</div><div className="text-[10px] text-slate-500">Activas</div></div>
-                                                    <div><div className="text-lg font-bold text-amber-300">{pending}</div><div className="text-[10px] text-slate-500">Pendientes</div></div>
-                                                </div>
+                                                        <div className="divide-y divide-slate-800 text-sm">
+                                                            <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Formato</span><span className="text-slate-200 font-semibold">{meta.label}</span></div>
+                                                            <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Hojas A4 estimadas</span><span className="text-slate-200">{Math.ceil(total/meta.perSheet)}</span></div>
+                                                            <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Creado</span><span className="text-slate-200">{selectedBatch.createdAt?new Date(selectedBatch.createdAt).toLocaleString('es-CL'):'Sin fecha'}</span></div>
+                                                            <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Clientes asociados</span><span className="text-slate-200">{clientCount}</span></div>
+                                                            <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Identidades TAG</span><span className={duplicateTags?'text-rose-300 font-semibold':'text-emerald-300 font-semibold'}>{duplicateTags?duplicateTags+' duplicado(s)':'Todos únicos'}</span></div>
+                                                        </div>
 
-                                                <div className="space-y-2 text-xs">
-                                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Formato</span><span className="text-slate-200 font-semibold">{meta.label}</span></div>
-                                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Creado</span><span className="text-slate-200">{selectedBatch.createdAt?new Date(selectedBatch.createdAt).toLocaleString('es-CL'):'Sin fecha'}</span></div>
-                                                    <div className="flex justify-between gap-3"><span className="text-slate-500">Clientes asociados</span><span className="text-slate-200">{clients}</span></div>
-                                                    <div className="flex justify-between gap-3"><span className="text-slate-500">TAG</span><span className="text-slate-200">Todos únicos</span></div>
-                                                </div>
+                                                        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                                                            <button type="button" onClick={()=>setSelectedBatchTab('distribution')} className="flex-1 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-4 py-3 text-sm font-bold text-white">Distribuir diseños</button>
+                                                            <button type="button" onClick={()=>setSelectedBatchTab('activation')} className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-3 text-sm font-bold text-white">Activar tarjetas</button>
+                                                        </div>
+                                                    </div>
+                                                )}
 
-                                                <div className="border-t border-slate-800 pt-4 space-y-2">
-                                                    <button type="button" onClick={()=>openBatchInPrint(selectedBatch)} className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-3 text-sm font-bold text-white">
-                                                        <i className="fa-solid fa-print mr-2"></i>Preparar impresión
-                                                    </button>
-                                                    <p className="text-[10px] text-slate-500 text-center">La distribución de diseños y activación masiva se aplicarán sobre este lote sin cambiar sus TAG.</p>
-                                                </div>
+                                                {selectedBatchTab==='distribution'&&(
+                                                    <div className="space-y-5">
+                                                        <div className="flex items-end justify-between gap-3 border-b border-slate-800 pb-4">
+                                                            <div>
+                                                                <h4 className="text-base font-bold text-white">Distribución de diseños</h4>
+                                                                <p className="text-xs text-slate-500 mt-1">Asigna plantillas a TAG únicos sin modificar su QR ni su destino.</p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-xl font-bold text-cyan-300">{distributedCards.length}/{total}</div>
+                                                                <div className="text-[10px] text-slate-500">{distributionPercent}% distribuido</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px] gap-2">
+                                                            <select value={distributionTemplateId} onChange={e=>setDistributionTemplateId(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-sm">
+                                                                <option value="">Seleccionar plantilla</option>
+                                                                {selectedBatchTemplates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                                                            </select>
+                                                            <input type="number" min="1" max={Math.max(1,undistributedCards.length)} value={distributionQty} onChange={e=>setDistributionQty(Math.max(1,Number(e.target.value)||1))} className="glass-input rounded-xl px-3 py-3 text-center font-bold" />
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {[2,5,10,20,50,100].filter(n=>n<=Math.max(undistributedCards.length,2)).map(n=><button key={n} type="button" onClick={()=>setDistributionQty(Math.min(n,Math.max(1,undistributedCards.length)))} className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-300">{n}</button>)}
+                                                            {undistributedCards.length>0&&<button type="button" onClick={()=>setDistributionQty(undistributedCards.length)} className="rounded-lg border border-cyan-500/30 px-2.5 py-1.5 text-[11px] text-cyan-300">Restantes {undistributedCards.length}</button>}
+                                                        </div>
+                                                        <button type="button" disabled={distributionBusy||!distributionTemplateId||!undistributedCards.length} onClick={applyDistribution} className="w-full rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 px-4 py-3 text-sm font-bold text-white">
+                                                            {distributionBusy?'Guardando…':'Asignar '+Math.min(Number(distributionQty)||1,undistributedCards.length)+' diseño(s)'}
+                                                        </button>
+
+                                                        <div className="border-t border-slate-800 pt-3">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-[11px] uppercase tracking-wider font-bold text-slate-500">Distribución actual</span>
+                                                                {distributionGroups.length>0&&<button type="button" onClick={clearDistribution} disabled={distributionBusy} className="text-[11px] text-rose-300">Limpiar todo</button>}
+                                                            </div>
+                                                            {distributionGroups.length ? (
+                                                                <div className="divide-y divide-slate-800">
+                                                                    {distributionGroups.map(group=>(
+                                                                        <div key={group.templateId} className="py-3 flex items-center justify-between gap-3">
+                                                                            <div className="min-w-0"><div className="text-sm font-semibold text-white truncate">{group.name}</div><div className="text-[10px] text-slate-500">{group.count} TAG asignado(s)</div></div>
+                                                                            <div className="flex items-center gap-2"><span className="text-lg font-bold text-cyan-300">{group.count}</span><button type="button" onClick={()=>removeDistributionGroup(group.templateId)} disabled={distributionBusy} className="w-8 h-8 rounded-lg text-rose-300 hover:bg-rose-500/10"><i className="fa-solid fa-xmark"></i></button></div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : <div className="py-6 text-center text-xs text-slate-500">Todavía no has distribuido diseños en este lote.</div>}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {selectedBatchTab==='activation'&&(
+                                                    <div className="space-y-5">
+                                                        <div className="border-b border-slate-800 pb-4">
+                                                            <div className="flex items-end justify-between gap-3">
+                                                                <div><h4 className="text-base font-bold text-white">Activación masiva</h4><p className="text-xs text-slate-500 mt-1">Selecciona cualquier cantidad y aplica un mismo negocio/destino sin cambiar los TAG.</p></div>
+                                                                <div className="text-right"><div className="text-xl font-bold text-blue-300">{bulkSelectedIds.length}</div><div className="text-[10px] text-slate-500">seleccionadas</div></div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div>
+                                                            <div className="text-[11px] font-semibold text-slate-400 mb-2">Cantidad rápida</div>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {[2,5,10,20,50,100].filter(n=>n<=Math.max(selectedBatch.cards.length,2)).map(n=><button key={n} type="button" onClick={()=>selectBulkCount(n)} className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-300">{n}</button>)}
+                                                                <button type="button" onClick={()=>selectBulkCount('all')} className="rounded-lg border border-blue-500/30 px-2.5 py-1.5 text-[11px] text-blue-300">Todo pendiente</button>
+                                                            </div>
+                                                            {distributionGroups.length>0&&<div className="flex flex-wrap gap-1.5 mt-2">{distributionGroups.map(group=><button key={group.templateId} type="button" onClick={()=>selectBulkByTemplate(group.templateId)} className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] text-slate-300">{group.name} · {group.count}</button>)}</div>}
+                                                            {bulkSelectedIds.length>0&&<div className="mt-2 text-[10px] text-slate-500 truncate">TAG: {bulkSelectedIds.slice(0,8).map(id=>cardNumber(selectedBatch.cards.find(c=>c.id===id)||{id})).join(', ')}{bulkSelectedIds.length>8?' …':''}</div>}
+                                                        </div>
+
+                                                        <div className="border-t border-slate-800 pt-4 space-y-3">
+                                                            <select value={bulkClientId} onChange={e=>setBulkClientId(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-sm">
+                                                                <option value="">Sin cliente / asignar después</option>
+                                                                {clients.map(c=><option key={c.id} value={c.id}>{c.name}{c.company?' · '+c.company:''}</option>)}
+                                                            </select>
+                                                            <input value={bulkBusinessName} onChange={e=>setBulkBusinessName(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-sm" placeholder="Nombre del negocio"/>
+                                                            <input value={bulkBusinessAddress} onChange={e=>setBulkBusinessAddress(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-sm" placeholder="Dirección (opcional)"/>
+                                                        </div>
+
+                                                        <div className="border-t border-slate-800 pt-4">
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                {[
+                                                                    ['custom_url','URL / Menú'],
+                                                                    ['google_review','Google'],
+                                                                    ['review_gate','Experiencia']
+                                                                ].map(fn=><button key={fn[0]} type="button" onClick={()=>setBulkFunctionType(fn[0])} className={bulkFunctionType===fn[0]?'rounded-xl border border-blue-400 bg-blue-500/15 px-2 py-3 text-xs font-bold text-white':'rounded-xl border border-slate-700 px-2 py-3 text-xs font-semibold text-slate-400'}>{fn[1]}</button>)}
+                                                            </div>
+                                                            {bulkFunctionType==='custom_url'
+                                                                ? <input type="url" value={bulkUrl} onChange={e=>setBulkUrl(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-xs font-mono mt-3" placeholder="https://menu.negocio.cl"/>
+                                                                : <input value={bulkPlaceId} onChange={e=>setBulkPlaceId(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-xs font-mono mt-3" placeholder="Google Place ID"/>
+                                                            }
+                                                        </div>
+
+                                                        <div className="border-t border-slate-800 pt-4 space-y-3">
+                                                            <input type="password" inputMode="numeric" maxLength="4" value={bulkPin} onChange={e=>setBulkPin(e.target.value.replace(/\D/g,'').slice(0,4))} className="glass-input w-full rounded-xl px-3 py-3 text-center text-xl tracking-[0.5em] font-mono font-bold" placeholder="••••"/>
+                                                            <button type="button" onClick={activateSelectedBatchCards} disabled={bulkBusy||!bulkSelectedIds.length} className="w-full rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 px-4 py-3.5 text-sm font-bold text-white">
+                                                                {bulkBusy?<><i className="fa-solid fa-spinner fa-spin mr-2"></i>Activando {bulkSelectedIds.length}…</>:<>Activar {bulkSelectedIds.length} tarjeta(s)</>}
+                                                            </button>
+                                                            <p className="text-[10px] text-slate-500 text-center">Una sola autorización · cada TAG conserva su QR fijo e identidad individual.</p>
+                                                        </div>
+
+                                                        {bulkResult&&(
+                                                            <div className="border-t border-slate-800 pt-4">
+                                                                <div className="grid grid-cols-3 gap-3 text-center">
+                                                                    <div><div className="text-lg font-bold text-white">{bulkResult.requested}</div><div className="text-[10px] text-slate-500">Solicitadas</div></div>
+                                                                    <div><div className="text-lg font-bold text-emerald-300">{bulkResult.successCount}</div><div className="text-[10px] text-slate-500">Correctas</div></div>
+                                                                    <div><div className="text-lg font-bold text-rose-300">{bulkResult.failureCount}</div><div className="text-[10px] text-slate-500">Fallidas</div></div>
+                                                                </div>
+                                                                {bulkResult.failureCount>0&&<div className="mt-3 text-[10px] text-rose-300">{(bulkResult.failures||[]).slice(0,5).map((f,i)=><div key={i}>{f.id||'Operación'} · {f.error}</div>)}</div>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {selectedBatchTab==='print'&&(
+                                                    <div className="space-y-5">
+                                                        <div className="border-b border-slate-800 pb-4">
+                                                            <h4 className="text-base font-bold text-white">Preparar impresión</h4>
+                                                            <p className="text-xs text-slate-500 mt-1">El Estudio A4 utilizará automáticamente la plantilla asignada a cada TAG. La Composición Mixta sigue disponible como ajuste manual.</p>
+                                                        </div>
+                                                        <div className="grid grid-cols-3 gap-4">
+                                                            <div><div className="text-2xl font-bold text-white">{total}</div><div className="text-[10px] text-slate-500">Total</div></div>
+                                                            <div><div className="text-2xl font-bold text-cyan-300">{distributedCards.length}</div><div className="text-[10px] text-slate-500">Con diseño</div></div>
+                                                            <div><div className="text-2xl font-bold text-amber-300">{undistributedCards.length}</div><div className="text-[10px] text-slate-500">Sin diseño</div></div>
+                                                        </div>
+                                                        {undistributedCards.length>0&&<div className="text-xs text-amber-200 border-l-2 border-amber-400 pl-3">Las tarjetas sin diseño usarán el estilo actual del Estudio A4. Puedes distribuirlas antes de imprimir.</div>}
+                                                        <button type="button" onClick={()=>openBatchInPrint(selectedBatch)} className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-3.5 text-sm font-bold text-white"><i className="fa-solid fa-print mr-2"></i>Abrir lote en Estudio A4</button>
+                                                    </div>
+                                                )}
+
+                                                {selectedBatchTab==='verification'&&(
+                                                    <div className="space-y-5">
+                                                        <div className="border-b border-slate-800 pb-4">
+                                                            <h4 className="text-base font-bold text-white">Verificación del lote</h4>
+                                                            <p className="text-xs text-slate-500 mt-1">Control automático de identidad, distribución y estado de activación.</p>
+                                                        </div>
+                                                        <div className="divide-y divide-slate-800">
+                                                            <div className="py-3 flex items-center justify-between gap-3"><span className="text-sm text-slate-300">TAG únicos</span><span className={duplicateTags?'text-rose-300 font-bold':'text-emerald-300 font-bold'}>{uniqueTags}/{total} {duplicateTags?'· '+duplicateTags+' duplicado(s)':'· OK'}</span></div>
+                                                            <div className="py-3 flex items-center justify-between gap-3"><span className="text-sm text-slate-300">Distribución visual</span><span className={undistributedCards.length?'text-amber-300 font-bold':'text-emerald-300 font-bold'}>{distributedCards.length}/{total}</span></div>
+                                                            <div className="py-3 flex items-center justify-between gap-3"><span className="text-sm text-slate-300">Activación</span><span className={pending?'text-amber-300 font-bold':'text-emerald-300 font-bold'}>{active}/{total}</span></div>
+                                                            <div className="py-3 flex items-center justify-between gap-3"><span className="text-sm text-slate-300">Pendientes</span><span className={pending?'text-amber-300 font-bold':'text-emerald-300 font-bold'}>{pending}</span></div>
+                                                        </div>
+                                                        {bulkResult&&(
+                                                            <div className="border-t border-slate-800 pt-4">
+                                                                <div className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2">Última operación masiva</div>
+                                                                <div className="flex items-center justify-between text-sm"><span className="text-slate-300">{bulkResult.requested} solicitadas</span><span className={bulkResult.failureCount?'text-amber-300':'text-emerald-300'}>{bulkResult.successCount} correctas · {bulkResult.failureCount} fallidas</span></div>
+                                                            </div>
+                                                        )}
+                                                        <div className={duplicateTags||pending||undistributedCards.length?'text-xs text-amber-200 border-l-2 border-amber-400 pl-3':'text-xs text-emerald-200 border-l-2 border-emerald-400 pl-3'}>
+                                                            {duplicateTags?'Revisa identidades duplicadas antes de fabricar.':pending||undistributedCards.length?'El lote es válido, pero todavía tiene trabajo pendiente.':'Lote completo: TAG únicos, diseños distribuidos y todas las tarjetas activas.'}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })()}
                                 </aside>
                             </div>
+                        )}
                         )}
                     </div>
                 );
