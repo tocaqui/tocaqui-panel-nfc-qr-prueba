@@ -2151,8 +2151,13 @@ const resetTestInventory = async () => {
 
                 const selectedItems = useMemo(() => {
                     if (compositionItems.length) return compositionItems;
-                    return qrs.filter(q => selectedQrIdsForSheet.includes(q.id));
-                }, [compositionItems, qrs, selectedQrIdsForSheet]);
+                    return qrs
+                        .filter(q => selectedQrIdsForSheet.includes(q.id))
+                        .map(q => {
+                            const tpl = q.designTemplateId ? templates.find(t => t.id === q.designTemplateId) : null;
+                            return tpl ? { ...q, _printTemplate:tpl } : q;
+                        });
+                }, [compositionItems, qrs, selectedQrIdsForSheet, templates]);
 
                 const compositionGroups = useMemo(() => {
                     const map = new Map();
