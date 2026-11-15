@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2245';
+    const TOCAQUI_BUILD = '2026.11.15.2255';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -2932,14 +2932,28 @@ const resetTestInventory = async () => {
 
                 useEffect(() => {
                     if(!printMixBatchId || !printBatches.some(batch=>batch.id===printMixBatchId)){
+                        const existingCard=qrs.find(card=>card.id===printComposition[0]?.cardId);
+                        const existingBatch=existingCard ? printBatches.find(batch=>batch.id===(existingCard.batchId||'legacy')) : null;
                         const preferred=printBatchFilter!=='all' ? printBatches.find(batch=>batch.id===printBatchFilter) : null;
-                        const first=preferred || printBatches.find(batch=>batch.id!=='legacy') || printBatches[0];
+                        const first=existingBatch || preferred || printBatches.find(batch=>batch.id!=='legacy') || printBatches[0];
                         if(first){
                             setPrintMixBatchId(first.id);
                             setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType}));
                         }
                     }
-                }, [printBatches, printBatchFilter, printMixBatchId]);
+                }, [printBatches, printBatchFilter, printMixBatchId, qrs, printComposition]);
+
+                useEffect(() => {
+                    setPrintComposition(prev=>{
+                        const seen=new Set();
+                        const next=prev.filter(entry=>{
+                            if(!entry?.cardId || seen.has(entry.cardId)) return false;
+                            seen.add(entry.cardId);
+                            return true;
+                        });
+                        return next.length===prev.length ? prev : next;
+                    });
+                }, []);
 
                 useEffect(() => {
                     const format=selectedMixBatch?.productType || printConfig.templateType;
