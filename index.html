@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.14.2141';
+    const TOCAQUI_BUILD = '2026.11.14.2220';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -2433,13 +2433,13 @@ const resetTestInventory = async () => {
                                         <button type="button" onClick={() => { setTemplateModal({open:false,isEditing:false,data:null}); setTemplateDraft({name:'',category:'pvc-vertical',frontBg:'',backBg:'',frontName:'',backName:''}); }} className="text-slate-400"><i className="fa-solid fa-xmark"></i></button>
                                     </div>
                                     <form onSubmit={handleSaveTemplate} className="space-y-4">
-                                        <input type="text" placeholder="Nombre de la Plantilla (ej: Barberías Oro)" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-sm" />
+                                        <input type="text" placeholder="Nombre de la Plantilla (ej: Barberías Oro)" required value={form.name} onChange={e=>setForm(prev=>({...prev,name:e.target.value}))} className="w-full glass-input px-3.5 py-2.5 rounded-xl text-sm" />
                                         
                                         <div>
                                             <label className="block text-xs text-slate-300 mb-1">Formato de la plantilla</label>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {[['pvc-vertical','PVC vertical'],['pvc-horizontal','PVC horizontal'],['10x15','Cartel 10×15']].map(([value,label])=>(
-                                                    <button key={value} type="button" onClick={()=>setForm(prev=>({...prev,category:value,frontBg:'',backBg:'',frontName:'',backName:''}))} className={`rounded-lg border px-2 py-2 text-[11px] font-semibold ${form.category===value?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700 bg-slate-900 text-slate-400'}`}>{label}</button>
+                                                    <button key={value} type="button" onClick={()=>setForm(prev=>prev.category===value?prev:{...prev,category:value,frontBg:'',backBg:'',frontName:'',backName:''})} className={`rounded-lg border px-2 py-2 text-[11px] font-semibold ${form.category===value?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700 bg-slate-900 text-slate-400'}`}>{label}</button>
                                                 ))}
                                             </div>
                                             <p className="text-[11px] text-slate-500 mt-1">Selecciona el formato antes de cargar las imágenes; se adaptan automáticamente a sus medidas.</p>
