@@ -2543,8 +2543,11 @@ const resetTestInventory = async () => {
 
                 useEffect(() => {
                     if (!printMixCardId && qrs[0]) setPrintMixCardId(qrs[0].id);
-                    if (!mixTemplates.some(t=>t.id===printMixTemplateId)) setPrintMixTemplateId(mixTemplates[0]?.id || '');
-                }, [qrs, mixTemplates, printMixCardId, printMixTemplateId]);
+                    if (!templates.some(t=>t.id===printMixTemplateId)) {
+                        const firstCompatible=templates.find(t=>t.category===printConfig.templateType) || templates[0];
+                        setPrintMixTemplateId(firstCompatible?.id || '');
+                    }
+                }, [qrs, templates, printConfig.templateType, printMixCardId, printMixTemplateId]);
 
                 const compositionItems = useMemo(() => {
                     return printComposition.map(entry => {
