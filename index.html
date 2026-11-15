@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2340';
+    const TOCAQUI_BUILD = '2026.11.15.2400';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1157,6 +1157,20 @@ const resetTestInventory = async () => {
                 setToast({ show: true, msg, type });
                 setTimeout(() => setToast({ show: false, msg: '', type: 'info' }), 3500);
             };
+
+            // Open a scanned pending card only after the authenticated inventory has loaded.
+            useEffect(() => {
+                if (!cloudReady || !workshopSession || !initialized.current) return;
+                const url = new URL(window.location.href);
+                const code = url.searchParams.get('activar');
+                if (!code || !/^TAG-[A-Z0-9]{5,32}$/.test(code)) return;
+                const card = qrs.find(q => q.trackingCode === code || q.id === code);
+                url.searchParams.delete('activar');
+                window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+                if (!card) { showToast('La tarjeta no está en el inventario de este equipo.', 'warning'); return; }
+                setRoleMode('admin');
+                setActivateModal({open:true,qr:card});
+            }, [cloudReady, workshopSession, qrs]);
 
             // El número visible se asigna en Supabase; el TAG original permanece como destino QR/NFC.
             const cardNumber = card => card.serialNumber || card.trackingCode || card.id;
@@ -4306,7 +4320,7 @@ const resetTestInventory = async () => {
                 };
 
                 const [searchQuery, setSearchQuery] = useState('');
-                const [selectedPlace, setSelectedPlace] = useState(qr.businessName ? { name: qr.businessName, address: qr.businessAddress || '', placeId: qr.placeId || 'ChIJMock' } : null);
+                const [selectedPlace, setSelectedPlace] = useState(qr.businessName && qr.placeId ? { name: qr.businessName, address: qr.businessAddress || '', placeId: qr.placeId } : null);
                 const [presetType, setPresetType] = useState(qr.functionType || 'review_gate');
                 const [customUrl, setCustomUrl] = useState(qr.dynamicUrl || '');
                 const [assignedClient, setAssignedClient] = useState(qr.clientId || '');
@@ -4538,11 +4552,11 @@ const resetTestInventory = async () => {
                                         </div>
                                     ) : (
                                         <div>
-                                            <div className="relative">
+                                            {googleApiKey ? <div className="relative">
                                                 <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
-                                                <input type="text" placeholder={googleApiKey?'Buscar negocio en Google...':'Google Places no está configurado'} value={searchQuery} disabled={!googleApiKey} onChange={e=>{setSearchQuery(e.target.value);setSelectedPlace(null);}} className="w-full glass-input pl-9 pr-9 py-3 rounded-xl text-sm disabled:opacity-50"/>
+                                                <input type="text" placeholder="Buscar negocio en Google..." value={searchQuery} onChange={e=>{setSearchQuery(e.target.value);setSelectedPlace(null);}} className="w-full glass-input pl-9 pr-9 py-3 rounded-xl text-sm"/>
                                                 {placesLoading&&<i className="fa-solid fa-spinner fa-spin absolute right-3 top-3.5 text-cyan-400 text-xs"></i>}
-                                            </div>
+                                            </div> : <p className="text-xs text-amber-200">La búsqueda automática de Google no está configurada en este navegador. Puedes ingresar el negocio y Place ID manualmente abajo, o elegir URL personalizada.</p>}
                                             {placesError&&<p className="text-[11px] text-rose-300 mt-2">{placesError}</p>}
                                             {searchQuery&&placeSuggestions.length>0&&(
                                                 <div className="mt-2 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 divide-y divide-slate-800">
@@ -4557,7 +4571,7 @@ const resetTestInventory = async () => {
                                         </div>
                                     )}
 
-                                    <details className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                                    <details open={!googleApiKey} className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
                                         <summary className="cursor-pointer text-xs font-semibold text-slate-300">Ingresar negocio manualmente / Place ID</summary>
                                         <div className="mt-3 space-y-2">
                                             <input type="text" className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" placeholder="Nombre comercial" value={manualBusinessName} onChange={e=>setManualBusinessName(e.target.value)}/>
@@ -4917,4 +4931,5 @@ root.render(<TocaquiErrorBoundary><App cloud={cloud} /></TocaquiErrorBoundary>);
     </script>
 </body>
 </html>
+
 
