@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2010';
+    const TOCAQUI_BUILD = '2026.11.15.2025';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1215,7 +1215,7 @@ const resetTestInventory = async () => {
                                     </button>
                                 ))}
                                 <a
-                                    href="./loyalty/?v=2026.11.15.2005"
+                                    href="./loyalty/?v=2026.11.15.2020"
                                     onClick={()=>setMobileSidebarOpen(false)}
                                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-cyan-200 border border-cyan-500/20 bg-cyan-500/10 hover:bg-cyan-500/15 transition-colors"
                                 >
