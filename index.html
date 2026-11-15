@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.1840';
+    const TOCAQUI_BUILD = '2026.11.15.1850';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -866,15 +866,6 @@ useEffect(()=>{try{localStorage.setItem('nfc_templates_v6',JSON.stringify(templa
 useEffect(()=>{try{localStorage.setItem('tocaqui_print_composition_v1',JSON.stringify(printComposition))}catch(e){}},[printComposition]);
 const [pairCodeLogin,setPairCodeLogin]=useState(()=>new URLSearchParams(location.search).get('vincular')||'');
 const [pairingBusyLogin,setPairingBusyLogin]=useState(false);
-const pairWorkshopDevice=async()=>{
- setPairingBusyLogin(true);setCloudError('');
- try{
- const res=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify({action:'pair',code:pairCodeLogin.trim().toLowerCase(),label:/iPhone|iPad/i.test(navigator.userAgent)?'iPhone TOCAQUI':'Computador TOCAQUI'})});
- const result=await res.json();if(!res.ok||!result.ok)throw new Error(result.error||'No se pudo vincular');
- localStorage.setItem('tocaqui_device_credential_v1',result.credential);setPairCodeLogin('');
- history.replaceState(null,'',location.pathname);setCloudError('Dispositivo autorizado. Ingresa tu PIN para acceder.');
- }catch(e){setCloudError(e.message)}finally{setPairingBusyLogin(false)}
-};
 const [loginPin,setLoginPin]=useState('');
 const [loginBusy,setLoginBusy]=useState(false);
 const [authRevision,setAuthRevision]=useState(0);
@@ -883,6 +874,42 @@ const workshopApi=async(payload)=>{
  const res=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify(payload)});
  const json=await res.json();if(!res.ok||!json.ok)throw new Error(json.error||'Acceso rechazado');return json;
 };
+const openRecognizedDeviceSession=async(credential)=>{
+ const result=await workshopApi({action:'resume',credential});
+ sessionStorage.setItem('tocaqui_workshop_session',result.session);
+ setWorkshopSession(result.session);
+ setAuthRevision(v=>v+1);
+ setCloudError('');
+ return result;
+};
+const pairWorkshopDevice=async()=>{
+ setPairingBusyLogin(true);setCloudError('');
+ try{
+ const res=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify({action:'pair',code:pairCodeLogin.trim().toLowerCase(),label:/iPhone|iPad/i.test(navigator.userAgent)?'iPhone TOCAQUI':'Computador TOCAQUI'})});
+ const result=await res.json();if(!res.ok||!result.ok)throw new Error(result.error||'No se pudo vincular');
+ localStorage.setItem('tocaqui_device_credential_v1',result.credential);setPairCodeLogin('');
+ history.replaceState(null,'',location.pathname);
+ await openRecognizedDeviceSession(result.credential);
+ }catch(e){setCloudError(e.message)}finally{setPairingBusyLogin(false)}
+};
+useEffect(()=>{
+ if(workshopSession)return;
+ const credential=localStorage.getItem('tocaqui_device_credential_v1')||'';
+ if(!/^[a-f0-9]{64}$/.test(credential))return;
+ let live=true;setLoginBusy(true);
+ (async()=>{try{
+   const result=await workshopApi({action:'resume',credential});
+   if(!live)return;
+   sessionStorage.setItem('tocaqui_workshop_session',result.session);
+   setWorkshopSession(result.session);setAuthRevision(v=>v+1);setCloudError('');
+ }catch(err){
+   if(live){
+     if(/revocado|no autorizado/i.test(err.message||''))localStorage.removeItem('tocaqui_device_credential_v1');
+     setCloudError(err.message||'No se pudo reconocer este equipo.');
+   }
+ }finally{if(live)setLoginBusy(false)}})();
+ return()=>{live=false};
+},[]);
 const signInAdmin=async(e)=>{
  e.preventDefault();setLoginBusy(true);setCloudError('');
  try{const credential=localStorage.getItem('tocaqui_device_credential_v1')||'';
