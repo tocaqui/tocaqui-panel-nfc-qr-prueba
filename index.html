@@ -2905,82 +2905,109 @@ const resetTestInventory = async () => {
                                     <div className="grid grid-cols-1 gap-2">
                                         <label className="text-[11px] font-semibold text-slate-400">QR / tarjeta que se imprimirá</label>
                                         <div className="relative">
-                                            <button type="button" onClick={()=>{setPrintCardPickerOpen(v=>!v);setPrintTemplatePickerOpen(false)}} className={`w-full min-h-[58px] rounded-2xl border px-3.5 py-3 text-left flex items-center gap-3 transition-colors ${printCardPickerOpen?'border-cyan-400 bg-cyan-500/10':'border-slate-700 bg-slate-950/45 hover:border-slate-600'}`}>
+                                            <button type="button" onClick={()=>{setPrintCardPickerOpen(true);setPrintTemplatePickerOpen(false);setPrintCardSearch('')}} className={`w-full min-h-[58px] rounded-2xl border px-3.5 py-3 text-left flex items-center gap-3 transition-colors ${printCardPickerOpen?'border-cyan-400 bg-cyan-500/10':'border-slate-700 bg-slate-950/45 hover:border-slate-600'}`}>
                                                 <span className="w-9 h-9 shrink-0 rounded-xl bg-cyan-500/10 text-cyan-300 flex items-center justify-center"><i className="fa-solid fa-qrcode"></i></span>
                                                 <span className="min-w-0 flex-1">
                                                     <span className="block text-sm font-semibold text-white truncate">{selectedPrintCard?cardNumber(selectedPrintCard):'Seleccionar tarjeta'}</span>
-                                                    <span className="block text-[10px] text-slate-500 truncate mt-0.5">{selectedPrintCard?(selectedPrintCard.businessName||'Sin negocio')+(selectedPrintCard.batchName?' · '+selectedPrintCard.batchName:''):'Busca por TAG, negocio o lote'}</span>
+                                                    <span className="block text-[10px] text-slate-500 truncate mt-0.5">{selectedPrintCard?(selectedPrintCard.businessName||'Sin negocio')+(selectedPrintCard.batchName?' · '+selectedPrintCard.batchName:''):'El TAG no cambia el formato ni la plantilla'}</span>
                                                 </span>
-                                                <i className={`fa-solid fa-chevron-${printCardPickerOpen?'up':'down'} text-slate-500`}></i>
+                                                <i className="fa-solid fa-chevron-down text-slate-500"></i>
                                             </button>
-                                            {printCardPickerOpen&&(
-                                                <div className="absolute z-40 left-0 right-0 mt-2 rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/50 overflow-hidden">
+
+                                            {printCardPickerOpen&&(<>
+                                                <div className="fixed inset-0 z-[110] bg-black/65 backdrop-blur-[2px] md:hidden" onClick={()=>setPrintCardPickerOpen(false)}></div>
+                                                <div className="fixed z-[120] left-3 right-3 top-[calc(env(safe-area-inset-top)+72px)] bottom-3 md:absolute md:z-40 md:left-0 md:right-0 md:top-auto md:bottom-auto md:mt-2 rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
+                                                    <div className="px-3.5 py-3 border-b border-slate-800 flex items-center justify-between gap-3">
+                                                        <div><div className="text-sm font-bold text-white">Seleccionar tarjeta</div><div className="text-[10px] text-slate-500">{qrs.length} TAG disponibles</div></div>
+                                                        <button type="button" onClick={()=>setPrintCardPickerOpen(false)} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 md:hidden" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
+                                                    </div>
                                                     <div className="p-2.5 border-b border-slate-800">
                                                         <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
                                                             <i className="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
-                                                            <input value={printCardSearch} onChange={e=>setPrintCardSearch(e.target.value)} placeholder="Buscar tarjeta, cliente o lote…" className="w-full bg-transparent py-2.5 text-xs text-white outline-none placeholder:text-slate-600"/>
+                                                            <input value={printCardSearch} onChange={e=>setPrintCardSearch(e.target.value)} placeholder="Buscar TAG, negocio o lote…" className="w-full bg-transparent py-2.5 text-white outline-none placeholder:text-slate-600"/>
                                                         </div>
                                                     </div>
-                                                    <div className="max-h-64 overflow-y-auto divide-y divide-slate-800">
+                                                    <div className="flex-1 min-h-0 overflow-y-auto md:max-h-64 divide-y divide-slate-800">
                                                         {visiblePrintCards.length?visiblePrintCards.map(card=>(
                                                             <button key={card.id} type="button" onClick={()=>choosePrintCard(card)} className={`w-full px-3.5 py-3 text-left flex items-center gap-3 hover:bg-slate-900 ${card.id===printMixCardId?'bg-cyan-500/10':''}`}>
-                                                                <span className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-xs ${card.status==='active'?'bg-emerald-500/10 text-emerald-300':'bg-amber-500/10 text-amber-300'}`}><i className="fa-solid fa-id-card"></i></span>
+                                                                <span className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-xs ${card.status==='active'?'bg-emerald-500/10 text-emerald-300':'bg-amber-500/10 text-amber-300'}`}><i className="fa-solid fa-id-card"></i></span>
                                                                 <span className="min-w-0 flex-1">
-                                                                    <span className="block text-xs font-bold text-white">{cardNumber(card)}</span>
-                                                                    <span className="block text-[10px] text-slate-500 truncate mt-0.5">{card.businessName||'Sin negocio'}{card.batchName?' · '+card.batchName:''}</span>
+                                                                    <span className="block text-sm font-bold text-white">{cardNumber(card)}</span>
+                                                                    <span className="block text-[11px] text-slate-500 truncate mt-0.5">{card.businessName||'Sin negocio'}{card.batchName?' · '+card.batchName:''}</span>
                                                                 </span>
-                                                                <span className="text-[9px] text-slate-600">{printFormatLabel(card.productType)}</span>
+                                                                <span className="text-[9px] rounded-full border border-slate-800 px-2 py-1 text-slate-500">{printFormatLabel(card.productType)}</span>
                                                             </button>
                                                         )):<div className="p-5 text-center text-xs text-slate-500">No se encontraron tarjetas.</div>}
                                                     </div>
                                                 </div>
-                                            )}
+                                            </>)}
                                         </div>
 
                                         <label className="text-[11px] font-semibold text-slate-400 mt-1">Plantilla de diseño</label>
                                         <div className="relative">
-                                            <button type="button" onClick={()=>{setPrintTemplatePickerOpen(v=>!v);setPrintCardPickerOpen(false)}} className={`w-full min-h-[64px] rounded-2xl border px-3.5 py-3 text-left flex items-center gap-3 transition-colors ${printTemplatePickerOpen?'border-violet-400 bg-violet-500/10':'border-slate-700 bg-slate-950/45 hover:border-slate-600'}`}>
+                                            <button type="button" onClick={()=>{setPrintTemplatePickerOpen(true);setPrintCardPickerOpen(false);setPrintTemplateSearch('');setPrintTemplateFormatFilter('all')}} className={`w-full min-h-[64px] rounded-2xl border px-3.5 py-3 text-left flex items-center gap-3 transition-colors ${printTemplatePickerOpen?'border-violet-400 bg-violet-500/10':'border-slate-700 bg-slate-950/45 hover:border-slate-600'}`}>
                                                 {selectedPrintTemplate?.frontBg
                                                     ? <img src={selectedPrintTemplate.frontBg} alt="" className="w-10 h-12 shrink-0 rounded-lg object-cover border border-slate-700"/>
                                                     : <span className="w-10 h-12 shrink-0 rounded-lg bg-violet-500/10 text-violet-300 flex items-center justify-center"><i className="fa-solid fa-swatchbook"></i></span>}
                                                 <span className="min-w-0 flex-1">
-                                                    <span className="block text-sm font-semibold text-white truncate">{selectedPrintTemplate?.name||'Seleccionar plantilla'}</span>
+                                                    <span className="block text-sm font-semibold text-white truncate">{selectedPrintTemplate?.name||'Elegir desde toda la biblioteca'}</span>
                                                     <span className="flex items-center gap-2 mt-1">
-                                                        <span className="text-[9px] rounded-full border border-slate-700 px-2 py-0.5 text-slate-400">{selectedPrintTemplate?printFormatLabel(selectedPrintTemplate.category):'Toda la biblioteca'}</span>
-                                                        {selectedPrintTemplate?.category===printConfig.templateType&&selectedPrintTemplate&&<span className="text-[9px] text-emerald-300"><i className="fa-solid fa-check mr-1"></i>Compatible</span>}
+                                                        <span className="text-[9px] rounded-full border border-slate-700 px-2 py-0.5 text-slate-400">{selectedPrintTemplate?printFormatLabel(selectedPrintTemplate.category):templates.length+' plantillas'}</span>
+                                                        <span className="text-[9px] text-violet-300">Vertical · Horizontal · 10×15</span>
                                                     </span>
                                                 </span>
-                                                <i className={`fa-solid fa-chevron-${printTemplatePickerOpen?'up':'down'} text-slate-500`}></i>
+                                                <i className="fa-solid fa-chevron-down text-slate-500"></i>
                                             </button>
-                                            {printTemplatePickerOpen&&(
-                                                <div className="absolute z-40 left-0 right-0 mt-2 rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/50 overflow-hidden">
-                                                    <div className="p-2.5 border-b border-slate-800">
+
+                                            {printTemplatePickerOpen&&(<>
+                                                <div className="fixed inset-0 z-[110] bg-black/65 backdrop-blur-[2px] md:hidden" onClick={()=>setPrintTemplatePickerOpen(false)}></div>
+                                                <div className="fixed z-[120] left-3 right-3 top-[calc(env(safe-area-inset-top)+72px)] bottom-3 md:absolute md:z-40 md:left-0 md:right-0 md:top-auto md:bottom-auto md:mt-2 rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
+                                                    <div className="px-3.5 py-3 border-b border-slate-800 flex items-center justify-between gap-3">
+                                                        <div>
+                                                            <div className="text-sm font-bold text-white">Biblioteca completa</div>
+                                                            <div className="text-[10px] text-slate-500">{templates.length} plantillas guardadas · el formato se define al elegir</div>
+                                                        </div>
+                                                        <button type="button" onClick={()=>setPrintTemplatePickerOpen(false)} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 md:hidden" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
+                                                    </div>
+                                                    <div className="p-2.5 border-b border-slate-800 space-y-2.5">
                                                         <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
                                                             <i className="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
-                                                            <input value={printTemplateSearch} onChange={e=>setPrintTemplateSearch(e.target.value)} placeholder="Buscar plantilla…" className="w-full bg-transparent py-2.5 text-xs text-white outline-none placeholder:text-slate-600"/>
+                                                            <input value={printTemplateSearch} onChange={e=>setPrintTemplateSearch(e.target.value)} placeholder="Buscar plantilla…" className="w-full bg-transparent py-2.5 text-white outline-none placeholder:text-slate-600"/>
                                                         </div>
-                                                        <p className="text-[9px] text-slate-600 mt-2 px-1">Se muestran todas tus plantillas. Las compatibles con el formato actual aparecen primero.</p>
+                                                        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                                                            {[
+                                                                ['all','Todas'],
+                                                                ['pvc-vertical','Vertical'],
+                                                                ['pvc-horizontal','Horizontal'],
+                                                                ['10x15','10×15']
+                                                            ].map(([value,label])=>(
+                                                                <button key={value} type="button" onClick={()=>setPrintTemplateFormatFilter(value)}
+                                                                    className={printTemplateFormatFilter===value?'shrink-0 rounded-full border border-violet-400 bg-violet-500/15 px-3 py-1.5 text-[10px] font-bold text-violet-200':'shrink-0 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-[10px] font-semibold text-slate-400'}>
+                                                                    {label} · {templateFormatCounts[value]||0}
+                                                                </button>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-800">
+                                                    <div className="flex-1 min-h-0 overflow-y-auto md:max-h-80 divide-y divide-slate-800">
                                                         {mixTemplates.length?mixTemplates.map(tpl=>{
                                                             const compatible=tpl.category===printConfig.templateType;
                                                             return (
                                                                 <button key={tpl.id} type="button" onClick={()=>choosePrintTemplate(tpl)} className={`w-full px-3.5 py-3 text-left flex items-center gap-3 hover:bg-slate-900 ${tpl.id===printMixTemplateId?'bg-violet-500/10':''}`}>
-                                                                    {tpl.frontBg?<img src={tpl.frontBg} alt="" className="w-11 h-14 shrink-0 rounded-lg object-cover border border-slate-700"/>:<span className="w-11 h-14 shrink-0 rounded-lg bg-slate-900 text-slate-500 flex items-center justify-center"><i className="fa-solid fa-image"></i></span>}
+                                                                    {tpl.frontBg?<img src={tpl.frontBg} alt="" className="w-14 h-16 shrink-0 rounded-xl object-cover border border-slate-700"/>:<span className="w-14 h-16 shrink-0 rounded-xl bg-slate-900 text-slate-500 flex items-center justify-center"><i className="fa-solid fa-image"></i></span>}
                                                                     <span className="min-w-0 flex-1">
-                                                                        <span className="block text-xs font-bold text-white truncate">{tpl.name}</span>
-                                                                        <span className="flex flex-wrap items-center gap-1.5 mt-1">
+                                                                        <span className="block text-sm font-bold text-white truncate">{tpl.name}</span>
+                                                                        <span className="flex flex-wrap items-center gap-1.5 mt-1.5">
                                                                             <span className="text-[9px] rounded-full border border-slate-700 px-2 py-0.5 text-slate-400">{printFormatLabel(tpl.category)}</span>
-                                                                            <span className={compatible?'text-[9px] text-emerald-300':'text-[9px] text-amber-300'}>{compatible?'Formato actual':'Cambiará formato'}</span>
+                                                                            <span className={compatible?'text-[9px] text-emerald-300':'text-[9px] text-amber-300'}>{compatible?'Formato actual':'Cambiará el formato'}</span>
                                                                         </span>
                                                                     </span>
                                                                     {tpl.id===printMixTemplateId&&<i className="fa-solid fa-circle-check text-violet-300"></i>}
                                                                 </button>
                                                             );
-                                                        }):<div className="p-5 text-center text-xs text-slate-500">No se encontraron plantillas.</div>}
+                                                        }):<div className="p-8 text-center text-xs text-slate-500">No hay plantillas para este filtro.</div>}
                                                     </div>
                                                 </div>
-                                            )}
+                                            </>)}
                                         </div>
 
                                         <div className="grid grid-cols-[110px_1fr] gap-2 mt-1">
