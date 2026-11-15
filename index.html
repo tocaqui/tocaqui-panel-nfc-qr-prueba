@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2300';
+    const TOCAQUI_BUILD = '2026.11.15.2310';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -133,9 +133,8 @@
                 inset: calc(var(--artwork-bleed, 1mm) * -1) !important;
                 width: calc(100% + (var(--artwork-bleed, 1mm) * 2)) !important;
                 height: calc(100% + (var(--artwork-bleed, 1mm) * 2)) !important;
-                object-fit: cover !important;
-                object-position: center !important;
-                border-radius: 3.4mm !important;
+                overflow: hidden !important;
+                border-radius: 3.18mm !important;
                 z-index: 0 !important;
             }
             #print-area-wrapper .card-pvc-vertical,
@@ -299,10 +298,18 @@
             inset: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            object-position: center;
+            overflow: hidden;
             border-radius: inherit;
             z-index: 0;
+        }
+        .print-artwork-img > img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            transform: scaleX(var(--artwork-width-scale, 1));
+            transform-origin: center;
         }
 
         /* Exact physical A4 layout shared by screen preview and print. */
@@ -2789,13 +2796,24 @@ const resetTestInventory = async () => {
                 const [previewZoom, setPreviewZoom] = useState(58);
                 const [artworkFitMode, setArtworkFitMode] = useState('cover');
                 const [artworkBleedMm, setArtworkBleedMm] = useState(() => {
-                    const saved=Number(localStorage.getItem('tocaqui_print_bleed_mm_v1'));
-                    return Number.isFinite(saved) && saved >= 0 && saved <= 1.5 ? saved : 1;
+                    const raw=localStorage.getItem('tocaqui_print_bleed_mm_v1');
+                    const saved=Number(raw);
+                    return raw !== null && Number.isFinite(saved) && saved >= 0 && saved <= 1.5 ? saved : 1;
                 });
                 const saveArtworkBleed = value => {
                     const next=Math.max(0,Math.min(1.5,Number(value)||0));
                     setArtworkBleedMm(next);
                     localStorage.setItem('tocaqui_print_bleed_mm_v1',String(next));
+                };
+                const [artworkWidthPct, setArtworkWidthPct] = useState(() => {
+                    const raw=localStorage.getItem('tocaqui_print_artwork_width_v1');
+                    const saved=Number(raw);
+                    return raw !== null && Number.isFinite(saved) && saved >= 100 && saved <= 110 ? saved : 100;
+                });
+                const saveArtworkWidth = value => {
+                    const next=Math.max(100,Math.min(110,Number(value)||100));
+                    setArtworkWidthPct(next);
+                    localStorage.setItem('tocaqui_print_artwork_width_v1',String(next));
                 };
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
                 const [printCardPickerOpen, setPrintCardPickerOpen] = useState(false);
@@ -3093,7 +3111,7 @@ const resetTestInventory = async () => {
                                 color: effectiveTheme === 'clean-white' ? '#0f172a' : '#ffffff'
                             }}
                         >
-                            {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" className="print-artwork-img pointer-events-none" style={{'--artwork-bleed': artworkBleedMm+'mm'}} />}
+                            {bgToUse && <div aria-hidden="true" className="print-artwork-img pointer-events-none" style={{'--artwork-bleed': artworkBleedMm+'mm','--artwork-width-scale': artworkWidthPct/100}}><img src={bgToUse} alt="" /></div>}
                             {side === 'back' && <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
                                 <span className="truncate max-w-[120px]">{item.businessName || 'NFC CARD'}</span>
                                 <i className="fa-solid fa-nfc-symbol text-xs text-blue-400"></i>
@@ -3493,6 +3511,13 @@ const resetTestInventory = async () => {
                                         </button>
                                     ))}
                                     <span className="text-[10px] text-emerald-300">1 mm recomendado · cubre pequeñas diferencias de borde.</span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 no-print text-xs text-slate-400">
+                                    <span>Ancho de imagen:</span>
+                                    {[100,102,104,106,110].map(pct=>(
+                                        <button key={pct} type="button" onClick={()=>saveArtworkWidth(pct)} className={`rounded-lg border px-2 py-1 ${artworkWidthPct===pct?'border-cyan-400 bg-cyan-500/20 text-white':'border-slate-700'}`}>{pct}%</button>
+                                    ))}
+                                    <span className="text-[10px]">Amplía solo a los lados; puede recortar los bordes. QR y tamaño de tarjeta no cambian.</span>
                                 </div>
                                 <div className="w-full max-w-[780px] rounded-2xl border border-slate-700 bg-slate-900/75 p-3 sm:p-4 no-print space-y-3 shadow-lg">
                                     <div className="flex items-center justify-between gap-3">
