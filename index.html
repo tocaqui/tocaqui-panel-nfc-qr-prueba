@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2205';
+    const TOCAQUI_BUILD = '2026.11.15.2245';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -3294,282 +3294,167 @@ const resetTestInventory = async () => {
                                     </div>
                                 </div>
 
-                                <div className="glass-panel p-5 rounded-2xl space-y-4 border border-cyan-500/20">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <h3 className="text-xs font-bold text-cyan-300 uppercase"><i className="fa-solid fa-layer-group mr-2"></i>Composición mixta A4</h3>
-                                            <p className="text-[11px] text-slate-400 mt-1">Mezcla Google, Facebook, Instagram, WhatsApp u otros diseños en una misma hoja usando el mismo formato físico.</p>
+                                <div className="glass-panel p-3.5 sm:p-4 rounded-2xl space-y-3 border border-cyan-500/20 relative">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <h3 className="text-xs font-bold text-cyan-300 uppercase"><i className="fa-solid fa-layer-group mr-2"></i>Distribuir lote por diseños</h3>
+                                            <p className="text-[10px] text-slate-500 mt-1">Asigna plantillas distintas a TAG únicos del mismo lote: Google, Catálogo, WiFi, redes u otros.</p>
                                         </div>
                                         <div className="shrink-0 text-right">
-                                            <div className="text-xl font-bold text-white">{compositionItems.length}</div>
-                                            <div className="text-[10px] text-slate-500">{compositionItems.length ? Math.ceil(compositionItems.length/itemsPerPage) : 0} hoja(s)</div>
+                                            <div className="text-lg font-bold text-white">{compositionItems.length}<span className="text-xs text-slate-500">/{mixBatchCards.length||0}</span></div>
+                                            <div className="text-[9px] text-slate-500">{compositionItems.length ? Math.ceil(compositionItems.length/itemsPerPage) : 0} hoja(s)</div>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 gap-2">
-                                        <label className="text-[11px] font-semibold text-slate-400">QR / tarjeta que se imprimirá</label>
-                                        <div className="relative">
-                                            <button type="button" onClick={()=>{setPrintCardPickerOpen(true);setPrintTemplatePickerOpen(false);setPrintCardSearch('')}} className={`w-full min-h-[58px] rounded-2xl border px-3.5 py-3 text-left flex items-center gap-3 transition-colors ${printCardPickerOpen?'border-cyan-400 bg-cyan-500/10':'border-slate-700 bg-slate-950/45 hover:border-slate-600'}`}>
-                                                <span className="w-9 h-9 shrink-0 rounded-xl bg-cyan-500/10 text-cyan-300 flex items-center justify-center"><i className="fa-solid fa-qrcode"></i></span>
-                                                <span className="min-w-0 flex-1">
-                                                    <span className="block text-sm font-semibold text-white truncate">{selectedPrintCard?cardNumber(selectedPrintCard):'Seleccionar tarjeta'}</span>
-                                                    <span className="block text-[10px] text-slate-500 truncate mt-0.5">{selectedPrintCard?(selectedPrintCard.businessName||'Sin negocio')+(selectedPrintCard.batchName?' · '+selectedPrintCard.batchName:''):'El TAG no cambia el formato ni la plantilla'}</span>
-                                                </span>
-                                                <i className="fa-solid fa-chevron-down text-slate-500"></i>
-                                            </button>
-
-                                            {printCardPickerOpen&&(<>
-                                                <div className="fixed inset-0 z-[110] bg-black/65 backdrop-blur-[2px] md:hidden" onClick={()=>setPrintCardPickerOpen(false)}></div>
-                                                <div className="fixed z-[120] left-3 right-3 top-[calc(env(safe-area-inset-top)+72px)] bottom-3 md:absolute md:z-40 md:left-0 md:right-0 md:top-auto md:bottom-auto md:mt-2 rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
-                                                    <div className="px-3.5 py-3 border-b border-slate-800 flex items-center justify-between gap-3">
-                                                        <div><div className="text-sm font-bold text-white">Seleccionar tarjeta</div><div className="text-[10px] text-slate-500">{qrs.length} TAG disponibles</div></div>
-                                                        <button type="button" onClick={()=>setPrintCardPickerOpen(false)} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 md:hidden" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
-                                                    </div>
-                                                    <div className="p-2.5 border-b border-slate-800">
-                                                        <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
-                                                            <i className="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
-                                                            <input value={printCardSearch} onChange={e=>setPrintCardSearch(e.target.value)} placeholder="Buscar TAG, negocio o lote…" className="w-full bg-transparent py-2.5 text-white outline-none placeholder:text-slate-600"/>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex-1 min-h-0 overflow-y-auto md:max-h-64 divide-y divide-slate-800">
-                                                        {visiblePrintCards.length?visiblePrintCards.map(card=>(
-                                                            <button key={card.id} type="button" onClick={()=>choosePrintCard(card)} className={`w-full px-3.5 py-3 text-left flex items-center gap-3 hover:bg-slate-900 ${card.id===printMixCardId?'bg-cyan-500/10':''}`}>
-                                                                <span className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-xs ${card.status==='active'?'bg-emerald-500/10 text-emerald-300':'bg-amber-500/10 text-amber-300'}`}><i className="fa-solid fa-id-card"></i></span>
-                                                                <span className="min-w-0 flex-1">
-                                                                    <span className="block text-sm font-bold text-white">{cardNumber(card)}</span>
-                                                                    <span className="block text-[11px] text-slate-500 truncate mt-0.5">{card.businessName||'Sin negocio'}{card.batchName?' · '+card.batchName:''}</span>
-                                                                </span>
-                                                                <span className="text-[9px] rounded-full border border-slate-800 px-2 py-1 text-slate-500">{printFormatLabel(card.productType)}</span>
-                                                            </button>
-                                                        )):<div className="p-5 text-center text-xs text-slate-500">No se encontraron tarjetas.</div>}
-                                                    </div>
-                                                </div>
-                                            </>)}
-                                        </div>
-
-                                        <label className="text-[11px] font-semibold text-slate-400 mt-1">Plantilla de diseño</label>
-                                        <div className="relative">
-                                            <button type="button" onClick={()=>{setPrintTemplatePickerOpen(true);setPrintCardPickerOpen(false);setPrintTemplateSearch('');setPrintTemplateFormatFilter('all')}} className={`w-full min-h-[64px] rounded-2xl border px-3.5 py-3 text-left flex items-center gap-3 transition-colors ${printTemplatePickerOpen?'border-violet-400 bg-violet-500/10':'border-slate-700 bg-slate-950/45 hover:border-slate-600'}`}>
-                                                {selectedPrintTemplate?.frontBg
-                                                    ? <img src={selectedPrintTemplate.frontBg} alt="" className="w-10 h-12 shrink-0 rounded-lg object-cover border border-slate-700"/>
-                                                    : <span className="w-10 h-12 shrink-0 rounded-lg bg-violet-500/10 text-violet-300 flex items-center justify-center"><i className="fa-solid fa-swatchbook"></i></span>}
-                                                <span className="min-w-0 flex-1">
-                                                    <span className="block text-sm font-semibold text-white truncate">{selectedPrintTemplate?.name||'Elegir desde toda la biblioteca'}</span>
-                                                    <span className="flex items-center gap-2 mt-1">
-                                                        <span className="text-[9px] rounded-full border border-slate-700 px-2 py-0.5 text-slate-400">{selectedPrintTemplate?printFormatLabel(selectedPrintTemplate.category):templates.length+' plantillas'}</span>
-                                                        <span className="text-[9px] text-violet-300">Horizontal · Vertical · 10×15 · Imanes</span>
-                                                    </span>
-                                                </span>
-                                                <i className="fa-solid fa-chevron-down text-slate-500"></i>
-                                            </button>
-
-                                            {printTemplatePickerOpen&&(<>
-                                                <div className="fixed inset-0 z-[110] bg-black/65 backdrop-blur-[2px] md:hidden" onClick={()=>setPrintTemplatePickerOpen(false)}></div>
-                                                <div className="fixed z-[120] left-3 right-3 top-[calc(env(safe-area-inset-top)+72px)] bottom-3 md:absolute md:z-40 md:left-0 md:right-0 md:top-auto md:bottom-auto md:mt-2 rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/50 overflow-hidden flex flex-col">
-                                                    <div className="px-3.5 py-3 border-b border-slate-800 flex items-center justify-between gap-3">
-                                                        <div>
-                                                            <div className="text-sm font-bold text-white">Biblioteca completa</div>
-                                                            <div className="text-[10px] text-slate-500">{templates.length} plantillas guardadas · el formato se define al elegir</div>
-                                                        </div>
-                                                        <button type="button" onClick={()=>setPrintTemplatePickerOpen(false)} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 md:hidden" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
-                                                    </div>
-                                                    <div className="p-2.5 border-b border-slate-800 space-y-2.5">
-                                                        <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
-                                                            <i className="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
-                                                            <input value={printTemplateSearch} onChange={e=>setPrintTemplateSearch(e.target.value)} placeholder="Buscar plantilla…" className="w-full bg-transparent py-2.5 text-white outline-none placeholder:text-slate-600"/>
-                                                        </div>
-                                                        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-                                                            {[
-                                                                ['all','Todas'],
-                                                                ['pvc-vertical','Vertical'],
-                                                                ['pvc-horizontal','Horizontal'],
-                                                                ['10x15','10×15'],
-                                                                ['magnet-horizontal','Imán 6×4'],
-                                                                ['magnet-square','Imán 5×5']
-                                                            ].map(([value,label])=>(
-                                                                <button key={value} type="button" onClick={()=>setPrintTemplateFormatFilter(value)}
-                                                                    className={printTemplateFormatFilter===value?'shrink-0 rounded-full border border-violet-400 bg-violet-500/15 px-3 py-1.5 text-[10px] font-bold text-violet-200':'shrink-0 rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-[10px] font-semibold text-slate-400'}>
-                                                                    {label} · {templateFormatCounts[value]||0}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex-1 min-h-0 overflow-y-auto md:max-h-80 divide-y divide-slate-800">
-                                                        {mixTemplates.length?mixTemplates.map(tpl=>{
-                                                            const compatible=tpl.category===printConfig.templateType;
-                                                            return (
-                                                                <button key={tpl.id} type="button" onClick={()=>choosePrintTemplate(tpl)} className={`w-full px-3.5 py-3 text-left flex items-center gap-3 hover:bg-slate-900 ${tpl.id===printMixTemplateId?'bg-violet-500/10':''}`}>
-                                                                    {tpl.frontBg?<img src={tpl.frontBg} alt="" className="w-14 h-16 shrink-0 rounded-xl object-cover border border-slate-700"/>:<span className="w-14 h-16 shrink-0 rounded-xl bg-slate-900 text-slate-500 flex items-center justify-center"><i className="fa-solid fa-image"></i></span>}
-                                                                    <span className="min-w-0 flex-1">
-                                                                        <span className="block text-sm font-bold text-white truncate">{tpl.name}</span>
-                                                                        <span className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                                                                            <span className="text-[9px] rounded-full border border-slate-700 px-2 py-0.5 text-slate-400">{printFormatLabel(tpl.category)}</span>
-                                                                            <span className={compatible?'text-[9px] text-emerald-300':'text-[9px] text-amber-300'}>{compatible?'Formato actual':'Cambiará el formato'}</span>
-                                                                        </span>
-                                                                    </span>
-                                                                    {tpl.id===printMixTemplateId&&<i className="fa-solid fa-circle-check text-violet-300"></i>}
-                                                                </button>
-                                                            );
-                                                        }):<div className="p-8 text-center text-xs text-slate-500">No hay plantillas para este filtro.</div>}
-                                                    </div>
-                                                </div>
-                                            </>)}
-                                        </div>
-
-                                        <div className="grid grid-cols-[110px_1fr] gap-2 mt-1">
-                                            <div>
-                                                <label className="block text-[11px] text-slate-400 mb-1">Cantidad</label>
-                                                <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 overflow-hidden">
-                                                    <button type="button" onClick={()=>setPrintMixQty(q=>Math.max(1,Number(q||1)-1))} className="w-9 h-10 text-slate-300">−</button>
-                                                    <input type="number" min="1" max="50" value={printMixQty} onChange={e=>setPrintMixQty(Math.max(1,Math.min(50,Number(e.target.value)||1)))} className="w-10 flex-1 bg-transparent text-center text-sm font-bold text-white outline-none"/>
-                                                    <button type="button" onClick={()=>setPrintMixQty(q=>Math.min(50,Number(q||1)+1))} className="w-9 h-10 text-slate-300">+</button>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-end">
-                                                <button type="button" onClick={addToPrintComposition} disabled={!printMixCardId||!printMixTemplateId} className="w-full h-10 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-xs font-bold text-white">
-                                                    <i className="fa-solid fa-plus mr-2"></i>Añadir a composición
-                                                </button>
-                                            </div>
-                                        </div>
+                                    <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                        <div className="h-full bg-cyan-500 transition-all" style={{width:(mixBatchCards.length?Math.min(100,(compositionItems.length/mixBatchCards.length)*100):0)+'%'}}></div>
                                     </div>
 
-                                    {mixTemplates.length===0&&<div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-[11px] text-amber-200">No hay plantillas guardadas para este formato. Créala primero en Biblioteca Plantillas.</div>}
+                                    <div className="grid sm:grid-cols-[1fr_1.25fr] gap-2">
+                                        <label className="block">
+                                            <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1">1 · Lote base</span>
+                                            <select value={printMixBatchId} onChange={e=>chooseMixBatch(e.target.value)} className="w-full min-h-[42px] rounded-xl border border-slate-700 bg-slate-950/45 px-3 text-xs text-white outline-none">
+                                                <option value="">Seleccionar lote…</option>
+                                                {printBatches.filter(batch=>batch.id!=='legacy').map(batch=><option key={batch.id} value={batch.id}>{batch.name} · {batch.total} TAG · {printFormatLabel(batch.productType)}</option>)}
+                                            </select>
+                                        </label>
 
-                                    {compositionGroups.length>0&&(
-                                        <div className="space-y-2 border-t border-slate-800 pt-3">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[11px] font-bold uppercase text-slate-400">Contenido de las hojas</span>
-                                                <button type="button" onClick={()=>setPrintComposition([])} className="text-[11px] text-rose-300">Vaciar</button>
-                                            </div>
-                                            {compositionGroups.map(group=>(
-                                                <div key={group.key} className="rounded-xl border border-slate-800 bg-slate-950/45 p-2.5 flex items-center justify-between gap-2">
-                                                    <div className="min-w-0">
-                                                        <div className="text-xs font-semibold text-white truncate">{group.tpl.name}</div>
-                                                        <div className="text-[10px] text-slate-500 truncate">{cardNumber(group.card)} · {group.card.businessName||'Sin negocio'}</div>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 shrink-0">
-                                                        <button type="button" onClick={()=>removeOneComposition(group.card.id,group.tpl.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-300">−</button>
-                                                        <span className="w-7 text-center text-sm font-bold text-cyan-200">{group.count}</span>
-                                                        <button type="button" onClick={()=>addOneComposition(group.card.id,group.tpl.id)} className="w-8 h-8 rounded-lg bg-slate-800 text-slate-300">+</button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-[11px] text-slate-300">
-                                                <i className="fa-solid fa-circle-info text-blue-300 mr-2"></i>
-                                                Capacidad: <strong className="text-white">{itemsPerPage}</strong> por hoja. {compositionItems.length===0 ? 'Añade diseños para comenzar.' : compositionItems.length%itemsPerPage===0 ? 'La última hoja queda completa.' : 'Quedan ' + (itemsPerPage-(compositionItems.length%itemsPerPage)) + ' espacio(s) libres en la última hoja.'}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="glass-panel p-4 rounded-2xl space-y-3 border border-slate-800">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                         <div>
-                                            <h3 className="text-xs font-bold text-slate-300 uppercase">Selección directa</h3>
-                                            <p className="text-[10px] text-slate-500 mt-0.5">{printComposition.length ? 'En pausa mientras uses composición mixta.' : selectedItems.length + ' tarjeta(s) seleccionada(s).'}</p>
+                                            <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1">2 · Diseño / plantilla</span>
+                                            <button type="button" onClick={()=>{setPrintTemplatePickerOpen(true);setPrintCardPickerOpen(false);setPrintTemplateSearch('')}} className={'w-full min-h-[42px] rounded-xl border px-2.5 py-2 text-left flex items-center gap-2 '+(printTemplatePickerOpen?'border-violet-400 bg-violet-500/10':'border-slate-700 bg-slate-950/45')}>
+                                                {selectedPrintTemplate?.frontBg
+                                                    ? <img src={selectedPrintTemplate.frontBg} alt="" className="w-8 h-8 shrink-0 rounded-lg object-cover border border-slate-700"/>
+                                                    : <span className="w-8 h-8 shrink-0 rounded-lg bg-violet-500/10 text-violet-300 flex items-center justify-center"><i className="fa-solid fa-swatchbook"></i></span>}
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block text-xs font-semibold text-white truncate">{selectedPrintTemplate?.name||'Elegir plantilla'}</span>
+                                                    <span className="block text-[9px] text-slate-500 truncate">{selectedMixBatch?printFormatLabel(selectedMixBatch.productType):'Primero elige un lote'}</span>
+                                                </span>
+                                                <i className="fa-solid fa-chevron-down text-slate-500 text-[10px]"></i>
+                                            </button>
                                         </div>
-                                        <button onClick={toggleSelectAll} className="min-h-[34px] px-3 rounded-xl border border-blue-500/25 bg-blue-500/10 text-[10px] text-blue-300 font-semibold">
-                                            {visiblePrintQrs.length && visiblePrintQrs.every(q=>selectedQrIdsForSheet.includes(q.id)) ? 'Desmarcar resultado' : 'Seleccionar resultado'}
+                                    </div>
+
+                                    <div className="grid grid-cols-[120px_1fr] gap-2 items-end">
+                                        <div>
+                                            <span className="block text-[9px] uppercase tracking-wider text-slate-500 mb-1">3 · Cantidad</span>
+                                            <div className="flex items-center rounded-xl border border-slate-700 bg-slate-950/45 overflow-hidden h-10">
+                                                <button type="button" onClick={()=>setPrintMixQty(q=>Math.max(1,Number(q||1)-1))} className="w-8 h-full text-slate-300">−</button>
+                                                <input type="number" min="1" max={Math.max(1,mixAvailableCards.length)} value={printMixQty} onChange={e=>setPrintMixQty(Math.max(1,Math.min(Math.max(1,mixAvailableCards.length),Number(e.target.value)||1)))} className="w-10 flex-1 bg-transparent text-center text-sm font-bold text-white outline-none"/>
+                                                <button type="button" onClick={()=>setPrintMixQty(q=>Math.min(Math.max(1,mixAvailableCards.length),Number(q||1)+1))} className="w-8 h-full text-slate-300">+</button>
+                                            </div>
+                                        </div>
+                                        <button type="button" onClick={addToPrintComposition} disabled={!selectedMixBatch||!printMixTemplateId||!mixAvailableCards.length} className="h-10 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-xs font-bold text-white">
+                                            <i className="fa-solid fa-plus mr-1.5"></i>Asignar a {Math.min(Number(printMixQty)||1,mixAvailableCards.length||0)} TAG
                                         </button>
                                     </div>
 
-                                    <div className="grid sm:grid-cols-[1fr_1fr] gap-2">
-                                        <div className="relative">
-                                            <button
-                                                type="button"
-                                                onClick={()=>{setPrintBatchPickerOpen(v=>!v);setPrintBatchSearch('')}}
-                                                className={'w-full min-h-[46px] rounded-xl border px-3 text-left flex items-center gap-2 '+(printBatchPickerOpen?'border-blue-400 bg-blue-500/10':'border-slate-700 bg-slate-950/45')}
-                                            >
-                                                <i className="fa-solid fa-layer-group text-blue-300"></i>
-                                                <span className="min-w-0 flex-1">
-                                                    <span className="block text-[9px] uppercase text-slate-500">Lote</span>
-                                                    <span className="block truncate text-xs font-semibold text-white">{selectedPrintBatch?.name || 'Todos los lotes'}</span>
-                                                </span>
-                                                <span className="text-[10px] text-slate-500">{selectedPrintBatch?.total ?? qrs.length}</span>
-                                                <i className="fa-solid fa-chevron-down text-slate-500 text-[10px]"></i>
-                                            </button>
+                                    <div className="flex items-center justify-between gap-2 text-[10px]">
+                                        <span className="text-slate-500">{mixAvailableCards.length} TAG sin diseño en la composición</span>
+                                        {compositionItems.length>0&&<button type="button" onClick={()=>setPrintComposition([])} className="text-rose-300">Vaciar composición</button>}
+                                    </div>
 
-                                            {printBatchPickerOpen && (
-                                                <>
-                                                    <button type="button" aria-label="Cerrar lotes" onClick={()=>setPrintBatchPickerOpen(false)} className="fixed inset-0 z-40 bg-transparent"></button>
-                                                    <div className="absolute z-50 left-0 right-0 mt-2 rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl overflow-hidden">
-                                                        <div className="p-2 border-b border-slate-800">
-                                                            <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
-                                                                <i className="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i>
-                                                                <input value={printBatchSearch} onChange={e=>setPrintBatchSearch(e.target.value)} placeholder="Buscar lote…" className="w-full bg-transparent py-2.5 text-sm text-white outline-none placeholder:text-slate-600"/>
-                                                            </div>
-                                                        </div>
-                                                        <div className="max-h-64 overflow-y-auto p-2 space-y-1">
-                                                            <button type="button" onClick={()=>{setPrintBatchFilter('all');setPrintBatchPickerOpen(false)}} className={'w-full rounded-xl p-2.5 text-left flex justify-between gap-2 '+(printBatchFilter==='all'?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}>
-                                                                <span><strong className="block text-xs">Todos los lotes</strong><span className="text-[10px] text-slate-500">Inventario completo</span></span><span className="text-[10px]">{qrs.length}</span>
-                                                            </button>
-                                                            {filteredPrintBatches.map(batch=>(
-                                                                <button type="button" key={batch.id} onClick={()=>{
-                                                                    setPrintBatchFilter(batch.id);
-                                                                    setPrintBatchPickerOpen(false);
-                                                                    const first=qrs.find(q=>(q.batchId||'legacy')===batch.id);
-                                                                    if(first){
-                                                                        setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType}));
-                                                                        setSelectedQrIdsForSheet(qrs.filter(q=>(q.batchId||'legacy')===batch.id).map(q=>q.id));
-                                                                    }
-                                                                }} className={'w-full rounded-xl p-2.5 text-left flex justify-between gap-2 '+(printBatchFilter===batch.id?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}>
-                                                                    <span className="min-w-0"><strong className="block truncate text-xs">{batch.id==='legacy'?'Tarjetas anteriores':batch.name}</strong><span className="block truncate text-[10px] text-slate-500">{batch.id}</span></span>
-                                                                    <span className="text-[10px] shrink-0">{batch.total}</span>
-                                                                </button>
-                                                            ))}
-                                                        </div>
+                                    {compositionGroups.length>0&&(
+                                        <div className="space-y-1.5 border-t border-slate-800 pt-2.5">
+                                            {compositionGroups.map(group=>(
+                                                <div key={group.key} className="rounded-xl border border-slate-800 bg-slate-950/40 px-2.5 py-2 flex items-center gap-2">
+                                                    {group.tpl.frontBg?<img src={group.tpl.frontBg} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-700 shrink-0"/>:<span className="w-9 h-9 rounded-lg bg-slate-900 shrink-0"></span>}
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="text-xs font-semibold text-white truncate">{group.tpl.name}</div>
+                                                        <div className="text-[9px] text-slate-500 truncate">{group.count} TAG únicos · {group.cards.slice(0,3).map(card=>cardNumber(card)).join(' · ')}{group.cards.length>3?' …':''}</div>
                                                     </div>
-                                                </>
-                                            )}
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <button type="button" onClick={()=>removeOneComposition(group.tpl.id)} className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300">−</button>
+                                                        <span className="w-6 text-center text-xs font-bold text-cyan-200">{group.count}</span>
+                                                        <button type="button" onClick={()=>addOneComposition(group.tpl.id)} className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300">+</button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <div className="rounded-xl border border-blue-500/15 bg-blue-500/5 px-2.5 py-2 text-[10px] text-slate-400">
+                                                <i className="fa-solid fa-circle-info text-blue-300 mr-1.5"></i>
+                                                {compositionItems.length} asignadas · {mixAvailableCards.length} pendientes · capacidad {itemsPerPage} por A4.
+                                            </div>
                                         </div>
+                                    )}
 
-                                        <div className="relative">
-                                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
-                                            <input
-                                                value={printDirectSearch}
-                                                onChange={e=>setPrintDirectSearch(e.target.value)}
-                                                placeholder="Buscar TAG o negocio…"
-                                                className="w-full min-h-[46px] rounded-xl border border-slate-700 bg-slate-950/45 pl-9 pr-3 text-sm text-white outline-none placeholder:text-slate-600"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between text-[10px] text-slate-500">
-                                        <span>{visiblePrintQrs.length} resultado(s)</span>
-                                        <span>Página {safePrintDirectPage}/{printDirectPageCount}</span>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        {pagedPrintQrs.map(q => (
-                                            <label key={q.id} className="grid grid-cols-[24px_1fr_auto] items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/25 p-2.5 hover:border-slate-700 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedQrIdsForSheet.includes(q.id)}
-                                                    onChange={e => {
-                                                        if (e.target.checked) setSelectedQrIdsForSheet(prev => [...new Set([...prev,q.id])]);
-                                                        else setSelectedQrIdsForSheet(prev => prev.filter(i => i !== q.id));
-                                                    }}
-                                                    className="accent-blue-500"
-                                                />
-                                                <span className="min-w-0">
-                                                    <span className="block font-mono font-bold text-white text-xs truncate">{cardNumber(q)}</span>
-                                                    <span className="block truncate text-[10px] text-slate-500">{q.businessName || 'Virgen'} · {q.batchName || 'Tarjetas anteriores'}</span>
-                                                </span>
-                                                <span className={'text-[9px] rounded-full border px-2 py-1 '+(q.status==='active'?'border-emerald-500/20 text-emerald-300':'border-amber-500/20 text-amber-300')}>{q.status==='active'?'Activo':'Pendiente'}</span>
-                                            </label>
-                                        ))}
-                                        {!pagedPrintQrs.length && <div className="rounded-xl border border-dashed border-slate-800 p-5 text-center text-xs text-slate-500">No hay tarjetas con este filtro.</div>}
-                                    </div>
-
-                                    {printDirectPageCount>1 && (
-                                        <div className="flex items-center justify-between gap-2 pt-1">
-                                            <button type="button" disabled={safePrintDirectPage<=1} onClick={()=>setPrintDirectPage(p=>Math.max(1,p-1))} className="min-h-[34px] px-3 rounded-xl border border-slate-700 text-[10px] text-slate-300 disabled:opacity-40">Anterior</button>
-                                            <span className="text-[10px] text-slate-500">{(safePrintDirectPage-1)*printDirectPageSize+1}–{Math.min(safePrintDirectPage*printDirectPageSize,visiblePrintQrs.length)} de {visiblePrintQrs.length}</span>
-                                            <button type="button" disabled={safePrintDirectPage>=printDirectPageCount} onClick={()=>setPrintDirectPage(p=>Math.min(printDirectPageCount,p+1))} className="min-h-[34px] px-3 rounded-xl border border-slate-700 text-[10px] text-slate-300 disabled:opacity-40">Siguiente</button>
+                                    {printTemplatePickerOpen&&(
+                                        <div className="fixed inset-0 z-[220] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" onClick={()=>setPrintTemplatePickerOpen(false)}>
+                                            <div className="w-full max-w-xl max-h-[82dvh] rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl overflow-hidden flex flex-col" onClick={e=>e.stopPropagation()}>
+                                                <div className="px-3.5 py-3 border-b border-slate-800 flex items-center justify-between gap-3">
+                                                    <div>
+                                                        <div className="text-sm font-bold text-white">Elegir diseño</div>
+                                                        <div className="text-[10px] text-slate-500">{selectedMixBatch?printFormatLabel(selectedMixBatch.productType):printFormatLabel(printConfig.templateType)} · {mixTemplates.length} plantilla(s) compatibles</div>
+                                                    </div>
+                                                    <button type="button" onClick={()=>setPrintTemplatePickerOpen(false)} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
+                                                </div>
+                                                <div className="p-2.5 border-b border-slate-800">
+                                                    <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
+                                                        <i className="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
+                                                        <input value={printTemplateSearch} onChange={e=>setPrintTemplateSearch(e.target.value)} placeholder="Buscar Google, WiFi, Catálogo…" className="w-full bg-transparent py-2.5 text-white outline-none placeholder:text-slate-600"/>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-800">
+                                                    {mixTemplates.length?mixTemplates.map(tpl=>(
+                                                        <button key={tpl.id} type="button" onClick={()=>choosePrintTemplate(tpl)} className={'w-full px-3 py-2.5 text-left flex items-center gap-3 hover:bg-slate-900 '+(tpl.id===printMixTemplateId?'bg-violet-500/10':'')}>
+                                                            {tpl.frontBg?<img src={tpl.frontBg} alt="" className="w-12 h-14 shrink-0 rounded-lg object-contain bg-slate-900 border border-slate-700"/>:<span className="w-12 h-14 shrink-0 rounded-lg bg-slate-900 text-slate-500 flex items-center justify-center"><i className="fa-solid fa-image"></i></span>}
+                                                            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-white truncate">{tpl.name}</span><span className="block text-[10px] text-slate-500 mt-0.5">{printFormatLabel(tpl.category)}</span></span>
+                                                            {tpl.id===printMixTemplateId&&<i className="fa-solid fa-circle-check text-violet-300"></i>}
+                                                        </button>
+                                                    )):<div className="p-8 text-center text-xs text-slate-500">No hay plantillas compatibles con este lote.</div>}
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                            </div>
+
+                                <div className="glass-panel p-3 rounded-2xl space-y-2.5 border border-slate-800">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div>
+                                            <h3 className="text-[11px] font-bold text-slate-300 uppercase">Selección directa</h3>
+                                            <p className="text-[9px] text-slate-500 mt-0.5">{printComposition.length ? 'En pausa mientras exista una composición mixta.' : selectedItems.length + ' tarjeta(s) seleccionada(s).'}</p>
+                                        </div>
+                                        {printComposition.length
+                                            ? <button type="button" onClick={()=>setPrintComposition([])} className="min-h-[32px] px-2.5 rounded-lg border border-slate-700 text-[9px] text-slate-300">Usar selección directa</button>
+                                            : <button onClick={toggleSelectAll} className="min-h-[32px] px-2.5 rounded-lg border border-blue-500/25 bg-blue-500/10 text-[9px] text-blue-300 font-semibold">{visiblePrintQrs.length && visiblePrintQrs.every(q=>selectedQrIdsForSheet.includes(q.id)) ? 'Desmarcar' : 'Seleccionar resultado'}</button>}
+                                    </div>
+
+                                    {!printComposition.length&&(
+                                        <>
+                                            <div className="grid sm:grid-cols-2 gap-2">
+                                                <div className="relative">
+                                                    <button type="button" onClick={()=>{setPrintBatchPickerOpen(v=>!v);setPrintBatchSearch('')}} className={'w-full min-h-[40px] rounded-xl border px-2.5 text-left flex items-center gap-2 '+(printBatchPickerOpen?'border-blue-400 bg-blue-500/10':'border-slate-700 bg-slate-950/45')}>
+                                                        <i className="fa-solid fa-layer-group text-blue-300 text-xs"></i>
+                                                        <span className="min-w-0 flex-1"><span className="block text-[8px] uppercase text-slate-500">Lote</span><span className="block truncate text-[11px] font-semibold text-white">{selectedPrintBatch?.name || 'Todos los lotes'}</span></span>
+                                                        <span className="text-[9px] text-slate-500">{selectedPrintBatch?.total ?? qrs.length}</span>
+                                                        <i className="fa-solid fa-chevron-down text-slate-500 text-[9px]"></i>
+                                                    </button>
+                                                    {printBatchPickerOpen&&(<>
+                                                        <button type="button" aria-label="Cerrar lotes" onClick={()=>setPrintBatchPickerOpen(false)} className="fixed inset-0 z-[180] bg-black/30"></button>
+                                                        <div className="fixed z-[190] left-3 right-3 top-[18dvh] max-h-[64dvh] sm:absolute sm:left-0 sm:right-0 sm:top-auto sm:max-h-none sm:mt-2 rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl overflow-hidden">
+                                                            <div className="p-2 border-b border-slate-800"><div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3"><i className="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i><input value={printBatchSearch} onChange={e=>setPrintBatchSearch(e.target.value)} placeholder="Buscar lote…" className="w-full bg-transparent py-2 text-xs text-white outline-none placeholder:text-slate-600"/></div></div>
+                                                            <div className="max-h-56 overflow-y-auto p-1.5 space-y-1">
+                                                                <button type="button" onClick={()=>{setPrintBatchFilter('all');setPrintBatchPickerOpen(false)}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter==='all'?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="text-[11px] font-semibold">Todos los lotes</span><span className="text-[9px]">{qrs.length}</span></button>
+                                                                {filteredPrintBatches.map(batch=><button type="button" key={batch.id} onClick={()=>{setPrintBatchFilter(batch.id);setPrintBatchPickerOpen(false);const first=qrs.find(q=>(q.batchId||'legacy')===batch.id);if(first)setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType}));}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter===batch.id?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="min-w-0"><strong className="block truncate text-[11px]">{batch.name}</strong><span className="block truncate text-[9px] text-slate-500">{batch.id}</span></span><span className="text-[9px] shrink-0">{batch.total}</span></button>)}
+                                                            </div>
+                                                        </div>
+                                                    </>)}
+                                                </div>
+                                                <div className="relative"><i className="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-500 text-[10px]"></i><input value={printDirectSearch} onChange={e=>setPrintDirectSearch(e.target.value)} placeholder="Buscar TAG o negocio…" className="w-full min-h-[40px] rounded-xl border border-slate-700 bg-slate-950/45 pl-8 pr-3 text-xs text-white outline-none placeholder:text-slate-600"/></div>
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                {pagedPrintQrs.map(q=>(
+                                                    <label key={q.id} className="grid grid-cols-[20px_1fr_auto] items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/20 px-2.5 py-2 cursor-pointer">
+                                                        <input type="checkbox" checked={selectedQrIdsForSheet.includes(q.id)} onChange={e=>{if(e.target.checked)setSelectedQrIdsForSheet(prev=>[...new Set([...prev,q.id])]);else setSelectedQrIdsForSheet(prev=>prev.filter(i=>i!==q.id));}} className="accent-blue-500"/>
+                                                        <span className="min-w-0"><span className="block font-mono font-semibold text-white text-[10px] truncate">{cardNumber(q)}</span><span className="block truncate text-[9px] text-slate-500">{q.businessName||'Virgen'}</span></span>
+                                                        <span className={'text-[8px] rounded-full border px-1.5 py-0.5 '+(q.status==='active'?'border-emerald-500/20 text-emerald-300':'border-amber-500/20 text-amber-300')}>{q.status==='active'?'Activo':'Pendiente'}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+
+                                            {printDirectPageCount>1&&<div className="flex items-center justify-between gap-2"><button type="button" disabled={safePrintDirectPage<=1} onClick={()=>setPrintDirectPage(p=>Math.max(1,p-1))} className="min-h-[30px] px-2.5 rounded-lg border border-slate-700 text-[9px] text-slate-300 disabled:opacity-40">Anterior</button><span className="text-[9px] text-slate-500">{safePrintDirectPage}/{printDirectPageCount}</span><button type="button" disabled={safePrintDirectPage>=printDirectPageCount} onClick={()=>setPrintDirectPage(p=>Math.min(printDirectPageCount,p+1))} className="min-h-[30px] px-2.5 rounded-lg border border-slate-700 text-[9px] text-slate-300 disabled:opacity-40">Siguiente</button></div>}
+                                        </>
+                                    )}
+                                </div>
 
                                                         {/* Live Screen Preview */}
                             <div className="lg:col-span-7 flex flex-col items-center justify-start space-y-6 overflow-x-auto">
