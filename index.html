@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.1915';
+    const TOCAQUI_BUILD = '2026.11.15.1945';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1123,7 +1123,7 @@ const resetTestInventory = async () => {
                     className="mb-4 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold transition-all shadow-sm group"
                 >
                     <i className="fa-solid fa-arrow-left text-blue-400 group-hover:-translate-x-0.5 transition-transform"></i>
-                    <span>← {label}</span>
+                    <span>{label}</span>
                 </button>
             );
 
@@ -2184,145 +2184,138 @@ const resetTestInventory = async () => {
                     const client = clients.find(c => c.id === selectedClientDetailId);
                     const clientQrs = qrs.filter(q => q.clientId === selectedClientDetailId);
                     const totalScans = clientQrs.reduce((acc, curr) => acc + getCardScans(curr), 0);
+                    const activeCount = clientQrs.filter(q => q.status === 'active').length;
 
                     return (
-                        <div className="tocaqui-operation-page space-y-6">
+                        <div className="tocaqui-operation-page space-y-4">
                             <BackToDashboardButton label="Volver al Directorio de Clientes" targetTab="clients" />
 
-                            <div className="glass-panel p-4 rounded-xl border border-indigo-500/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                                        <i className="fa-solid fa-user-tie"></i>
+                            <section className="glass-panel rounded-2xl border border-slate-800 p-3.5 sm:p-4">
+                                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-10 h-10 shrink-0 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-300">
+                                            <i className="fa-solid fa-user-tie"></i>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="text-[9px] uppercase tracking-[.16em] text-indigo-300 font-bold">Expediente del cliente</div>
+                                            <h1 className="text-lg sm:text-xl font-bold text-white truncate mt-0.5">{client?.name || 'Cliente'}</h1>
+                                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-400 mt-1">
+                                                <span className="truncate">{client?.company || 'Sin empresa'}</span>
+                                                <span className="text-slate-700">•</span>
+                                                <span className="truncate">{client?.email || 'Sin correo'}</span>
+                                                {client?.phone && <><span className="text-slate-700">•</span><span>{client.phone}</span></>}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="text-xs font-mono uppercase text-indigo-400 font-bold">Expediente de Cliente</span>
-                                        <h1 className="text-2xl font-extrabold text-white">{client?.name}</h1>
-                                        <p className="text-sm text-slate-400">{client?.company} • {client?.email}</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => window.print()}
-                                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg"
-                                    >
-                                        <i className="fa-solid fa-file-pdf"></i> Imprimir Ficha de Entrega
+                                    <button onClick={() => window.print()} className="min-h-[40px] bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 border border-emerald-500/25 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
+                                        <i className="fa-solid fa-file-pdf"></i> Imprimir ficha
                                     </button>
                                 </div>
+                            </section>
+
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="rounded-xl border border-slate-800 bg-slate-900/45 p-3"><div className="text-[9px] uppercase tracking-wider text-slate-500">Tarjetas</div><div className="text-xl sm:text-2xl font-black text-white mt-1">{clientQrs.length}</div></div>
+                                <div className="rounded-xl border border-slate-800 bg-slate-900/45 p-3"><div className="text-[9px] uppercase tracking-wider text-slate-500">Activas</div><div className="text-xl sm:text-2xl font-black text-emerald-300 mt-1">{activeCount}</div></div>
+                                <div className="rounded-xl border border-slate-800 bg-slate-900/45 p-3"><div className="text-[9px] uppercase tracking-wider text-slate-500">Escaneos</div><div className="text-xl sm:text-2xl font-black text-amber-300 mt-1">{totalScans}</div></div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="glass-panel p-3.5 rounded-xl">
-                                    <p className="text-xs font-medium text-slate-400 uppercase">Tarjetas Asignadas</p>
-                                    <h3 className="text-3xl font-extrabold text-white mt-1 font-mono">{clientQrs.length}</h3>
+                            <section className="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
+                                <div className="px-3.5 sm:px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-3">
+                                    <div><h2 className="font-bold text-white text-sm">Tarjetas del cliente</h2><p className="text-[10px] text-slate-500 mt-0.5">Estado, destino, escaneos y último cambio.</p></div>
+                                    <span className="text-[10px] rounded-full border border-slate-700 px-2 py-1 text-slate-400">{clientQrs.length}</span>
                                 </div>
-                                <div className="glass-panel p-5 rounded-2xl">
-                                    <p className="text-xs font-medium text-slate-400 uppercase">Tarjetas Activas</p>
-                                    <h3 className="text-3xl font-extrabold text-emerald-400 mt-1 font-mono">{clientQrs.filter(q => q.status === 'active').length}</h3>
-                                </div>
-                                <div className="glass-panel p-5 rounded-2xl">
-                                    <p className="text-xs font-medium text-slate-400 uppercase">Escaneos Acumulados</p>
-                                    <h3 className="text-3xl font-extrabold text-amber-400 mt-1 font-mono">{totalScans}</h3>
-                                </div>
-                            </div>
-
-                            <div className="glass-panel p-6 rounded-2xl space-y-4">
-                                <h3 className="font-bold text-white text-base">Inventario de Productos del Cliente</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="divide-y divide-slate-800/80">
                                     {clientQrs.map(qr => (
-                                        <div key={qr.id} className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
-                                            <div className="flex justify-between items-start">
-                                                <span className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded">ID: {cardNumber(qr)}</span>
-                                                <span className="text-xs text-slate-400 font-mono"><i className="fa-solid fa-bolt text-amber-400 mr-1"></i>{getCardScans(qr)} escaneos</span>
-                                            </div>
-                                            <h4 className="font-bold text-white">{qr.businessName || 'Tarjeta Sin Nombre'}</h4>
-                                            <div className="p-2.5 bg-slate-950 rounded-lg text-xs font-mono text-blue-400 truncate border border-slate-800/80">{qr.dynamicUrl || 'Sin enlace'}</div>
-                                            
-                                            {/* History Audit Log */}
-                                            {qr.history && qr.history.length > 0 && (
-                                                <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-400 space-y-1">
-                                                    <span className="font-bold uppercase text-slate-500 block">Bitácora de Cambios:</span>
-                                                    {qr.history.slice(-2).map((h, idx) => (
-                                                        <div key={idx} className="truncate">
-                                                            • {new Date(h.timestamp).toLocaleDateString()}: {h.description}
-                                                        </div>
-                                                    ))}
+                                        <article key={qr.id} className="p-3.5 sm:p-4 hover:bg-slate-900/35 transition-colors">
+                                            <div className="grid grid-cols-1 lg:grid-cols-[minmax(150px,.8fr)_minmax(240px,1.5fr)_110px_150px] gap-3 lg:items-center">
+                                                <div className="min-w-0">
+                                                    <div className="font-mono font-bold text-white text-sm truncate">{cardNumber(qr)}</div>
+                                                    <span className={'inline-flex mt-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold '+(qr.status==='active'?'border-emerald-500/20 bg-emerald-500/10 text-emerald-300':'border-amber-500/20 bg-amber-500/10 text-amber-300')}>{qr.status==='active'?'Activa':'Por activar'}</span>
                                                 </div>
-                                            )}
-
-                                            <button
-                                                onClick={() => setActivateModal({ open: true, qr })}
-                                                className="w-full py-2 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 font-semibold text-xs rounded-xl"
-                                            >
-                                                Reprogramar Tarjeta
-                                            </button>
-                                        </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-xs font-semibold text-slate-200 truncate">{qr.businessName || 'Tarjeta sin nombre'}</div>
+                                                    <div className="text-[10px] font-mono text-blue-400 truncate mt-1" title={qr.dynamicUrl || ''}>{qr.dynamicUrl || 'Sin enlace de destino'}</div>
+                                                    {qr.history && qr.history.length > 0 && <div className="text-[9px] text-slate-500 truncate mt-1">Último cambio: {new Date(qr.history[qr.history.length-1].timestamp).toLocaleDateString()} · {qr.history[qr.history.length-1].description}</div>}
+                                                </div>
+                                                <div><div className="text-[9px] uppercase text-slate-500">Escaneos</div><div className="font-mono font-bold text-slate-200 text-base mt-0.5">{getCardScans(qr)}</div></div>
+                                                <button onClick={() => setActivateModal({ open: true, qr })} className="min-h-[38px] rounded-xl border border-indigo-500/25 bg-indigo-500/10 hover:bg-indigo-500/15 text-indigo-200 text-[10px] font-semibold px-3">
+                                                    <i className="fa-solid fa-pen-to-square mr-1.5"></i>Reprogramar
+                                                </button>
+                                            </div>
+                                        </article>
                                     ))}
+                                    {clientQrs.length===0 && <div className="p-8 text-center text-sm text-slate-500">Este cliente todavía no tiene tarjetas asignadas.</div>}
                                 </div>
-                            </div>
+                            </section>
                         </div>
                     );
                 }
 
                 return (
-                    <div className="space-y-6">
+                    <div className="tocaqui-operation-page space-y-4">
                         <BackToDashboardButton />
 
-                        <div className="flex justify-between items-center">
+                        <section className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
                             <div>
-                                <h1 className="text-2xl font-bold text-white tracking-tight">Directorio de Clientes</h1>
-                                <p className="text-slate-400 text-sm mt-1">Registra dueños de negocios para vincularles tarjetas y auditar su historial.</p>
+                                <div className="text-[10px] uppercase tracking-[.18em] text-indigo-300 font-bold">Clientes vinculados</div>
+                                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">Directorio de Clientes</h1>
+                                <p className="text-slate-400 text-xs sm:text-sm mt-1">Busca un cliente, revisa sus tarjetas y entra a su expediente sin tarjetas gigantes.</p>
                             </div>
-                            <button onClick={() => setShowAddModal(true)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-blue-600/25">
-                                <i className="fa-solid fa-user-plus"></i> Registrar Cliente
+                            <button onClick={() => setShowAddModal(true)} className="min-h-[42px] bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">
+                                <i className="fa-solid fa-user-plus"></i> Registrar cliente
                             </button>
-                        </div>
+                        </section>
 
-                        <div className="glass-panel p-3 rounded-xl">
-                            <div className="relative"><i className="fa-solid fa-search absolute left-3 top-3 text-slate-500 text-xs"></i><input value={clientSearch} onChange={e=>setClientSearch(e.target.value)} placeholder="Buscar cliente, local, correo o teléfono" className="glass-input w-full rounded-lg py-2.5 pl-9 pr-3 text-sm"/></div>
-                            <p className="mt-2 text-[11px] text-slate-500">{filteredClients.length} clientes encontrados · {qrs.filter(q=>q.clientId).length} tarjetas asignadas</p>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                            {filteredClients.map(client => {
-                                const assignedCount = qrs.filter(q => q.clientId === client.id).length;
-                                return (
-                                    <div key={client.id} className="glass-panel p-3.5 rounded-xl border border-slate-800 space-y-2.5 flex flex-col justify-between">
-                                        <div>
-                                            <div className="flex justify-between items-start">
-                                                <h3 className="font-bold text-white text-base">{client.name}</h3>
-                                                <span className="text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded">{assignedCount} tarjetas</span>
-                                            </div>
-                                            <p className="text-xs text-blue-400 font-semibold mt-0.5">{client.company}</p>
-                                            <div className="pt-3 text-xs text-slate-300 space-y-1">
-                                                <div><i className="fa-solid fa-envelope w-4 text-slate-500"></i> {client.email}</div>
-                                                <div><i className="fa-solid fa-phone w-4 text-slate-500"></i> {client.phone || 'N/A'}</div>
-                                            </div>
-                                        </div>
+                        <section className="glass-panel p-3 rounded-2xl border border-slate-800">
+                            <div className="relative"><i className="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-500 text-xs"></i><input value={clientSearch} onChange={e=>setClientSearch(e.target.value)} placeholder="Buscar cliente, local, correo o teléfono…" className="glass-input w-full rounded-xl py-2.5 pl-9 pr-3 text-sm"/></div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                <span className="text-[10px] rounded-full border border-slate-700 px-2.5 py-1 text-slate-400">{filteredClients.length} clientes</span>
+                                <span className="text-[10px] rounded-full border border-slate-700 px-2.5 py-1 text-slate-400">{qrs.filter(q=>q.clientId).length} tarjetas asignadas</span>
+                            </div>
+                        </section>
 
-                                        <button
-                                            onClick={() => { setSelectedClientDetailId(client.id); setAdminTab('client-detail'); }}
-                                            className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl flex justify-center items-center gap-1.5"
-                                        >
-                                            <i className="fa-solid fa-folder-open text-indigo-400"></i> Ver Expediente Histórico
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                        <section className="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
+                            <div className="hidden md:grid grid-cols-[1.1fr_1fr_1.2fr_90px_140px] gap-3 px-4 py-2.5 bg-slate-900/70 border-b border-slate-800 text-[9px] uppercase tracking-wider text-slate-500 font-semibold">
+                                <span>Cliente</span><span>Local / Empresa</span><span>Contacto</span><span>Tarjetas</span><span></span>
+                            </div>
+                            <div className="divide-y divide-slate-800/80">
+                                {filteredClients.map(client => {
+                                    const assigned = qrs.filter(q => q.clientId === client.id);
+                                    const active = assigned.filter(q=>q.status==='active').length;
+                                    return (
+                                        <article key={client.id} className="p-3.5 md:px-4 md:py-3 hover:bg-slate-900/35 transition-colors">
+                                            <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1fr_1.2fr_90px_140px] gap-2 md:gap-3 md:items-center">
+                                                <div className="min-w-0"><div className="font-semibold text-white text-sm truncate">{client.name}</div><div className="md:hidden text-[10px] text-indigo-300 mt-0.5 truncate">{client.company || 'Sin empresa'}</div></div>
+                                                <div className="hidden md:block min-w-0 text-xs text-indigo-300 truncate">{client.company || 'Sin empresa'}</div>
+                                                <div className="min-w-0 text-[11px] text-slate-400">
+                                                    <div className="truncate"><i className="fa-solid fa-envelope w-4 text-slate-600"></i>{client.email || 'Sin correo'}</div>
+                                                    {client.phone && <div className="truncate mt-0.5"><i className="fa-solid fa-phone w-4 text-slate-600"></i>{client.phone}</div>}
+                                                </div>
+                                                <div className="flex md:block items-center gap-2"><div className="font-mono font-bold text-white text-sm">{assigned.length}</div><div className="text-[9px] text-emerald-300">{active} activas</div></div>
+                                                <button onClick={() => { setSelectedClientDetailId(client.id); setAdminTab('client-detail'); }} className="min-h-[38px] rounded-xl border border-slate-700 bg-slate-800/70 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold px-3">
+                                                    <i className="fa-solid fa-folder-open text-indigo-300 mr-1.5"></i>Ver expediente
+                                                </button>
+                                            </div>
+                                        </article>
+                                    );
+                                })}
+                                {filteredClients.length===0 && <div className="p-8 text-center text-sm text-slate-500">No se encontraron clientes.</div>}
+                            </div>
+                        </section>
 
                         {showAddModal && (
                             <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-                                <div className="glass-panel w-full max-w-md rounded-2xl p-6 border border-slate-700 space-y-4">
+                                <div className="glass-panel w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl p-4 sm:p-5 border border-slate-700 space-y-4">
                                     <div className="flex justify-between items-center">
-                                        <h3 className="font-bold text-white">Nuevo Cliente</h3>
-                                        <button onClick={() => setShowAddModal(false)} className="text-slate-400"><i className="fa-solid fa-xmark"></i></button>
+                                        <div><h3 className="font-bold text-white">Nuevo Cliente</h3><p className="text-[10px] text-slate-500 mt-0.5">Datos para vincular tarjetas y mantener el expediente.</p></div>
+                                        <button onClick={() => setShowAddModal(false)} className="w-9 h-9 rounded-lg bg-slate-800 text-slate-400"><i className="fa-solid fa-xmark"></i></button>
                                     </div>
                                     <form onSubmit={(e) => { e.preventDefault(); addClient(form); setShowAddModal(false); }} className="space-y-3">
-                                        <input type="text" placeholder="Nombre completo" required value={form.name} onChange={e => setForm(prev=>({...prev, name:e.target.value}))} className="w-full glass-input px-3 py-2 rounded-xl text-sm" />
-                                        <input type="text" placeholder="Empresa / Local" required value={form.company} onChange={e => setForm({...form, company: e.target.value})} className="w-full glass-input px-3 py-2 rounded-xl text-sm" />
-                                        <input type="email" placeholder="Correo electrónico" required value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full glass-input px-3 py-2 rounded-xl text-sm" />
-                                        <input type="tel" placeholder="Teléfono" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="w-full glass-input px-3 py-2 rounded-xl text-sm" />
-                                        <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl">Guardar Cliente</button>
+                                        <input type="text" placeholder="Nombre completo" required value={form.name} onChange={e => setForm(prev=>({...prev, name:e.target.value}))} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" />
+                                        <input type="text" placeholder="Empresa / Local" required value={form.company} onChange={e => setForm({...form, company: e.target.value})} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" />
+                                        <input type="email" placeholder="Correo electrónico" required value={form.email} onChange={e => setForm({...form, email:e.target.value})} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" />
+                                        <input type="tel" placeholder="Teléfono" value={form.phone} onChange={e => setForm({...form, phone:e.target.value})} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" />
+                                        <button type="submit" className="w-full min-h-[44px] bg-blue-600 text-white font-bold rounded-xl">Guardar cliente</button>
                                     </form>
                                 </div>
                             </div>
@@ -3517,46 +3510,72 @@ const resetTestInventory = async () => {
                 const clientQrs = qrs.filter(q => q.clientId === currentClient?.id);
                 const [editingQr, setEditingQr] = useState(null);
                 const [newUrl, setNewUrl] = useState('');
+                const activeCards = clientQrs.filter(q=>q.status==='active').length;
+                const totalScans = clientQrs.reduce((sum,q)=>sum+getCardScans(q),0);
 
                 return (
-                    <div className="max-w-4xl mx-auto space-y-6">
+                    <div className="max-w-5xl mx-auto space-y-4">
                         <BackToDashboardButton label="Volver a Selección de Modo" />
 
-                        <div className="glass-panel p-4 rounded-2xl flex justify-between items-center border border-indigo-500/30">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold">
-                                    <i className="fa-solid fa-user-tie"></i>
+                        <section className="rounded-2xl border border-indigo-500/20 bg-gradient-to-r from-indigo-600/10 via-slate-900/80 to-blue-500/5 p-4 sm:p-5">
+                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                <div className="flex items-start gap-3 min-w-0">
+                                    <div className="w-11 h-11 shrink-0 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 flex items-center justify-center">
+                                        <i className="fa-solid fa-id-card text-lg"></i>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] uppercase tracking-[.18em] text-indigo-300 font-bold">Portal Cliente TOCAQUI</div>
+                                        <h1 className="text-xl sm:text-2xl font-bold text-white mt-1 truncate">{currentClient?.company || 'Mi negocio'}</h1>
+                                        <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">Este portal permite administrar el destino de las tarjetas NFC/QR del negocio, comprobar su estado y revisar cuántas veces han sido escaneadas.</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span className="text-xs font-mono uppercase text-indigo-400">Portal del Cliente</span>
-                                    <h2 className="text-lg font-bold text-white">{currentClient?.company || 'Mi Empresa'}</h2>
+                                <div className="grid grid-cols-3 gap-2 shrink-0">
+                                    <div className="rounded-xl border border-slate-800 bg-slate-950/35 px-3 py-2 text-center"><div className="text-lg font-black text-white">{clientQrs.length}</div><div className="text-[9px] text-slate-500">Tarjetas</div></div>
+                                    <div className="rounded-xl border border-slate-800 bg-slate-950/35 px-3 py-2 text-center"><div className="text-lg font-black text-emerald-300">{activeCards}</div><div className="text-[9px] text-slate-500">Activas</div></div>
+                                    <div className="rounded-xl border border-slate-800 bg-slate-950/35 px-3 py-2 text-center"><div className="text-lg font-black text-amber-300">{totalScans}</div><div className="text-[9px] text-slate-500">Escaneos</div></div>
                                 </div>
                             </div>
-                        </div>
+                        </section>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {clientQrs.map(qr => (
-                                <div key={qr.id} className="glass-panel p-5 rounded-2xl space-y-3">
-                                    <div className="flex justify-between items-start">
-                                        <span className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded">ID: {cardNumber(qr)}</span>
-                                        <span className="text-xs text-slate-400 font-mono"><i className="fa-solid fa-eye mr-1"></i>{getCardScans(qr)} lecturas</span>
-                                    </div>
-                                    <h3 className="font-bold text-white">{qr.businessName || 'Mi Tarjeta'}</h3>
-                                    <div className="p-3 bg-slate-900 rounded-xl text-xs font-mono text-blue-400 truncate border border-slate-800">{qr.dynamicUrl || 'Sin enlace'}</div>
-                                    <button onClick={() => { setEditingQr(qr); setNewUrl(qr.dynamicUrl); }} className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl">
-                                        Cambiar Enlace Dinámico
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+                        <section className="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
+                            <div className="px-3.5 sm:px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-3">
+                                <div><h2 className="font-bold text-white text-sm">Mis tarjetas y destinos</h2><p className="text-[10px] text-slate-500 mt-0.5">El QR/NFC conserva su identidad; aquí solo cambias el destino dinámico.</p></div>
+                                <span className="text-[10px] rounded-full border border-slate-700 px-2 py-1 text-slate-400">{clientQrs.length}</span>
+                            </div>
+                            <div className="divide-y divide-slate-800/80">
+                                {clientQrs.map(qr => (
+                                    <article key={qr.id} className="p-3.5 sm:p-4 hover:bg-slate-900/35 transition-colors">
+                                        <div className="grid grid-cols-1 lg:grid-cols-[minmax(160px,.8fr)_minmax(260px,1.6fr)_100px_165px] gap-3 lg:items-center">
+                                            <div className="min-w-0"><div className="font-mono font-bold text-white text-sm truncate">{cardNumber(qr)}</div><span className={'inline-flex mt-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold '+(qr.status==='active'?'border-emerald-500/20 bg-emerald-500/10 text-emerald-300':'border-amber-500/20 bg-amber-500/10 text-amber-300')}>{qr.status==='active'?'Activa':'Pendiente'}</span></div>
+                                            <div className="min-w-0"><div className="text-xs font-semibold text-slate-200 truncate">{qr.businessName || 'Mi tarjeta'}</div><div className="mt-1 rounded-lg border border-slate-800 bg-slate-950/60 px-2.5 py-2 text-[10px] font-mono text-blue-400 truncate" title={qr.dynamicUrl || ''}>{qr.dynamicUrl || 'Sin enlace configurado'}</div></div>
+                                            <div><div className="text-[9px] uppercase tracking-wider text-slate-500">Lecturas</div><div className="font-mono text-lg font-bold text-slate-200 mt-0.5">{getCardScans(qr)}</div></div>
+                                            <button onClick={() => { setEditingQr(qr); setNewUrl(qr.dynamicUrl || ''); }} className="min-h-[40px] rounded-xl border border-indigo-500/25 bg-indigo-500/10 hover:bg-indigo-500/15 text-indigo-200 px-3 text-[10px] font-semibold">
+                                                <i className="fa-solid fa-link mr-1.5"></i>Cambiar destino
+                                            </button>
+                                        </div>
+                                    </article>
+                                ))}
+                                {clientQrs.length===0 && <div className="p-8 text-center text-sm text-slate-500">Aún no hay tarjetas vinculadas a este cliente.</div>}
+                            </div>
+                        </section>
+
+                        <section className="grid sm:grid-cols-3 gap-2.5">
+                            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3"><div className="text-[9px] uppercase text-slate-500">1 · Tarjeta física</div><p className="text-[11px] text-slate-300 mt-1">El QR y NFC mantienen siempre la misma identidad.</p></div>
+                            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3"><div className="text-[9px] uppercase text-slate-500">2 · Destino dinámico</div><p className="text-[11px] text-slate-300 mt-1">La URL puede cambiar sin volver a imprimir ni grabar.</p></div>
+                            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3"><div className="text-[9px] uppercase text-slate-500">3 · Seguimiento</div><p className="text-[11px] text-slate-300 mt-1">Las lecturas quedan contabilizadas por tarjeta.</p></div>
+                        </section>
 
                         {editingQr && (
-                            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-                                <div className="glass-panel w-full max-w-md rounded-2xl p-6 border border-slate-700 space-y-4">
-                                    <h3 className="font-bold text-white">Modificar URL de Destino</h3>
-                                    <form onSubmit={(e) => { e.preventDefault(); updateQR(editingQr.id, { dynamicUrl: sanitizeUrl(newUrl) }); setEditingQr(null); }} className="space-y-4">
+                            <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+                                <div className="glass-panel w-full max-w-md rounded-2xl p-4 sm:p-5 border border-slate-700 space-y-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div><h3 className="font-bold text-white">Cambiar destino</h3><p className="text-[10px] text-slate-500 mt-1">El QR/NFC no cambia; solo se actualiza la URL.</p></div>
+                                        <button type="button" onClick={()=>setEditingQr(null)} className="w-9 h-9 rounded-lg bg-slate-800 text-slate-400"><i className="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <form onSubmit={(e) => { e.preventDefault(); updateQR(editingQr.id, { dynamicUrl: sanitizeUrl(newUrl) }); setEditingQr(null); }} className="space-y-3">
+                                        <label className="block text-[10px] uppercase tracking-wider text-slate-500">Nuevo enlace</label>
                                         <input type="url" required value={newUrl} onChange={e => setNewUrl(e.target.value)} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm font-mono" placeholder="https://..." />
-                                        <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl">Guardar Destino</button>
+                                        <button type="submit" className="w-full min-h-[44px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl">Guardar destino</button>
                                     </form>
                                 </div>
                             </div>
