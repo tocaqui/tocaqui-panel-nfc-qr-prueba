@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.1440';
+    const TOCAQUI_BUILD = '2026.11.15.1810';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -2427,71 +2427,147 @@ const resetTestInventory = async () => {
                     });
                 };
 
+                const templateGroups = [
+                    {id:'pvc-horizontal', label:'PVC Horizontal', icon:'fa-address-card', hint:'85.6 × 54 mm'},
+                    {id:'pvc-vertical', label:'PVC Vertical', icon:'fa-id-card', hint:'54 × 85.6 mm'},
+                    {id:'10x15', label:'Letreros 10 × 15', icon:'fa-image', hint:'100 × 150 mm'},
+                    {id:'magnet-horizontal', label:'Imanes 6 × 4', icon:'fa-magnet', hint:'60 × 40 mm'},
+                    {id:'magnet-square', label:'Imanes 5 × 5', icon:'fa-square', hint:'50 × 50 mm'}
+                ];
+                const ungroupedTemplates = templates.filter(t=>!templateGroups.some(group=>group.id===t.category));
+
                 return (
-                    <div className="space-y-6">
+                    <div className="space-y-5">
                         <BackToDashboardButton />
 
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h1 className="text-2xl font-bold text-white tracking-tight">Biblioteca de Plantillas Guardadas</h1>
-                                <p className="text-slate-400 text-sm mt-1">Catálogo de diseños reutilizables para imprimir nuevos lotes sin volver a cargar fotografías. Cada plantilla conserva anverso, reverso y formato.</p>
-                            </div>
-                            <button onClick={() => { setTemplateDraft({name:'',category:'pvc-horizontal',frontBg:'',backBg:'',frontName:'',backName:''}); setTemplateModal({ open:true, isEditing:false, data:null }); }} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-purple-600/25">
-                                <i className="fa-solid fa-plus"></i> Nueva Plantilla
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {templates.map(tpl => (
-                                <div key={tpl.id} className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
-                                    <div className="flex justify-between items-start">
-                                        <h3 className="font-bold text-white text-base">{tpl.name}</h3>
-                                        <div className="flex items-center gap-1.5"><span className="text-[9px] rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 px-2 py-0.5"><i className="fa-solid fa-cloud mr-1"></i>Nube</span><span className="text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded">{tpl.category}</span></div>
-                                    </div>
-
-                                    {/* Preview Boxes Dual */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 flex flex-col justify-between p-2 relative overflow-hidden" style={{ background: tpl.frontBg ? `url(${tpl.frontBg}) center/cover` : 'linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%)' }}>
-                                            <span className="text-[8px] font-bold uppercase bg-black/60 text-white px-1.5 py-0.5 rounded w-fit">Anverso</span>
-                                        </div>
-                                        <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 flex flex-col justify-between p-2 relative overflow-hidden" style={{ background: tpl.backBg ? `url(${tpl.backBg}) center/cover` : 'linear-gradient(135deg, #0f172a 0%, #312e81 100%)' }}>
-                                            <span className="text-[8px] font-bold uppercase bg-black/60 text-white px-1.5 py-0.5 rounded w-fit">Reverso</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <button type="button" onClick={()=>openTemplateEditor(tpl)} className="py-2.5 rounded-xl border border-blue-500/25 bg-blue-500/10 text-blue-200 text-xs font-semibold hover:bg-blue-500/15">
-                                            <i className="fa-solid fa-pen-to-square mr-1.5"></i>Editar
-                                        </button>
-                                        <button type="button" onClick={()=>deleteTemplate(tpl)} className="py-2.5 rounded-xl border border-rose-500/25 bg-rose-500/10 text-rose-200 text-xs font-semibold hover:bg-rose-500/15">
-                                            <i className="fa-solid fa-trash-can mr-1.5"></i>Eliminar
-                                        </button>
-                                    </div>
-
-                                    <button
-                                        onClick={() => {
-                                            setPrintConfig(prev => ({
-                                                ...prev,
-                                                selectedTemplateId: tpl.id,
-                                                templateType: tpl.category,
-                                                customFrontBg: tpl.frontBg,
-                                                customBackBg: tpl.backBg,
-                                                theme: tpl.frontBg ? 'custom' : tpl.defaultTheme
-                                            }));
-                                            setAdminTab('print');
-                                            showToast(`Plantilla "${tpl.name}" cargada en el Estudio A4.`, 'info');
-                                        }}
-                                        className="w-full py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold rounded-xl"
-                                    >
-                                        <i className="fa-solid fa-arrow-up-right-from-square mr-1"></i> Aplicar diseño al Estudio A4
-                                    </button>
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4 sm:p-5">
+                            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+                                <div className="min-w-0">
+                                    <div className="text-[10px] uppercase tracking-[.18em] text-purple-300 font-bold mb-1">Diseños reutilizables</div>
+                                    <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Biblioteca de Plantillas</h1>
+                                    <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-2xl">Organizada por formato para que sea rápida de revisar en teléfono y escritorio. Las imágenes y acciones siguen guardándose en la nube.</p>
                                 </div>
-                            ))}
+                                <button onClick={() => { setTemplateDraft({name:'',category:'pvc-horizontal',frontBg:'',backBg:'',frontName:'',backName:''}); setTemplateModal({ open:true, isEditing:false, data:null }); }} className="w-full sm:w-auto min-h-[44px] bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
+                                    <i className="fa-solid fa-plus"></i> Nueva Plantilla
+                                </button>
+                            </div>
+
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar mt-4 pb-1">
+                                <span className="shrink-0 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 text-[10px] text-slate-300"><b className="text-white">{templates.length}</b> plantillas</span>
+                                {templateGroups.map(group=>{
+                                    const count=templates.filter(t=>t.category===group.id).length;
+                                    return count ? <span key={group.id} className="shrink-0 rounded-full border border-slate-700 bg-slate-950/40 px-3 py-1.5 text-[10px] text-slate-400"><i className={'fa-solid '+group.icon+' mr-1.5 text-purple-300'}></i>{group.label} <b className="text-white ml-1">{count}</b></span> : null;
+                                })}
+                            </div>
                         </div>
+
+                        {templates.length===0 && (
+                            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/35 p-8 sm:p-12 text-center">
+                                <div className="w-12 h-12 mx-auto rounded-2xl bg-purple-500/10 text-purple-300 flex items-center justify-center"><i className="fa-solid fa-swatchbook text-xl"></i></div>
+                                <h2 className="font-bold text-white mt-4">Tu biblioteca está vacía</h2>
+                                <p className="text-sm text-slate-500 mt-1">Crea una plantilla para comenzar a organizar diseños por formato.</p>
+                            </div>
+                        )}
+
+                        {templateGroups.map(group=>{
+                            const groupTemplates=templates.filter(t=>t.category===group.id);
+                            if(!groupTemplates.length)return null;
+                            return (
+                                <section key={group.id} className="space-y-3">
+                                    <div className="flex items-center justify-between gap-3 px-1">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-9 h-9 rounded-xl border border-purple-500/20 bg-purple-500/10 text-purple-300 flex items-center justify-center shrink-0"><i className={'fa-solid '+group.icon}></i></div>
+                                            <div className="min-w-0">
+                                                <h2 className="text-sm sm:text-base font-bold text-white truncate">{group.label}</h2>
+                                                <p className="text-[10px] text-slate-500">{group.hint} · {groupTemplates.length} diseño{groupTemplates.length===1?'':'s'}</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-slate-400">{groupTemplates.length}</span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                                        {groupTemplates.map(tpl=>(
+                                            <article key={tpl.id} className="rounded-2xl border border-slate-800 bg-slate-900/55 overflow-hidden hover:border-slate-700 transition-colors">
+                                                <div className="grid grid-cols-[108px_1fr] sm:block">
+                                                    <div className="relative min-h-[122px] sm:h-40 bg-slate-950 overflow-hidden">
+                                                        {tpl.frontBg
+                                                            ? <img src={tpl.frontBg} alt={'Anverso de '+tpl.name} className="absolute inset-0 w-full h-full object-cover" />
+                                                            : <div className="absolute inset-0 bg-gradient-to-br from-blue-900 to-slate-950"></div>}
+                                                        <span className="absolute top-2 left-2 rounded-md bg-black/65 px-1.5 py-0.5 text-[7px] font-bold uppercase text-white">Frente</span>
+                                                        <div className="absolute right-2 bottom-2 w-10 h-14 sm:w-14 sm:h-16 rounded-lg overflow-hidden border-2 border-slate-900 shadow-xl bg-slate-800">
+                                                            {tpl.backBg
+                                                                ? <img src={tpl.backBg} alt={'Reverso de '+tpl.name} className="w-full h-full object-cover" />
+                                                                : <div className="w-full h-full bg-gradient-to-br from-slate-800 to-indigo-950 flex items-center justify-center text-[7px] text-slate-500">Atrás</div>}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="p-3 sm:p-3.5 min-w-0">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <h3 className="font-bold text-white text-sm truncate">{tpl.name}</h3>
+                                                                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                                                    <span className="text-[8px] rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 px-2 py-0.5"><i className="fa-solid fa-cloud mr-1"></i>Nube</span>
+                                                                    <span className="text-[8px] rounded-full border border-purple-500/20 bg-purple-500/10 text-purple-300 px-2 py-0.5">{group.label}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-1.5 mt-3">
+                                                            <button type="button" onClick={()=>openTemplateEditor(tpl)} className="min-h-[38px] rounded-xl border border-blue-500/25 bg-blue-500/10 text-blue-200 text-[10px] font-semibold hover:bg-blue-500/15">
+                                                                <i className="fa-solid fa-pen-to-square mr-1"></i>Editar
+                                                            </button>
+                                                            <button type="button" onClick={()=>deleteTemplate(tpl)} className="min-h-[38px] rounded-xl border border-rose-500/25 bg-rose-500/10 text-rose-200 text-[10px] font-semibold hover:bg-rose-500/15">
+                                                                <i className="fa-solid fa-trash-can mr-1"></i>Eliminar
+                                                            </button>
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setPrintConfig(prev => ({
+                                                                    ...prev,
+                                                                    selectedTemplateId: tpl.id,
+                                                                    templateType: tpl.category,
+                                                                    customFrontBg: tpl.frontBg,
+                                                                    customBackBg: tpl.backBg,
+                                                                    theme: tpl.frontBg ? 'custom' : tpl.defaultTheme
+                                                                }));
+                                                                setAdminTab('print');
+                                                                showToast('Plantilla "'+tpl.name+'" cargada en el Estudio A4.', 'info');
+                                                            }}
+                                                            className="w-full min-h-[38px] mt-1.5 rounded-xl border border-purple-500/25 bg-purple-500/10 hover:bg-purple-500/15 text-purple-200 text-[10px] font-semibold"
+                                                        >
+                                                            <i className="fa-solid fa-print mr-1"></i>Usar en impresión
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                </section>
+                            );
+                        })}
+
+                        {ungroupedTemplates.length>0 && (
+                            <section className="space-y-3">
+                                <div className="flex items-center gap-3 px-1">
+                                    <div className="w-9 h-9 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 flex items-center justify-center"><i className="fa-solid fa-folder"></i></div>
+                                    <div><h2 className="text-sm font-bold text-white">Otros formatos</h2><p className="text-[10px] text-slate-500">{ungroupedTemplates.length} plantilla(s) heredadas</p></div>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                                    {ungroupedTemplates.map(tpl=>(
+                                        <article key={tpl.id} className="rounded-2xl border border-slate-800 bg-slate-900/55 p-3.5 flex items-center gap-3">
+                                            <div className="w-16 h-20 rounded-xl overflow-hidden bg-slate-950 shrink-0">{tpl.frontBg?<img src={tpl.frontBg} alt="" className="w-full h-full object-cover"/>:<div className="w-full h-full bg-slate-800"></div>}</div>
+                                            <div className="min-w-0 flex-1"><h3 className="font-bold text-sm text-white truncate">{tpl.name}</h3><div className="text-[9px] text-slate-500 mt-1">{tpl.category||'Sin formato'}</div><div className="flex gap-1.5 mt-2"><button type="button" onClick={()=>openTemplateEditor(tpl)} className="min-h-[36px] px-3 rounded-lg bg-blue-500/10 text-blue-200 text-[10px]">Editar</button><button type="button" onClick={()=>deleteTemplate(tpl)} className="min-h-[36px] px-3 rounded-lg bg-rose-500/10 text-rose-200 text-[10px]">Eliminar</button></div></div>
+                                        </article>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
 
                         {templateModal.open && (
                             <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                                <div className="glass-panel w-full max-w-lg rounded-2xl p-6 border border-slate-700 space-y-4">
+                                <div className="glass-panel w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl p-4 sm:p-6 border border-slate-700 space-y-4">
                                     <div className="flex justify-between items-center">
                                         <h3 className="font-bold text-white">{templateModal.isEditing?'Editar plantilla':'Crear Nueva Plantilla Guardada'}</h3>
                                         <button type="button" onClick={() => { setTemplateModal({open:false,isEditing:false,data:null}); setTemplateDraft({name:'',category:'pvc-horizontal',frontBg:'',backBg:'',frontName:'',backName:''}); }} className="text-slate-400"><i className="fa-solid fa-xmark"></i></button>
