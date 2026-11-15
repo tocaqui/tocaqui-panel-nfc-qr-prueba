@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.1900';
+    const TOCAQUI_BUILD = '2026.11.15.1915';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -2614,6 +2614,11 @@ const resetTestInventory = async () => {
                     const ids = [...new Set(selected.map(q=>q.batchId || 'legacy'))];
                     return selected.length && ids.length === 1 ? ids[0] : 'all';
                 });
+                const [printBatchPickerOpen, setPrintBatchPickerOpen] = useState(false);
+                const [printBatchSearch, setPrintBatchSearch] = useState('');
+                const [printDirectSearch, setPrintDirectSearch] = useState('');
+                const [printDirectPage, setPrintDirectPage] = useState(1);
+                const printDirectPageSize = 12;
                 const [previewZoom, setPreviewZoom] = useState(58);
                 const [artworkFitMode, setArtworkFitMode] = useState('cover');
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
@@ -2672,8 +2677,32 @@ const resetTestInventory = async () => {
                     'magnet-horizontal':18,
                     'magnet-square':15
                 })[printConfig.templateType] || 10;
-                const printBatches = useMemo(() => [...new Map(qrs.map(q => [q.batchId || 'legacy', {id:q.batchId || 'legacy',name:q.batchName || 'Tarjetas anteriores'}])).values()], [qrs]);
-                const visiblePrintQrs = useMemo(() => qrs.filter(q => printBatchFilter === 'all' || (q.batchId || 'legacy') === printBatchFilter), [qrs, printBatchFilter]);
+                const printBatches = useMemo(() => [...new Map(qrs.map(q => {
+                    const id=q.batchId || 'legacy';
+                    return [id,{id,name:q.batchName || 'Tarjetas anteriores'}];
+                })).values()].map(batch=>({
+                    ...batch,
+                    total:qrs.filter(q=>(q.batchId||'legacy')===batch.id).length
+                })), [qrs]);
+                const filteredPrintBatches = useMemo(() => {
+                    const term=printBatchSearch.trim().toLowerCase();
+                    if(!term)return printBatches;
+                    return printBatches.filter(batch=>[batch.name,batch.id].some(v=>String(v||'').toLowerCase().includes(term)));
+                }, [printBatches,printBatchSearch]);
+                const visiblePrintQrs = useMemo(() => {
+                    const term=printDirectSearch.trim().toLowerCase();
+                    return qrs.filter(q => {
+                        const matchBatch=printBatchFilter === 'all' || (q.batchId || 'legacy') === printBatchFilter;
+                        const matchTerm=!term || [cardNumber(q),q.businessName,q.batchName,q.batchId]
+                            .some(v=>String(v||'').toLowerCase().includes(term));
+                        return matchBatch && matchTerm;
+                    });
+                }, [qrs, printBatchFilter, printDirectSearch]);
+                useEffect(()=>{setPrintDirectPage(1)},[printBatchFilter,printDirectSearch]);
+                const printDirectPageCount=Math.max(1,Math.ceil(visiblePrintQrs.length/printDirectPageSize));
+                const safePrintDirectPage=Math.min(printDirectPage,printDirectPageCount);
+                const pagedPrintQrs=visiblePrintQrs.slice((safePrintDirectPage-1)*printDirectPageSize,safePrintDirectPage*printDirectPageSize);
+                const selectedPrintBatch=printBatchFilter==='all'?null:printBatches.find(batch=>batch.id===printBatchFilter);
                 const mixTemplates = useMemo(() => {
                     const term=printTemplateSearch.trim().toLowerCase();
                     const order={ 'pvc-horizontal':0, 'pvc-vertical':1, '10x15':2, 'magnet-horizontal':3, 'magnet-square':4 };
@@ -3247,49 +3276,116 @@ const resetTestInventory = async () => {
                                     )}
                                 </div>
 
-                                <div className="glass-panel p-5 rounded-2xl space-y-3 max-h-72 overflow-y-auto">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-xs font-bold text-slate-300 uppercase">Selección directa {printComposition.length ? '(en pausa mientras uses composición mixta)' : '(' + selectedItems.length + ')'}</h3>
-                                        <button onClick={toggleSelectAll} className="text-[11px] text-blue-400 font-semibold">
-                                            {visiblePrintQrs.every(q=>selectedQrIdsForSheet.includes(q.id)) ? 'Desmarcar lote' : 'Marcar lote'}
+                                <div className="glass-panel p-4 rounded-2xl space-y-3 border border-slate-800">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                        <div>
+                                            <h3 className="text-xs font-bold text-slate-300 uppercase">Selección directa</h3>
+                                            <p className="text-[10px] text-slate-500 mt-0.5">{printComposition.length ? 'En pausa mientras uses composición mixta.' : selectedItems.length + ' tarjeta(s) seleccionada(s).'}</p>
+                                        </div>
+                                        <button onClick={toggleSelectAll} className="min-h-[34px] px-3 rounded-xl border border-blue-500/25 bg-blue-500/10 text-[10px] text-blue-300 font-semibold">
+                                            {visiblePrintQrs.length && visiblePrintQrs.every(q=>selectedQrIdsForSheet.includes(q.id)) ? 'Desmarcar resultado' : 'Seleccionar resultado'}
                                         </button>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-[11px] text-slate-400">Lote de fabricación</label>
-                                        <div className="flex gap-2 overflow-x-auto pb-2">
-                                            <button type="button" onClick={()=>setPrintBatchFilter('all')} className={`shrink-0 rounded-xl border px-3 py-2 text-xs ${printBatchFilter==='all'?'border-blue-400 bg-blue-600/20 text-white':'border-slate-700 text-slate-400'}`}>Todos</button>
-                                            {printBatches.map(batch=><button type="button" key={batch.id} onClick={()=>{setPrintBatchFilter(batch.id);const first=qrs.find(q=>(q.batchId||'legacy')===batch.id);if(first){setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType,theme:/blanco|blanca|white/i.test(batch.name)?'clean-white':/negro|negra|black/i.test(batch.name)?'gold-luxury':prev.theme}));setSelectedQrIdsForSheet(qrs.filter(q=>(q.batchId||'legacy')===batch.id).map(q=>q.id));}}} className={`shrink-0 rounded-xl border px-3 py-2 text-xs ${printBatchFilter===batch.id?'border-blue-400 bg-blue-600/20 text-white':'border-slate-700 text-slate-400'}`}>{batch.name} · {qrs.filter(q=>(q.batchId||'legacy')===batch.id).length}</button>)}
+
+                                    <div className="grid sm:grid-cols-[1fr_1fr] gap-2">
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={()=>{setPrintBatchPickerOpen(v=>!v);setPrintBatchSearch('')}}
+                                                className={'w-full min-h-[46px] rounded-xl border px-3 text-left flex items-center gap-2 '+(printBatchPickerOpen?'border-blue-400 bg-blue-500/10':'border-slate-700 bg-slate-950/45')}
+                                            >
+                                                <i className="fa-solid fa-layer-group text-blue-300"></i>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block text-[9px] uppercase text-slate-500">Lote</span>
+                                                    <span className="block truncate text-xs font-semibold text-white">{selectedPrintBatch?.name || 'Todos los lotes'}</span>
+                                                </span>
+                                                <span className="text-[10px] text-slate-500">{selectedPrintBatch?.total ?? qrs.length}</span>
+                                                <i className="fa-solid fa-chevron-down text-slate-500 text-[10px]"></i>
+                                            </button>
+
+                                            {printBatchPickerOpen && (
+                                                <>
+                                                    <button type="button" aria-label="Cerrar lotes" onClick={()=>setPrintBatchPickerOpen(false)} className="fixed inset-0 z-40 bg-transparent"></button>
+                                                    <div className="absolute z-50 left-0 right-0 mt-2 rounded-2xl border border-slate-700 bg-slate-950 shadow-2xl overflow-hidden">
+                                                        <div className="p-2 border-b border-slate-800">
+                                                            <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
+                                                                <i className="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i>
+                                                                <input value={printBatchSearch} onChange={e=>setPrintBatchSearch(e.target.value)} placeholder="Buscar lote…" className="w-full bg-transparent py-2.5 text-sm text-white outline-none placeholder:text-slate-600"/>
+                                                            </div>
+                                                        </div>
+                                                        <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                                                            <button type="button" onClick={()=>{setPrintBatchFilter('all');setPrintBatchPickerOpen(false)}} className={'w-full rounded-xl p-2.5 text-left flex justify-between gap-2 '+(printBatchFilter==='all'?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}>
+                                                                <span><strong className="block text-xs">Todos los lotes</strong><span className="text-[10px] text-slate-500">Inventario completo</span></span><span className="text-[10px]">{qrs.length}</span>
+                                                            </button>
+                                                            {filteredPrintBatches.map(batch=>(
+                                                                <button type="button" key={batch.id} onClick={()=>{
+                                                                    setPrintBatchFilter(batch.id);
+                                                                    setPrintBatchPickerOpen(false);
+                                                                    const first=qrs.find(q=>(q.batchId||'legacy')===batch.id);
+                                                                    if(first){
+                                                                        setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType}));
+                                                                        setSelectedQrIdsForSheet(qrs.filter(q=>(q.batchId||'legacy')===batch.id).map(q=>q.id));
+                                                                    }
+                                                                }} className={'w-full rounded-xl p-2.5 text-left flex justify-between gap-2 '+(printBatchFilter===batch.id?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}>
+                                                                    <span className="min-w-0"><strong className="block truncate text-xs">{batch.id==='legacy'?'Tarjetas anteriores':batch.name}</strong><span className="block truncate text-[10px] text-slate-500">{batch.id}</span></span>
+                                                                    <span className="text-[10px] shrink-0">{batch.total}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
-                                        <div className="text-[11px] text-slate-500">{printComposition.length ? 'La composición mixta de arriba controla la impresión.' : 'Usa el lote como filtro para encontrar tarjetas; puedes seleccionar tarjetas de distintos lotes.'}</div>
-                                        {printBatchFilter !== 'all' && <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-2.5 flex items-center gap-2">
-                                            <i className="fa-solid fa-layer-group text-blue-400"></i>
-                                            <div className="min-w-0"><span className="block text-[10px] uppercase text-slate-400">Lote seleccionado</span><strong className="block truncate text-sm text-white">{printBatches.find(b=>b.id===printBatchFilter)?.name || 'Tarjetas anteriores'}</strong><span className="text-[10px] text-slate-400 font-mono">{printBatchFilter}</span></div>
-                                        </div>}
+
+                                        <div className="relative">
+                                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
+                                            <input
+                                                value={printDirectSearch}
+                                                onChange={e=>setPrintDirectSearch(e.target.value)}
+                                                placeholder="Buscar TAG o negocio…"
+                                                className="w-full min-h-[46px] rounded-xl border border-slate-700 bg-slate-950/45 pl-9 pr-3 text-sm text-white outline-none placeholder:text-slate-600"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        {visiblePrintQrs.map(q => (
-                                            <label key={q.id} className="flex items-center gap-2 text-xs text-slate-300 p-1.5 hover:bg-slate-800/50 rounded cursor-pointer">
+
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                        <span>{visiblePrintQrs.length} resultado(s)</span>
+                                        <span>Página {safePrintDirectPage}/{printDirectPageCount}</span>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        {pagedPrintQrs.map(q => (
+                                            <label key={q.id} className="grid grid-cols-[24px_1fr_auto] items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/25 p-2.5 hover:border-slate-700 cursor-pointer">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedQrIdsForSheet.includes(q.id)}
                                                     onChange={e => {
-                                                        if (e.target.checked) setSelectedQrIdsForSheet(prev => [...prev, q.id]);
+                                                        if (e.target.checked) setSelectedQrIdsForSheet(prev => [...new Set([...prev,q.id])]);
                                                         else setSelectedQrIdsForSheet(prev => prev.filter(i => i !== q.id));
                                                     }}
                                                     className="accent-blue-500"
                                                 />
-                                                <div className="min-w-0 flex-1">
-                                                    <span className="font-mono font-bold text-white">{cardNumber(q)}</span>
-                                                    <span className="ml-2 text-slate-400">{q.businessName || 'Virgen'}</span>
-                                                    <span className="block truncate text-[10px] text-blue-300">{q.batchName || 'Tarjetas anteriores'} · {q.batchId || 'Sin lote'}</span>
-                                                </div>
+                                                <span className="min-w-0">
+                                                    <span className="block font-mono font-bold text-white text-xs truncate">{cardNumber(q)}</span>
+                                                    <span className="block truncate text-[10px] text-slate-500">{q.businessName || 'Virgen'} · {q.batchName || 'Tarjetas anteriores'}</span>
+                                                </span>
+                                                <span className={'text-[9px] rounded-full border px-2 py-1 '+(q.status==='active'?'border-emerald-500/20 text-emerald-300':'border-amber-500/20 text-amber-300')}>{q.status==='active'?'Activo':'Pendiente'}</span>
                                             </label>
                                         ))}
+                                        {!pagedPrintQrs.length && <div className="rounded-xl border border-dashed border-slate-800 p-5 text-center text-xs text-slate-500">No hay tarjetas con este filtro.</div>}
                                     </div>
+
+                                    {printDirectPageCount>1 && (
+                                        <div className="flex items-center justify-between gap-2 pt-1">
+                                            <button type="button" disabled={safePrintDirectPage<=1} onClick={()=>setPrintDirectPage(p=>Math.max(1,p-1))} className="min-h-[34px] px-3 rounded-xl border border-slate-700 text-[10px] text-slate-300 disabled:opacity-40">Anterior</button>
+                                            <span className="text-[10px] text-slate-500">{(safePrintDirectPage-1)*printDirectPageSize+1}–{Math.min(safePrintDirectPage*printDirectPageSize,visiblePrintQrs.length)} de {visiblePrintQrs.length}</span>
+                                            <button type="button" disabled={safePrintDirectPage>=printDirectPageCount} onClick={()=>setPrintDirectPage(p=>Math.min(printDirectPageCount,p+1))} className="min-h-[34px] px-3 rounded-xl border border-slate-700 text-[10px] text-slate-300 disabled:opacity-40">Siguiente</button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* Live Screen Preview */}
+                                                        {/* Live Screen Preview */}
                             <div className="lg:col-span-7 flex flex-col items-center justify-start space-y-6 overflow-x-auto">
                                 <span className="text-xs font-mono uppercase text-slate-400 tracking-widest flex items-center gap-2">
                                     <i className="fa-solid fa-eye text-emerald-400"></i> Previsualización A4 ({printConfig.activeSide.toUpperCase()})
