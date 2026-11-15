@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2125';
+    const TOCAQUI_BUILD = '2026.11.15.2140';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -475,7 +475,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useMemo } = React;
+        const { useState, useEffect, useLayoutEffect, useRef, useMemo } = React;
 
         const DEFAULT_PIN = '1234';
 
@@ -676,6 +676,118 @@
         };
 
         const App = ({cloud}) => {
+            const focusSnapshotRef = useRef(null);
+
+            useEffect(() => {
+                const isEditable = el => !!el && (
+                    el.matches?.('input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea, select, [contenteditable="true"]')
+                );
+                const scopeOf = el => el?.closest?.('[role="dialog"], form, .tocaqui-operation-page, main') || document.body;
+                const scopeHint = scope => {
+                    if (!scope || scope === document.body) return 'body';
+                    return (
+                        scope.getAttribute?.('aria-label') ||
+                        scope.querySelector?.('h1,h2,h3,[data-focus-scope-title]')?.textContent ||
+                        scope.className ||
+                        scope.tagName ||
+                        ''
+                    ).toString().trim().slice(0,120);
+                };
+                const snapshot = el => {
+                    if (!isEditable(el)) return null;
+                    const scope = scopeOf(el);
+                    const fields = [...scope.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select,[contenteditable="true"]')];
+                    return {
+                        id: el.id || '',
+                        name: el.getAttribute('name') || '',
+                        placeholder: el.getAttribute('placeholder') || '',
+                        aria: el.getAttribute('aria-label') || '',
+                        autocomplete: el.getAttribute('autocomplete') || '',
+                        tag: el.tagName,
+                        type: el.getAttribute('type') || '',
+                        scopeHint: scopeHint(scope),
+                        index: fields.indexOf(el),
+                        selectionStart: typeof el.selectionStart === 'number' ? el.selectionStart : null,
+                        selectionEnd: typeof el.selectionEnd === 'number' ? el.selectionEnd : null,
+                        selectionDirection: el.selectionDirection || 'none'
+                    };
+                };
+                const remember = event => {
+                    const snap=snapshot(event.target);
+                    if(snap) focusSnapshotRef.current=snap;
+                };
+                const clearOnNavigation = event => {
+                    const target=event.target?.closest?.('button,a,[role="button"]');
+                    if(target && !isEditable(event.target)) focusSnapshotRef.current=null;
+                };
+
+                document.addEventListener('focusin',remember,true);
+                document.addEventListener('input',remember,true);
+                document.addEventListener('keydown',remember,true);
+                document.addEventListener('pointerdown',clearOnNavigation,true);
+                return () => {
+                    document.removeEventListener('focusin',remember,true);
+                    document.removeEventListener('input',remember,true);
+                    document.removeEventListener('keydown',remember,true);
+                    document.removeEventListener('pointerdown',clearOnNavigation,true);
+                };
+            }, []);
+
+            useLayoutEffect(() => {
+                const snap=focusSnapshotRef.current;
+                if(!snap) return;
+
+                const current=document.activeElement;
+                if(current && current !== document.body && current.matches?.('input,textarea,select,[contenteditable="true"]')) {
+                    return;
+                }
+
+                const fields=[...document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select,[contenteditable="true"]')];
+                if(!fields.length) return;
+
+                const getScopeHint = el => {
+                    const scope=el.closest?.('[role="dialog"], form, .tocaqui-operation-page, main') || document.body;
+                    if(scope===document.body) return 'body';
+                    return (
+                        scope.getAttribute?.('aria-label') ||
+                        scope.querySelector?.('h1,h2,h3,[data-focus-scope-title]')?.textContent ||
+                        scope.className ||
+                        scope.tagName ||
+                        ''
+                    ).toString().trim().slice(0,120);
+                };
+
+                let best=null,bestScore=-1;
+                for(const el of fields){
+                    let score=0;
+                    if(snap.id && el.id===snap.id) score+=120;
+                    if(snap.name && el.getAttribute('name')===snap.name) score+=70;
+                    if(snap.aria && el.getAttribute('aria-label')===snap.aria) score+=55;
+                    if(snap.placeholder && el.getAttribute('placeholder')===snap.placeholder) score+=50;
+                    if(snap.autocomplete && el.getAttribute('autocomplete')===snap.autocomplete) score+=15;
+                    if(el.tagName===snap.tag) score+=8;
+                    if((el.getAttribute('type')||'')===snap.type) score+=8;
+                    if(getScopeHint(el)===snap.scopeHint) score+=35;
+
+                    const scope=el.closest?.('[role="dialog"], form, .tocaqui-operation-page, main') || document.body;
+                    const scoped=[...scope.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select,[contenteditable="true"]')];
+                    if(scoped.indexOf(el)===snap.index) score+=25;
+
+                    if(score>bestScore){bestScore=score;best=el;}
+                }
+
+                if(!best || bestScore<45) return;
+                try{
+                    best.focus({preventScroll:true});
+                    if(typeof best.setSelectionRange==='function' && snap.selectionStart!==null){
+                        const max=String(best.value ?? '').length;
+                        const start=Math.min(snap.selectionStart,max);
+                        const end=Math.min(snap.selectionEnd ?? start,max);
+                        best.setSelectionRange(start,end,snap.selectionDirection);
+                    }
+                }catch(e){}
+            });
+
             const [qrs, setQrs] = useState(() => {
                 try {
                     const saved = localStorage.getItem('nfc_qrs_v6');
@@ -1417,7 +1529,7 @@ const resetTestInventory = async () => {
                                         <div><i className="fa-solid fa-shield-halved text-emerald-300 w-5"></i>PIN, equipos, credenciales y configuración se conservan</div>
                                     </div>
                                     <label className="block text-[10px] uppercase tracking-wider text-slate-500 mt-4 mb-1.5">Escribe REINICIAR TOCAQUI</label>
-                                    <input value={resetConfirmText} onChange={e=>setResetConfirmText(e.target.value)} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" placeholder="REINICIAR TOCAQUI"/>
+                                    <input id="tocaqui-reset-confirm" name="reset-confirmation" autoComplete="off" value={resetConfirmText} onChange={e=>setResetConfirmText(e.target.value)} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" placeholder="REINICIAR TOCAQUI"/>
                                     <div className="grid grid-cols-2 gap-2 mt-4">
                                         <button type="button" disabled={resetBusy} onClick={()=>{setResetOpen(false);setResetConfirmText('')}} className="min-h-[42px] rounded-xl border border-slate-700 bg-slate-800 text-slate-300 text-xs font-semibold">Cancelar</button>
                                         <button type="button" disabled={resetBusy||!cloudReady||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="min-h-[42px] rounded-xl bg-rose-600 text-white text-xs font-semibold disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio'}</button>
