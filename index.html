@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2025';
+    const TOCAQUI_BUILD = '2026.11.15.2110';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -981,30 +981,45 @@ const resetTestInventory = async () => {
                 if (resetConfirmText !== 'REINICIAR TOCAQUI' || resetBusy) return;
                 setResetBusy(true);
                 try {
-                    if (!cloudReady) throw new Error('Se requiere conexión autorizada a Supabase para reiniciar sin dejar registros antiguos en la nube.');
-                    if (cloudReady) {
-                        await queue.current;
-                        for (const kind of ['cards','clients']) {
- const result=await workshopApi({action:'list',session:workshopSession});
- const ids=result[kind].map(x=>x.id);
- for(let i=0;i<ids.length;i+=100)await workshopApi({action:'delete',session:workshopSession,kind,ids:ids.slice(i,i+100)});
- const verify=await workshopApi({action:'list',session:workshopSession});
- if(verify[kind].length)throw new Error('No se verificó el reinicio de '+kind);
- }
-                    } else if (cloudError && qrs.length === 0 && clients.length === 0) {
-                        throw new Error('No hay registros locales para reiniciar.');
+                    if (!cloudReady || !workshopSession) throw new Error('Se requiere un equipo autorizado y conexión a Supabase.');
+                    await queue.current;
+
+                    const result = await workshopApi({action:'resetOperational',session:workshopSession});
+                    if(!result?.ok) throw new Error(result?.error || 'El servidor no confirmó el reinicio.');
+
+                    const verify = await workshopApi({action:'list',session:workshopSession});
+                    if((verify.cards||[]).length || (verify.clients||[]).length || (verify.templates||[]).length) {
+                        throw new Error('La verificación final todavía encontró datos operativos.');
                     }
-                    last.current={...last.current,qrs:[],clients:[]};
-                    setQrs([]);setClients([]);setSelectedQrIdsForSheet([]);
-                    localStorage.removeItem('nfc_qrs_v6');localStorage.removeItem('nfc_clients_v6');
-                    setResetOpen(false);setResetConfirmText('');
-                    showToast('Inventario y clientes de prueba reiniciados. Los nuevos lotes comenzarán vacíos.', 'success');
+                    const analyticsVerify = await workshopApi({action:'analytics',session:workshopSession});
+                    if(Number(analyticsVerify.totalScans||0)!==0 || Number(analyticsVerify.totalActivations||0)!==0) {
+                        throw new Error('La analítica todavía conserva eventos antiguos.');
+                    }
+
+                    last.current={qrs:[],clients:[],templates:[]};
+                    setQrs([]);
+                    setClients([]);
+                    setTemplates([]);
+                    setSelectedQrIdsForSheet([]);
+                    setPrintComposition([]);
+                    setPrintMixCardId('');
+                    setPrintMixTemplateId('');
+                    setTemplateDraft({ name:'', category:'pvc-horizontal', frontBg:'', backBg:'', frontName:'', backName:'' });
+                    setTemplateModal({ open:false, isEditing:false, data:null });
+                    setPrintConfig(prev=>({...prev,selectedTemplateId:null,customFrontBg:'',customBackBg:'',theme:'dark-neon'}));
+                    setServerAnalytics({scans:0,activations:0,perCard:{},perClient:{},perBusiness:{},updatedAt:new Date().toISOString()});
+
+                    ['nfc_qrs_v6','nfc_clients_v6','nfc_templates_v6','tocaqui_print_composition_v1'].forEach(key=>localStorage.removeItem(key));
+
+                    setResetOpen(false);
+                    setResetConfirmText('');
+                    showToast('TOCAQUI quedó vacío de datos operativos. Configuración, PIN y equipos autorizados se conservaron.', 'success');
                 } catch(err) {
                     setCloudError('Reinicio incompleto: '+err.message);
                     showToast('No se completó el reinicio: '+err.message,'error');
                 } finally {setResetBusy(false);}
             };
-            const showToast = (msg, type = 'info') => {
+                        const showToast = (msg, type = 'info') => {
                 setToast({ show: true, msg, type });
                 setTimeout(() => setToast({ show: false, msg: '', type: 'info' }), 3500);
             };
@@ -1372,6 +1387,44 @@ const resetTestInventory = async () => {
                                 <p className="text-xs text-slate-400 mt-1">Audita inventario por cliente, bitácora y Ficha de Entrega.</p>
                             </button>
                         </div>
+
+                        <section className="rounded-2xl border border-rose-500/15 bg-rose-500/[0.025] p-3.5 sm:p-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center justify-center shrink-0"><i className="fa-solid fa-rotate-left"></i></div>
+                                    <div>
+                                        <div className="text-xs font-bold text-rose-200">Reinicio de datos operativos</div>
+                                        <p className="text-[10px] text-slate-500 mt-1 max-w-2xl">Borra tarjetas/lotes, clientes, plantillas y sus fotografías, composición de impresión, eventos, escaneos y feedback. Conserva PIN, dispositivos autorizados, claves, conexiones y configuración del sistema.</p>
+                                    </div>
+                                </div>
+                                <button type="button" onClick={()=>{setResetConfirmText('');setResetOpen(true)}} className="min-h-[40px] rounded-xl border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 text-rose-200 px-4 text-xs font-semibold shrink-0">
+                                    <i className="fa-solid fa-trash-can-arrow-up mr-1.5"></i>Reiniciar datos
+                                </button>
+                            </div>
+                        </section>
+
+                        {resetOpen && (
+                            <div className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
+                                <div className="glass-panel w-full max-w-md rounded-2xl border border-rose-500/25 p-4 sm:p-5 shadow-2xl">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div><div className="text-[10px] uppercase tracking-[.16em] text-rose-300 font-bold">Acción irreversible</div><h3 className="text-lg font-bold text-white mt-1">Vaciar datos operativos</h3></div>
+                                        <button type="button" onClick={()=>{if(!resetBusy){setResetOpen(false);setResetConfirmText('')}}} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-400"><i className="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 mt-4 text-xs text-slate-400 space-y-1">
+                                        <div><i className="fa-solid fa-trash text-rose-300 w-5"></i>Tarjetas, lotes y clientes</div>
+                                        <div><i className="fa-solid fa-image text-rose-300 w-5"></i>Plantillas y fotografías</div>
+                                        <div><i className="fa-solid fa-chart-line text-rose-300 w-5"></i>Escaneos, activaciones y feedback</div>
+                                        <div><i className="fa-solid fa-shield-halved text-emerald-300 w-5"></i>PIN, equipos, credenciales y configuración se conservan</div>
+                                    </div>
+                                    <label className="block text-[10px] uppercase tracking-wider text-slate-500 mt-4 mb-1.5">Escribe REINICIAR TOCAQUI</label>
+                                    <input value={resetConfirmText} onChange={e=>setResetConfirmText(e.target.value)} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" placeholder="REINICIAR TOCAQUI"/>
+                                    <div className="grid grid-cols-2 gap-2 mt-4">
+                                        <button type="button" disabled={resetBusy} onClick={()=>{setResetOpen(false);setResetConfirmText('')}} className="min-h-[42px] rounded-xl border border-slate-700 bg-slate-800 text-slate-300 text-xs font-semibold">Cancelar</button>
+                                        <button type="button" disabled={resetBusy||!cloudReady||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="min-h-[42px] rounded-xl bg-rose-600 text-white text-xs font-semibold disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio'}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             };
@@ -1730,14 +1783,7 @@ const resetTestInventory = async () => {
                             </div>
                         </div>
 
-                        <details className="rounded-xl border border-rose-500/15 bg-rose-500/[0.03] px-4 py-3">
-                            <summary className="cursor-pointer text-xs font-semibold text-rose-300"><i className="fa-solid fa-rotate-left mr-2"></i>Herramientas de pruebas</summary>
-                            <div className="pt-3 space-y-3">
-                                <p className="text-xs text-slate-500">Reinicia inventario y datos de prueba. No modifica PIN, equipos autorizados ni rutas públicas.</p>
-                                <input value={resetConfirmText} onChange={e=>setResetConfirmText(e.target.value)} className="w-full glass-input px-3 py-2 rounded-lg text-sm" placeholder="REINICIAR TOCAQUI"/>
-                                <button type="button" disabled={resetBusy||!cloudReady||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio'}</button>
-                            </div>
-                        </details>
+                        
 
                         {selectedBatch && (
                             <div className="fixed inset-0 z-[90] bg-black/65 backdrop-blur-sm no-print" onClick={()=>setSelectedBatchId('')}>
