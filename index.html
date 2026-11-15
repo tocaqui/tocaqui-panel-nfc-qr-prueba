@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2140';
+    const TOCAQUI_BUILD = '2026.11.15.2205';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -130,13 +130,21 @@
             .print-artwork-img {
                 display: block !important;
                 position: absolute !important;
-                inset: 1.2mm !important;
-                width: calc(100% - 2.4mm) !important;
-                height: calc(100% - 2.4mm) !important;
+                inset: calc(var(--artwork-bleed, 1mm) * -1) !important;
+                width: calc(100% + (var(--artwork-bleed, 1mm) * 2)) !important;
+                height: calc(100% + (var(--artwork-bleed, 1mm) * 2)) !important;
                 object-fit: cover !important;
                 object-position: center !important;
-                border-radius: 2.2mm !important;
+                border-radius: 3.4mm !important;
                 z-index: 0 !important;
+            }
+            #print-area-wrapper .card-pvc-vertical,
+            #print-area-wrapper .card-pvc-horizontal,
+            #print-area-wrapper .card-poster-10x15,
+            #print-area-wrapper .card-magnet-horizontal,
+            #print-area-wrapper .card-magnet-square {
+                overflow: visible !important;
+                border: none !important;
             }
             #print-area-wrapper .card-pvc-vertical > *:not(.print-artwork-img),
             #print-area-wrapper .card-pvc-horizontal > *:not(.print-artwork-img),
@@ -157,6 +165,10 @@
                 margin: 0 !important;
                 padding: 6mm 8mm !important;
                 box-sizing: border-box !important;
+            }
+            #print-area-wrapper .print-page-a4:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
             }
             .print-grid-pvc-vertical {
                 display: grid !important;
@@ -279,17 +291,17 @@
             box-sizing: border-box;
         }
 
-        /* Zona segura de fabricación: el PVC mantiene su medida física,
-           pero el arte queda 1,2 mm dentro del borde de corte. */
+        /* El preview muestra el arte a borde completo.
+           En impresión el fondo recibe sangrado configurable hacia afuera. */
         .print-artwork-img {
             display: block;
             position: absolute;
-            inset: 1.2mm;
-            width: calc(100% - 2.4mm);
-            height: calc(100% - 2.4mm);
+            inset: 0;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
             object-position: center;
-            border-radius: 2.2mm;
+            border-radius: inherit;
             z-index: 0;
         }
 
@@ -2744,7 +2756,10 @@ const resetTestInventory = async () => {
             const PrintView = () => {
                 const printA4Sheets = async () => {
                     const root = document.getElementById('print-area-wrapper');
-                    if (!root) { window.print(); return; }
+                    if (!root || !root.querySelector('.print-page-a4')) {
+                        showToast('Selecciona al menos una tarjeta para imprimir.','warning');
+                        return;
+                    }
                     const images = Array.from(root.querySelectorAll('img'));
                     await Promise.all(images.map(img => {
                         if (img.complete && img.naturalWidth > 0) return Promise.resolve();
@@ -2772,6 +2787,15 @@ const resetTestInventory = async () => {
                 const printDirectPageSize = 12;
                 const [previewZoom, setPreviewZoom] = useState(58);
                 const [artworkFitMode, setArtworkFitMode] = useState('cover');
+                const [artworkBleedMm, setArtworkBleedMm] = useState(() => {
+                    const saved=Number(localStorage.getItem('tocaqui_print_bleed_mm_v1'));
+                    return Number.isFinite(saved) && saved >= 0 && saved <= 1.5 ? saved : 1;
+                });
+                const saveArtworkBleed = value => {
+                    const next=Math.max(0,Math.min(1.5,Number(value)||0));
+                    setArtworkBleedMm(next);
+                    localStorage.setItem('tocaqui_print_bleed_mm_v1',String(next));
+                };
                 const [customTemplateFileName, setCustomTemplateFileName] = useState({ front: '', back: '' });
                 const [printCardPickerOpen, setPrintCardPickerOpen] = useState(false);
                 const [printTemplatePickerOpen, setPrintTemplatePickerOpen] = useState(false);
@@ -3044,7 +3068,7 @@ const resetTestInventory = async () => {
                                 color: effectiveTheme === 'clean-white' ? '#0f172a' : '#ffffff'
                             }}
                         >
-                            {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" className="print-artwork-img pointer-events-none" />}
+                            {bgToUse && <img src={bgToUse} alt="" aria-hidden="true" className="print-artwork-img pointer-events-none" style={{'--artwork-bleed': artworkBleedMm+'mm'}} />}
                             {side === 'back' && <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-wider">
                                 <span className="truncate max-w-[120px]">{item.businessName || 'NFC CARD'}</span>
                                 <i className="fa-solid fa-nfc-symbol text-xs text-blue-400"></i>
@@ -3116,14 +3140,14 @@ const resetTestInventory = async () => {
 
                         <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div>
-                                <h1 className="text-2xl font-bold text-white tracking-tight">Estudio de Impresión Masiva en Hoja A4 Dúplex</h1>
-                                <p className="text-slate-400 text-sm mt-1">Imprime tarjetas en diseño vertical u horizontal con alineación Dúplex.</p>
+                                <h1 className="text-2xl font-bold text-white tracking-tight">Estudio de Impresión Masiva en Hoja A4</h1>
+                                <p className="text-slate-400 text-sm mt-1">Imprime exactamente la cara seleccionada. Para dúplex, imprime Anverso y luego Reverso por separado.</p>
                             </div>
                             <button
                                 onClick={printA4Sheets}
                                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl text-xs shadow-lg shadow-emerald-600/25 flex items-center gap-2"
                             >
-                                <i className="fa-solid fa-print text-sm"></i> Imprimir Hojas A4 Dúplex
+                                <i className="fa-solid fa-print text-sm"></i> Imprimir {printConfig.activeSide==='front'?'ANVERSO':'REVERSO'} · {pages.length} hoja{pages.length===1?'':'s'}
                             </button>
                         </div>
 
@@ -3549,6 +3573,15 @@ const resetTestInventory = async () => {
                                     <button type="button" onClick={()=>setArtworkFitMode('cover')} className={`rounded-lg border px-2 py-1 ${artworkFitMode==='cover'?'border-blue-400 bg-blue-500/20 text-white':'border-slate-700'}`}>Sin deformar (recorta)</button>
                                     <span className="text-[10px]">Vuelve a cargar la imagen para aplicar el ajuste.</span>
                                 </div>
+                                <div className="flex flex-wrap items-center gap-2 no-print text-xs text-slate-400">
+                                    <span>Sangrado del fondo:</span>
+                                    {[0,0.5,1,1.5].map(mm=>(
+                                        <button key={mm} type="button" onClick={()=>saveArtworkBleed(mm)} className={`rounded-lg border px-2 py-1 ${artworkBleedMm===mm?'border-emerald-400 bg-emerald-500/20 text-emerald-100':'border-slate-700'}`}>
+                                            {mm===0?'Sin sangrado':mm+' mm'}
+                                        </button>
+                                    ))}
+                                    <span className="text-[10px] text-emerald-300">1 mm recomendado · cubre pequeñas diferencias de borde.</span>
+                                </div>
                                 <div className="w-full max-w-[780px] rounded-2xl border border-slate-700 bg-slate-900/75 p-3 sm:p-4 no-print space-y-3 shadow-lg">
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
@@ -3639,23 +3672,14 @@ const resetTestInventory = async () => {
 
                         {/* A4 orientation follows the selected product, never rotates the artwork. */}
                         <style>{`@media print { @page { size: A4 ${['pvc-horizontal','magnet-horizontal','magnet-square'].includes(printConfig.templateType) ? 'portrait' : 'landscape'}; margin: 0; } }`}</style>
-                        {/* Printable CSS Media Print Wrapper */}
+                        {/* Printable wrapper: exactly one physical A4 per logical page, for the selected side only. */}
                         <div id="print-area-wrapper" className="hidden">
                             {pages.map((pageItems, pageIdx) => (
-                                <React.Fragment key={pageIdx}>
-                                    {/* Page 1: Anverso */}
-                                    <div className="print-page-a4">
-                                        <div className={printConfig.templateType === '10x15' ? 'print-grid-posters' : printConfig.templateType === 'pvc-horizontal' ? 'print-grid-pvc-horizontal' : printConfig.templateType === 'magnet-horizontal' ? 'print-grid-magnet-horizontal' : printConfig.templateType === 'magnet-square' ? 'print-grid-magnet-square' : 'print-grid-pvc-vertical'}>
-                                            {pageItems.map(item => renderCardContent(item, 'front'))}
-                                        </div>
+                                <div className="print-page-a4" key={pageIdx}>
+                                    <div className={printConfig.templateType === '10x15' ? 'print-grid-posters' : printConfig.templateType === 'pvc-horizontal' ? 'print-grid-pvc-horizontal' : printConfig.templateType === 'magnet-horizontal' ? 'print-grid-magnet-horizontal' : printConfig.templateType === 'magnet-square' ? 'print-grid-magnet-square' : 'print-grid-pvc-vertical'}>
+                                        {pageItems.map(item => renderCardContent(item, printConfig.activeSide))}
                                     </div>
-                                    {/* Page 2: Reverso */}
-                                    <div className="print-page-a4">
-                                        <div className={printConfig.templateType === '10x15' ? 'print-grid-posters' : printConfig.templateType === 'pvc-horizontal' ? 'print-grid-pvc-horizontal' : printConfig.templateType === 'magnet-horizontal' ? 'print-grid-magnet-horizontal' : printConfig.templateType === 'magnet-square' ? 'print-grid-magnet-square' : 'print-grid-pvc-vertical'}>
-                                            {pageItems.map(item => renderCardContent(item, 'back'))}
-                                        </div>
-                                    </div>
-                                </React.Fragment>
+                                </div>
                             ))}
                         </div>
                     </div>
