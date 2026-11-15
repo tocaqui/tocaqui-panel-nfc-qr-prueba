@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2255';
+    const TOCAQUI_BUILD = '2026.11.15.2300';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -3470,7 +3470,9 @@ const resetTestInventory = async () => {
                                     )}
                                 </div>
 
-                                                        {/* Live Screen Preview */}
+                            </div>
+
+                            {/* Live Screen Preview */}
                             <div className="lg:col-span-7 flex flex-col items-center justify-start space-y-6 overflow-x-auto">
                                 <span className="text-xs font-mono uppercase text-slate-400 tracking-widest flex items-center gap-2">
                                     <i className="fa-solid fa-eye text-emerald-400"></i> Previsualización A4 ({printConfig.activeSide.toUpperCase()})
