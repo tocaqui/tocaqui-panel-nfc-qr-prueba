@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2330';
+    const TOCAQUI_BUILD = '2026.11.15.2340';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -2917,6 +2917,11 @@ const resetTestInventory = async () => {
                 }, [templates, printTemplateSearch, selectedMixBatch?.productType, printConfig.templateType]);
 
                 const selectedPrintTemplate = templates.find(t=>t.id===printMixTemplateId)||null;
+                useEffect(() => {
+                    const layout=templates.find(t=>t.id===printMixTemplateId)?.printQrLayout;
+                    if(layout?.position && Number.isFinite(layout.position.x) && Number.isFinite(layout.position.y)) setQrDragPosition(layout.position);
+                    if(Number.isFinite(layout?.size)) setPrintConfig(prev=>prev.qrSizePx===layout.size?prev:{...prev,qrSizePx:layout.size});
+                }, [printMixTemplateId]);
                 const printFormatLabel = value =>
                     value==='pvc-horizontal' ? 'PVC horizontal' :
                     value==='pvc-vertical' ? 'PVC vertical' :
@@ -2943,7 +2948,8 @@ const resetTestInventory = async () => {
                         showToast('La plantilla debe usar el mismo formato físico del lote.','warning');
                         return;
                     }
-                    setPrintConfig(prev=>({...prev,templateType:tpl.category,selectedTemplateId:tpl.id}));
+                    setPrintConfig(prev=>({...prev,templateType:tpl.category,selectedTemplateId:tpl.id, qrSizePx:tpl.printQrLayout?.size || prev.qrSizePx}));
+                    if(tpl.printQrLayout?.position) setQrDragPosition(tpl.printQrLayout.position);
                     setPrintMixTemplateId(tpl.id);
                     setPrintTemplatePickerOpen(false);
                     setPrintTemplateSearch('');
@@ -3079,9 +3085,30 @@ const resetTestInventory = async () => {
                     setSelectedQrIdsForSheet(prev => allSelected ? prev.filter(id=>!visibleIds.includes(id)) : [...new Set([...prev,...visibleIds])]);
                 };
 
+                const saveTemplateQrLayout = async () => {
+                    const tpl=templates.find(t=>t.id===printMixTemplateId);
+                    if(!tpl){showToast('Selecciona primero una plantilla en composición mixta.','warning');return;}
+                    if(!qrDragPosition){showToast('Mueve o centra el QR antes de guardar su posición.','warning');return;}
+                    const updated={...tpl,printQrLayout:{position:qrDragPosition,size:printConfig.qrSizePx}};
+                    try {
+                        if(!workshopSession) throw new Error('Inicia sesión para guardar la plantilla.');
+                        await workshopApi({action:'save',session:workshopSession,kind:'templates',items:[updated]});
+                        const verify=await workshopApi({action:'list',session:workshopSession});
+                        const saved=verify.templates?.find(t=>t.id===tpl.id);
+                        if(saved?.printQrLayout?.size!==updated.printQrLayout.size || saved?.printQrLayout?.position?.x!==updated.printQrLayout.position.x || saved?.printQrLayout?.position?.y!==updated.printQrLayout.position.y) throw new Error('No se confirmó la posición.');
+                        const next=templates.map(t=>t.id===tpl.id?updated:t);
+                        last.current={...last.current,templates:next};
+                        setTemplates(next);
+                        showToast('Posición del QR guardada en '+tpl.name+'.','success');
+                    } catch(e){showToast('No se pudo guardar el QR: '+(e.message||e),'error');}
+                };
+
                 const renderCardContent = (item, side = printConfig.activeSide) => {
                     const qrImg = qrCodeImages[item.id] || '';
                     const itemTemplate = item._printTemplate || null;
+                    const editingTemplate = itemTemplate && itemTemplate.id===printMixTemplateId;
+                    const itemQrPosition = editingTemplate ? activeQrPosition : (itemTemplate?.printQrLayout?.position || activeQrPosition);
+                    const itemQrSize = editingTemplate ? printConfig.qrSizePx : (itemTemplate?.printQrLayout?.size || printConfig.qrSizePx);
                     const effectiveTheme = itemTemplate?.defaultTheme || printConfig.theme;
 
                     const alignY = printConfig.qrPosY === 'top' ? 'items-start pt-2' : printConfig.qrPosY === 'bottom' ? 'items-end pb-2' : 'items-center';
@@ -3121,7 +3148,7 @@ const resetTestInventory = async () => {
 
                             {/* Only show QR Code on Front side */}
                             {side === 'front' && (
-                                <div className={activeQrPosition ? 'absolute inset-0 pointer-events-none' : `flex-1 flex ${alignY} ${alignX} my-1`}>
+                                <div className={itemQrPosition ? 'absolute inset-0 pointer-events-none' : `flex-1 flex ${alignY} ${alignX} my-1`}>
                                     <div
                                         onPointerDown={event => {
                                             if (!qrMoveEnabled || !event.currentTarget.closest('.a4-sheet-preview')) return;
@@ -3130,14 +3157,15 @@ const resetTestInventory = async () => {
                                             if (!card) return;
                                             const rect = card.getBoundingClientRect();
                                             const elementRect = event.currentTarget.getBoundingClientRect();
-                                            const start = activeQrPosition || {x: ((elementRect.left+elementRect.width/2-rect.left)/rect.width)*100, y: ((elementRect.top+elementRect.height/2-rect.top)/rect.height)*100};
+                                            if(itemTemplate && !editingTemplate){showToast('Elige esta plantilla en composición mixta antes de mover su QR.','info');return;}
+                                            const start = itemQrPosition || {x: ((elementRect.left+elementRect.width/2-rect.left)/rect.width)*100, y: ((elementRect.top+elementRect.height/2-rect.top)/rect.height)*100};
                                             qrDragRef.current = {card, pointerId:event.pointerId, start, startClientX:event.clientX, startClientY:event.clientY};
                                             event.currentTarget.setPointerCapture(event.pointerId);
                                         }}
                                         onPointerMove={event => { if (qrDragRef.current) { event.preventDefault(); updateQrDrag(event); } }}
                                         onPointerUp={finishQrDrag}
                                         onPointerCancel={() => { qrDragRef.current = null; setQrDragDraft(null); }}
-                                        style={activeQrPosition ? { position: 'absolute', left: activeQrPosition.x + '%', top: activeQrPosition.y + '%', transform: 'translate(-50%, -50%)', pointerEvents: qrMoveEnabled ? 'auto' : 'none', touchAction: qrMoveEnabled ? 'none' : 'auto', cursor: qrMoveEnabled ? 'grab' : 'default', zIndex: 5 } : { pointerEvents: qrMoveEnabled ? 'auto' : 'none', touchAction: qrMoveEnabled ? 'none' : 'auto', cursor: qrMoveEnabled ? 'grab' : 'default' }}
+                                        style={itemQrPosition ? { position: 'absolute', left: itemQrPosition.x + '%', top: itemQrPosition.y + '%', transform: 'translate(-50%, -50%)', pointerEvents: qrMoveEnabled ? 'auto' : 'none', touchAction: qrMoveEnabled ? 'none' : 'auto', cursor: qrMoveEnabled ? 'grab' : 'default', zIndex: 5 } : { pointerEvents: qrMoveEnabled ? 'auto' : 'none', touchAction: qrMoveEnabled ? 'none' : 'auto', cursor: qrMoveEnabled ? 'grab' : 'default' }}
                                         className={`transition-all ${
                                             printConfig.qrBgStyle === 'white-box' ? 'bg-white rounded-xl shadow-md p-1.5' :
                                             printConfig.qrBgStyle === 'glass' ? 'bg-white/25 backdrop-blur-md border border-white/30 rounded-xl p-1.5 shadow-lg' :
@@ -3148,7 +3176,7 @@ const resetTestInventory = async () => {
                                         <img
                                             src={qrImg}
                                             alt="QR Code"
-                                            style={{ width: `${printConfig.qrSizePx}px`, height: `${printConfig.qrSizePx}px` }}
+                                            style={{ width: `${itemQrSize}px`, height: `${itemQrSize}px` }}
                                             className="object-contain block"
                                         />
                                     </div>
@@ -3550,6 +3578,8 @@ const resetTestInventory = async () => {
                                         <button type="button" onClick={() => setQrMoveEnabled(v => !v)} className={`w-full rounded-xl border py-3 text-xs font-bold ${qrMoveEnabled ? 'bg-cyan-600/25 border-cyan-400 text-cyan-200' : 'bg-slate-800 border-slate-600 text-slate-200'}`}>
                                             <i className="fa-solid fa-up-down-left-right mr-2"></i>{qrMoveEnabled ? 'Mover QR activo · Ajuste continuo' : 'Activar movimiento del QR'}
                                         </button>
+                                        <button type="button" onClick={saveTemplateQrLayout} className="w-full rounded-xl border border-violet-500/40 bg-violet-600/20 py-2 text-xs font-bold text-violet-200">Guardar QR para {selectedPrintTemplate?.name || 'la plantilla elegida'}</button>
+                                        <p className="text-[10px] text-slate-400">En composición mixta, elige una plantilla, mueve su QR y guarda. Repite con cada diseño.</p>
                                         <p className="text-[11px] text-slate-400">El QR permanece movible después de soltarlo. Arrastra desde su posición actual sin saltos; usa las flechas para calibrar con precisión. Se guarda automáticamente para la impresión.</p>
                                         <div className="flex items-center gap-3 flex-wrap rounded-xl border border-slate-700 bg-slate-900/60 p-2.5">
                                             <span className="text-[11px] text-slate-400">Calibración fina · 1%</span>
@@ -4887,3 +4917,4 @@ root.render(<TocaquiErrorBoundary><App cloud={cloud} /></TocaquiErrorBoundary>);
     </script>
 </body>
 </html>
+
