@@ -336,6 +336,18 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
         }
 
+        /* iOS/Safari: avoid automatic focus zoom and double-tap zoom on controls. */
+        @media screen and (max-width: 767px) {
+            html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+            input, select, textarea {
+                font-size: 16px !important;
+                line-height: 1.35 !important;
+            }
+            button, a, input, select, textarea, [role="button"] {
+                touch-action: manipulation;
+            }
+        }
+
         /* TOCAQUI Tech Premium · isolated visual shell (screen only) */
         @media screen {
             .app-shell-header {
@@ -2443,6 +2455,7 @@ const resetTestInventory = async () => {
                 const [printTemplatePickerOpen, setPrintTemplatePickerOpen] = useState(false);
                 const [printCardSearch, setPrintCardSearch] = useState('');
                 const [printTemplateSearch, setPrintTemplateSearch] = useState('');
+                const [printTemplateFormatFilter, setPrintTemplateFormatFilter] = useState('all');
                 const [qrMoveEnabled, setQrMoveEnabled] = useState(true);
                 const [qrDragPosition, setQrDragPosition] = useState(() => {
                     try {
@@ -2491,15 +2504,22 @@ const resetTestInventory = async () => {
                 const visiblePrintQrs = useMemo(() => qrs.filter(q => printBatchFilter === 'all' || (q.batchId || 'legacy') === printBatchFilter), [qrs, printBatchFilter]);
                 const mixTemplates = useMemo(() => {
                     const term=printTemplateSearch.trim().toLowerCase();
+                    const order={ 'pvc-vertical':0, 'pvc-horizontal':1, '10x15':2 };
                     return templates
+                        .filter(t=>printTemplateFormatFilter==='all' || t.category===printTemplateFormatFilter)
                         .filter(t=>!term || String(t.name||'').toLowerCase().includes(term) || String(t.category||'').toLowerCase().includes(term))
                         .sort((a,b)=>{
-                            const ac=a.category===printConfig.templateType?0:1;
-                            const bc=b.category===printConfig.templateType?0:1;
-                            if(ac!==bc)return ac-bc;
+                            const ao=order[a.category]??9, bo=order[b.category]??9;
+                            if(ao!==bo)return ao-bo;
                             return String(a.name||'').localeCompare(String(b.name||''),'es');
                         });
-                }, [templates, printConfig.templateType, printTemplateSearch]);
+                }, [templates, printTemplateSearch, printTemplateFormatFilter]);
+                const templateFormatCounts = useMemo(() => ({
+                    all: templates.length,
+                    'pvc-vertical': templates.filter(t=>t.category==='pvc-vertical').length,
+                    'pvc-horizontal': templates.filter(t=>t.category==='pvc-horizontal').length,
+                    '10x15': templates.filter(t=>t.category==='10x15').length
+                }), [templates]);
 
                 const visiblePrintCards = useMemo(() => {
                     const term=printCardSearch.trim().toLowerCase();
@@ -2518,11 +2538,8 @@ const resetTestInventory = async () => {
                     setPrintMixCardId(card.id);
                     setPrintCardPickerOpen(false);
                     setPrintCardSearch('');
-                    if(!printComposition.length && card.productType && card.productType!==printConfig.templateType){
-                        setPrintConfig(prev=>({...prev,templateType:card.productType}));
-                        const firstCompatible=templates.find(t=>t.category===card.productType);
-                        if(firstCompatible)setPrintMixTemplateId(firstCompatible.id);
-                    }
+                    // El TAG se selecciona de forma independiente del diseño.
+                    // La orientación se define recién al elegir la plantilla.
                 };
 
                 const choosePrintTemplate = tpl => {
@@ -2539,6 +2556,7 @@ const resetTestInventory = async () => {
                     setPrintMixTemplateId(tpl.id);
                     setPrintTemplatePickerOpen(false);
                     setPrintTemplateSearch('');
+                    setPrintTemplateFormatFilter('all');
                 };
 
                 useEffect(() => {
@@ -2900,7 +2918,7 @@ const resetTestInventory = async () => {
                                                     <div className="p-2.5 border-b border-slate-800">
                                                         <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
                                                             <i className="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
-                                                            <input autoFocus value={printCardSearch} onChange={e=>setPrintCardSearch(e.target.value)} placeholder="Buscar tarjeta, cliente o lote…" className="w-full bg-transparent py-2.5 text-xs text-white outline-none placeholder:text-slate-600"/>
+                                                            <input value={printCardSearch} onChange={e=>setPrintCardSearch(e.target.value)} placeholder="Buscar tarjeta, cliente o lote…" className="w-full bg-transparent py-2.5 text-xs text-white outline-none placeholder:text-slate-600"/>
                                                         </div>
                                                     </div>
                                                     <div className="max-h-64 overflow-y-auto divide-y divide-slate-800">
@@ -2939,7 +2957,7 @@ const resetTestInventory = async () => {
                                                     <div className="p-2.5 border-b border-slate-800">
                                                         <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
                                                             <i className="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
-                                                            <input autoFocus value={printTemplateSearch} onChange={e=>setPrintTemplateSearch(e.target.value)} placeholder="Buscar plantilla…" className="w-full bg-transparent py-2.5 text-xs text-white outline-none placeholder:text-slate-600"/>
+                                                            <input value={printTemplateSearch} onChange={e=>setPrintTemplateSearch(e.target.value)} placeholder="Buscar plantilla…" className="w-full bg-transparent py-2.5 text-xs text-white outline-none placeholder:text-slate-600"/>
                                                         </div>
                                                         <p className="text-[9px] text-slate-600 mt-2 px-1">Se muestran todas tus plantillas. Las compatibles con el formato actual aparecen primero.</p>
                                                     </div>
