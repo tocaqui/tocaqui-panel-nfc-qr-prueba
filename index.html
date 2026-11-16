@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.16.1030';
+    const TOCAQUI_BUILD = '2026.11.16.1040';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -989,6 +989,7 @@
             const [resetConfirmText, setResetConfirmText] = useState('');
             const [resetOpen, setResetOpen] = useState(false);
             const [resetBusy, setResetBusy] = useState(false);
+            const [resetChoices, setResetChoices] = useState({cards:false,clients:false,templates:false,events:false,feedback:false});
 
             // Modals & Notifications
             const [activateModal, setActivateModal] = useState({ open: false, qr: null });
@@ -1181,46 +1182,25 @@ useEffect(()=>sync('clients','tocaqui_admin_qr_clients',clients),[clients,cloudR
 useEffect(()=>sync('templates','tocaqui_admin_qr_templates',templates),[templates,cloudReady,templatesReady]);
 
 const resetTestInventory = async () => {
-                if (resetConfirmText !== 'REINICIAR TOCAQUI' || resetBusy) return;
+                const choices=Object.keys(resetChoices).filter(key=>resetChoices[key]);
+                if (resetConfirmText !== 'REINICIAR TOCAQUI' || resetBusy || !choices.length) return;
                 setResetBusy(true);
                 try {
-                    if (!cloudReady || !workshopSession) throw new Error('Se requiere un equipo autorizado y conexión a Supabase.');
+                    if (!cloudReady || !workshopSession || !templatesReady) throw new Error('Espera a que termine la carga y verifica tu sesión.');
                     await queue.current;
-
-                    const result = await workshopApi({action:'resetOperational',session:workshopSession});
-                    if(!result?.ok) throw new Error(result?.error || 'El servidor no confirmó el reinicio.');
-
-                    const verify = await workshopApi({action:'list',session:workshopSession});
-                    if((verify.cards||[]).length || (verify.clients||[]).length || (verify.templates||[]).length) {
-                        throw new Error('La verificación final todavía encontró datos operativos.');
-                    }
-                    const analyticsVerify = await workshopApi({action:'analytics',session:workshopSession});
-                    if(Number(analyticsVerify.totalScans||0)!==0 || Number(analyticsVerify.totalActivations||0)!==0) {
-                        throw new Error('La analítica todavía conserva eventos antiguos.');
-                    }
-
-                    last.current={qrs:[],clients:[],templates:[]};
-                    setQrs([]);
-                    setClients([]);
-                    setTemplates([]);
-                    setSelectedQrIdsForSheet([]);
-                    setPrintComposition([]);
-                    setPrintMixCardId('');
-                    setPrintMixTemplateId('');
-                    setTemplateDraft({ name:'', category:'pvc-horizontal', frontBg:'', backBg:'', frontName:'', backName:'' });
-                    setTemplateModal({ open:false, isEditing:false, data:null });
-                    setPrintConfig(prev=>({...prev,selectedTemplateId:null,customFrontBg:'',customBackBg:'',theme:'dark-neon'}));
-                    setServerAnalytics({scans:0,activations:0,perCard:{},perClient:{},perBusiness:{},updatedAt:new Date().toISOString()});
-
-                    ['nfc_qrs_v6','nfc_clients_v6','nfc_templates_v6','tocaqui_print_composition_v1'].forEach(key=>localStorage.removeItem(key));
-
-                    setResetOpen(false);
-                    setResetConfirmText('');
-                    showToast('TOCAQUI quedó vacío de datos operativos. Configuración, PIN y equipos autorizados se conservaron.', 'success');
-                } catch(err) {
-                    setCloudError('Reinicio incompleto: '+err.message);
-                    showToast('No se completó el reinicio: '+err.message,'error');
-                } finally {setResetBusy(false);}
+                    const result=await workshopApi({action:'selectiveReset',session:workshopSession,choices});
+                    if(!result?.ok) throw new Error(result?.error||'El servidor no confirmó el reinicio.');
+                    const verify=await workshopApi({action:'list',session:workshopSession});
+                    if((resetChoices.cards&&verify.cards?.length)||(resetChoices.clients&&verify.clients?.length)||(resetChoices.templates&&verify.templates?.length)) throw new Error('La verificación encontró datos que debían eliminarse.');
+                    last.current={qrs:verify.cards,clients:verify.clients,templates:verify.templates};
+                    setQrs(verify.cards);setClients(verify.clients);setTemplates(verify.templates);
+                    if(resetChoices.cards){setSelectedQrIdsForSheet([]);setPrintComposition([]);setPrintMixCardId('');localStorage.removeItem('tocaqui_print_composition_v1');}
+                    if(resetChoices.templates){setPrintComposition([]);setPrintMixTemplateId('');setTemplateDraft({ name:'', category:'pvc-horizontal', frontBg:'', backBg:'', frontName:'', backName:'' });setTemplateModal({open:false,isEditing:false,data:null});setPrintConfig(prev=>({...prev,selectedTemplateId:null,customFrontBg:'',customBackBg:'',theme:'dark-neon'}));localStorage.removeItem('tocaqui_print_composition_v1');}
+                    if(resetChoices.events||resetChoices.cards){const a=await workshopApi({action:'analytics',session:workshopSession});setServerAnalytics({scans:Number(a.totalScans||0),activations:Number(a.totalActivations||0),perCard:a.perCard||{},perClient:a.perClient||{},perBusiness:a.perBusiness||{},updatedAt:new Date().toISOString()});}
+                    setResetOpen(false);setResetConfirmText('');setResetChoices({cards:false,clients:false,templates:false,events:false,feedback:false});
+                    showToast('Se eliminaron las categorías seleccionadas.','success');
+                } catch(err) {setCloudError('Reinicio incompleto: '+err.message);showToast('Revisa el resultado del reinicio: '+err.message,'error');}
+                finally {setResetBusy(false);}
             };
                         const showToast = (msg, type = 'info') => {
                 setToast({ show: true, msg, type });
@@ -1659,10 +1639,10 @@ const resetTestInventory = async () => {
                                     <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center justify-center shrink-0"><i className="fa-solid fa-rotate-left"></i></div>
                                     <div>
                                         <div className="text-xs font-bold text-rose-200">Reinicio de datos operativos</div>
-                                        <p className="text-[10px] text-slate-500 mt-1 max-w-2xl">Borra tarjetas/lotes, clientes, plantillas y sus fotografías, composición de impresión, eventos, escaneos y feedback. Conserva PIN, dispositivos autorizados, claves, conexiones y configuración del sistema.</p>
+                                        <p className="text-[10px] text-slate-500 mt-1 max-w-2xl">Selecciona exactamente qué datos eliminar. El PIN, los equipos autorizados y la configuración se conservan.</p>
                                     </div>
                                 </div>
-                                <button type="button" onClick={()=>{setResetConfirmText('');setResetOpen(true)}} className="min-h-[40px] rounded-xl border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 text-rose-200 px-4 text-xs font-semibold shrink-0">
+                                <button type="button" onClick={()=>{setResetConfirmText('');setResetChoices({cards:false,clients:false,templates:false,events:false,feedback:false});setResetOpen(true)}} className="min-h-[40px] rounded-xl border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 text-rose-200 px-4 text-xs font-semibold shrink-0">
                                     <i className="fa-solid fa-trash-can-arrow-up mr-1.5"></i>Reiniciar datos
                                 </button>
                             </div>
@@ -1675,17 +1655,15 @@ const resetTestInventory = async () => {
                                         <div><div className="text-[10px] uppercase tracking-[.16em] text-rose-300 font-bold">Acción irreversible</div><h3 className="text-lg font-bold text-white mt-1">Vaciar datos operativos</h3></div>
                                         <button type="button" onClick={()=>{if(!resetBusy){setResetOpen(false);setResetConfirmText('')}}} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-400"><i className="fa-solid fa-xmark"></i></button>
                                     </div>
-                                    <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 mt-4 text-xs text-slate-400 space-y-1">
-                                        <div><i className="fa-solid fa-trash text-rose-300 w-5"></i>Tarjetas, lotes y clientes</div>
-                                        <div><i className="fa-solid fa-image text-rose-300 w-5"></i>Plantillas y fotografías</div>
-                                        <div><i className="fa-solid fa-chart-line text-rose-300 w-5"></i>Escaneos, activaciones y feedback</div>
-                                        <div><i className="fa-solid fa-shield-halved text-emerald-300 w-5"></i>PIN, equipos, credenciales y configuración se conservan</div>
+                                    <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 mt-4 text-xs text-slate-300 space-y-3">
+                                        {[{id:'clients',name:'Clientes',desc:'Las tarjetas se conservan y quedan sin cliente asociado.'},{id:'templates',name:'Plantillas e imágenes',desc:'Se quitan las asignaciones de diseño de las tarjetas.'},{id:'cards',name:'Tarjetas y lotes',desc:'También borra sus eventos y comentarios asociados.'},{id:'events',name:'Escaneos y activaciones',desc:'Borra el historial de actividad.'},{id:'feedback',name:'Comentarios privados',desc:'Borra las opiniones registradas.'}].map(item=><label key={item.id} className="flex items-start gap-2"><input type="checkbox" checked={resetChoices[item.id]} onChange={e=>setResetChoices(prev=>({...prev,[item.id]:e.target.checked}))}/><span><strong className="block text-white">{item.name}</strong><span className="text-slate-400">{item.desc}</span></span></label>)}
+                                        <p className="text-emerald-300">PIN, equipos autorizados y configuración se conservan.</p>
                                     </div>
                                     <label className="block text-[10px] uppercase tracking-wider text-slate-500 mt-4 mb-1.5">Escribe REINICIAR TOCAQUI</label>
                                     <input id="tocaqui-reset-confirm" name="reset-confirmation" autoComplete="off" value={resetConfirmText} onChange={e=>setResetConfirmText(e.target.value)} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" placeholder="REINICIAR TOCAQUI"/>
                                     <div className="grid grid-cols-2 gap-2 mt-4">
                                         <button type="button" disabled={resetBusy} onClick={()=>{setResetOpen(false);setResetConfirmText('')}} className="min-h-[42px] rounded-xl border border-slate-700 bg-slate-800 text-slate-300 text-xs font-semibold">Cancelar</button>
-                                        <button type="button" disabled={resetBusy||!cloudReady||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="min-h-[42px] rounded-xl bg-rose-600 text-white text-xs font-semibold disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio'}</button>
+                                        <button type="button" disabled={resetBusy||!cloudReady||!templatesReady||!Object.values(resetChoices).some(Boolean)||resetConfirmText!=='REINICIAR TOCAQUI'} onClick={resetTestInventory} className="min-h-[42px] rounded-xl bg-rose-600 text-white text-xs font-semibold disabled:opacity-40">{resetBusy?'Reiniciando…':'Confirmar reinicio'}</button>
                                     </div>
                                 </div>
                             </div>
@@ -1695,6 +1673,11 @@ const resetTestInventory = async () => {
             };
 
             // 2. BATCH GENERATOR VIEW
+            // Keep the reset dialog mounted while selecting options and typing.
+            const dashboardViewLatest=useRef(DashboardView);
+            dashboardViewLatest.current=DashboardView;
+            const StableDashboardView=useMemo(()=>function StableDashboardView(){return dashboardViewLatest.current();},[]);
+
             const BatchView = () => {
                 const [count, setCount] = useState(10);
                 const [batchName, setBatchName] = useState('Lote nuevo');
@@ -5031,7 +5014,7 @@ const resetTestInventory = async () => {
                                 <AdminSidebar />
                                 <main className="tocaqui-app-main flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 no-print">
                                     <div className="max-w-7xl mx-auto">
-                                        {adminTab === 'dashboard' && <DashboardView />}
+                                        {adminTab === 'dashboard' && <StableDashboardView />}
                                         {!templatesReady && adminTab!=='dashboard' ? <div role="status" className="rounded-xl p-5 bg-slate-900 text-slate-200">{templateError ? <>No se pudieron cargar las plantillas. <button onClick={()=>setLoadRetry(v=>v+1)}>Reintentar</button></> : 'Cargando plantillas…'}</div> : null}
                                         {templatesReady && adminTab === 'batch' && <StableBatchView />}
                                         {templatesReady && adminTab === 'qrs' && <QRManagementView />}
