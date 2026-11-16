@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.16.1050';
+    const TOCAQUI_BUILD = '2026.11.16.1060';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -227,27 +227,14 @@
             }
         }
 
-        /* Optional trim guides are overlays; they do not change card dimensions or grid spacing. */
-        .cut-guides .card-pvc-vertical::after,
-        .cut-guides .card-pvc-horizontal::after,
-        .cut-guides .card-poster-10x15::after,
-        .cut-guides .card-magnet-horizontal::after,
-        .cut-guides .card-magnet-square::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            box-sizing: border-box;
-            border: 0.15mm dashed #111827;
-            outline: 0.12mm solid rgba(255,255,255,0.85);
-            border-radius: 0;
-            pointer-events: none;
-            z-index: 30;
-        }
+        /* Guillotine guides are drawn across the physical sheet without changing the grid. */
+        .sheet-cut-guides { position:absolute; inset:0; width:100%; height:100%; z-index:40; pointer-events:none; overflow:visible; }
 
         /* Screen Preview A4 Sheet Box */
         .a4-sheet-preview {
             width: 210mm;
             min-height: 297mm;
+            height: 297mm;
             background-color: #ffffff;
             color: #0f172a;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
@@ -626,6 +613,24 @@
             }
             return trimmed;
         };
+
+        const getCutGuideGeometry = (type) => {
+            const formats={
+                'pvc-vertical':{w:297,h:210,cols:5,rows:2,cw:54,ch:85.6,gx:2.5,gy:2.5},
+                'pvc-horizontal':{w:210,h:297,cols:2,rows:5,cw:85.6,ch:54,gx:6,gy:2},
+                '10x15':{w:297,h:210,cols:2,rows:1,cw:100,ch:150,gx:12,gy:0},
+                'magnet-horizontal':{w:210,h:297,cols:3,rows:6,cw:60,ch:40,gx:3,gy:3},
+                'magnet-square':{w:210,h:297,cols:3,rows:5,cw:50,ch:50,gx:3,gy:3}
+            };
+            const f=formats[type]||formats['pvc-vertical'];
+            const left=(f.w-(f.cols*f.cw+(f.cols-1)*f.gx))/2;
+            const top=(f.h-(f.rows*f.ch+(f.rows-1)*f.gy))/2;
+            const xs=[],ys=[];
+            for(let i=0;i<f.cols;i++){const v=left+i*(f.cw+f.gx);xs.push(v,v+f.cw);}
+            for(let i=0;i<f.rows;i++){const v=top+i*(f.ch+f.gy);ys.push(v,v+f.ch);}
+            return {w:f.w,h:f.h,xs:[...new Set(xs)],ys:[...new Set(ys)]};
+        };
+        // CUT_GUIDES_END
 
         const getBaseTagUrl = (code) => {
             return `https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-admin-qr-test-r/${code}`;
@@ -3255,6 +3260,13 @@ const resetTestInventory = async () => {
                     } catch(e){showToast('No se pudo guardar el QR: '+(e.message||e),'error');}
                 };
 
+                const renderCutGuides = () => {
+                    if(!showCutGuides) return null;
+                    const g=getCutGuideGeometry(printConfig.templateType);
+                    const lines=[...g.xs.map((x,i)=><line key={'x'+i} x1={x} y1="0" x2={x} y2={g.h}/>),...g.ys.map((y,i)=><line key={'y'+i} x1="0" y1={y} x2={g.w} y2={y}/>)];
+                    return <svg aria-hidden="true" className="sheet-cut-guides" viewBox={`0 0 ${g.w} ${g.h}`} preserveAspectRatio="none"><g fill="none" stroke="white" strokeWidth="0.35">{lines}</g><g fill="none" stroke="#111827" strokeWidth="0.12">{lines}</g></svg>;
+                };
+
                 const renderCardContent = (item, side = printConfig.activeSide) => {
                     const qrImg = qrCodeImages[item.id] || '';
                     const itemTemplate = item._printTemplate || null;
@@ -3756,7 +3768,7 @@ const resetTestInventory = async () => {
 
                                 <label className="w-full max-w-[780px] flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/75 p-3 text-xs text-slate-200 no-print cursor-pointer">
                                     <input type="checkbox" checked={showCutGuides} onChange={e=>setShowCutGuides(e.target.checked)} className="h-4 w-4 accent-cyan-500" />
-                                    <span><strong className="block text-white">Guías de corte</strong><span className="text-slate-400">Imprime una línea fina en el borde de cada tarjeta. No cambia el tamaño; imprime al 100%.</span></span>
+                                    <span><strong className="block text-white">Guías de corte</strong><span className="text-slate-400">Dibuja líneas por toda la hoja en los bordes de corte. Imprime al 100% y comprueba las medidas.</span></span>
                                 </label>
                                 <div className="flex items-center gap-2 no-print text-xs text-slate-400">
                                     <span>Vista reducida</span>
@@ -3779,6 +3791,7 @@ const resetTestInventory = async () => {
                                         }>
                                             {pageItems.map(item => renderCardContent(item, printConfig.activeSide))}
                                         </div>
+                                        {renderCutGuides()}
                                     </div>
                                 ))}
                             </div>
@@ -3793,6 +3806,7 @@ const resetTestInventory = async () => {
                                     <div className={printConfig.templateType === '10x15' ? 'print-grid-posters' : printConfig.templateType === 'pvc-horizontal' ? 'print-grid-pvc-horizontal' : printConfig.templateType === 'magnet-horizontal' ? 'print-grid-magnet-horizontal' : printConfig.templateType === 'magnet-square' ? 'print-grid-magnet-square' : 'print-grid-pvc-vertical'}>
                                         {pageItems.map(item => renderCardContent(item, printConfig.activeSide))}
                                     </div>
+                                    {renderCutGuides()}
                                 </div>
                             ))}
                         </div>
