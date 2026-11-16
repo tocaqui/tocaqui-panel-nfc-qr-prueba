@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.16.1060';
+    const TOCAQUI_BUILD = '2026.11.16.1070';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -3056,11 +3056,12 @@ const resetTestInventory = async () => {
                 const mixAssignedCardIds = useMemo(() => new Set(printComposition.map(entry=>entry.cardId)), [printComposition]);
                 const mixAvailableCards = useMemo(() => mixBatchCards.filter(card=>!mixAssignedCardIds.has(card.id)), [mixBatchCards, mixAssignedCardIds]);
 
+                const isPrintTemplateCompatible = (format, category) => format === '10x15' || format === category;
                 const mixTemplates = useMemo(() => {
                     const term=printTemplateSearch.trim().toLowerCase();
                     const format=selectedMixBatch?.productType || printConfig.templateType;
                     return templates
-                        .filter(t=>t.category===format)
+                        .filter(t=>isPrintTemplateCompatible(format, t.category))
                         .filter(t=>!term || String(t.name||'').toLowerCase().includes(term) || String(t.category||'').toLowerCase().includes(term))
                         .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'es'));
                 }, [templates, printTemplateSearch, selectedMixBatch?.productType, printConfig.templateType]);
@@ -3102,11 +3103,11 @@ const resetTestInventory = async () => {
                 };
 
                 const choosePrintTemplate = tpl => {
-                    if(selectedMixBatch && tpl.category!==selectedMixBatch.productType){
+                    if(selectedMixBatch && !isPrintTemplateCompatible(selectedMixBatch.productType, tpl.category)){
                         showToast('La plantilla debe usar el mismo formato físico del lote.','warning');
                         return;
                     }
-                    setPrintConfig(prev=>({...prev,templateType:tpl.category,selectedTemplateId:tpl.id}));
+                    setPrintConfig(prev=>({...prev,templateType:selectedMixBatch?.productType || tpl.category,selectedTemplateId:tpl.id}));
                     selectQrTemplate(tpl);
                     setPrintTemplatePickerOpen(false);
                     setPrintTemplateSearch('');
@@ -3140,7 +3141,7 @@ const resetTestInventory = async () => {
 
                 useEffect(() => {
                     const format=selectedMixBatch?.productType || printConfig.templateType;
-                    const compatible=templates.find(t=>t.id===printMixTemplateId && t.category===format);
+                    const compatible=templates.find(t=>t.id===printMixTemplateId && isPrintTemplateCompatible(format, t.category));
                     if(!compatible){
                         const first=templates.find(t=>t.category===format);
                         setPrintMixTemplateId(first?.id || '');
@@ -3151,7 +3152,7 @@ const resetTestInventory = async () => {
                     return printComposition.map(entry => {
                         const card = qrs.find(q => q.id === entry.cardId);
                         const tpl = templates.find(t => t.id === entry.templateId);
-                        if (!card || !tpl || tpl.category !== printConfig.templateType) return null;
+                        if (!card || !tpl || !isPrintTemplateCompatible(printConfig.templateType, tpl.category)) return null;
                         return {...card, _printEntryId:entry.id, _printTemplate:tpl};
                     }).filter(Boolean);
                 }, [printComposition, qrs, templates, printConfig.templateType]);
@@ -3171,7 +3172,7 @@ const resetTestInventory = async () => {
                     printComposition.forEach(entry => {
                         const card=qrs.find(q=>q.id===entry.cardId);
                         const tpl=templates.find(t=>t.id===entry.templateId);
-                        if(!card || !tpl || tpl.category!==printConfig.templateType) return;
+                        if(!card || !tpl || !isPrintTemplateCompatible(printConfig.templateType, tpl.category)) return;
                         const key=tpl.id;
                         const prev=map.get(key) || {key,tpl,cards:[],count:0};
                         prev.cards.push(card);
@@ -3605,8 +3606,9 @@ const resetTestInventory = async () => {
 
                                     {printTemplatePickerOpen&&(
                                         <section aria-label="Biblioteca de diseños" className="rounded-xl border border-violet-500/30 bg-slate-950 p-3 space-y-3">
-                                            <div className="flex items-center justify-between gap-2"><div><div className="text-sm font-bold text-white">Elegir diseño</div><div className="text-[10px] text-slate-400">{mixTemplates.length} compatibles · toca una imagen para seleccionarla</div></div><button type="button" onClick={()=>setPrintTemplatePickerOpen(false)} className="w-9 h-9 rounded-lg bg-slate-800 text-slate-300" aria-label="Cerrar selector de diseños"><i className="fa-solid fa-xmark"></i></button></div>
+                                            <div className="flex items-center justify-between gap-2"><div><div className="text-sm font-bold text-white">Elegir diseño</div><div className="text-[10px] text-slate-400">{mixTemplates.length} diseños · toca una imagen para seleccionarla</div></div><button type="button" onClick={()=>setPrintTemplatePickerOpen(false)} className="w-9 h-9 rounded-lg bg-slate-800 text-slate-300" aria-label="Cerrar selector de diseños"><i className="fa-solid fa-xmark"></i></button></div>
                                             <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3"><i className="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i><input value={printTemplateSearch} onChange={e=>setPrintTemplateSearch(e.target.value)} placeholder="Buscar Google, WiFi, Catálogo…" className="w-full bg-transparent py-2.5 text-sm text-white outline-none placeholder:text-slate-600"/></div>
+                                            {selectedMixBatch?.productType==='10x15' && <p className="text-[10px] text-amber-300">Puedes usar diseños de otros formatos. La imagen se adapta a 10 × 15 cm y puede recortarse; revisa la vista previa y la posición del QR antes de imprimir.</p>}
                                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[26rem] overflow-y-auto overscroll-contain">
                                                 {mixTemplates.length?mixTemplates.map(tpl=><button key={tpl.id} type="button" onClick={()=>choosePrintTemplate(tpl)} aria-pressed={tpl.id===printMixTemplateId} className={'min-w-0 rounded-xl border p-2 text-left '+(tpl.id===printMixTemplateId?'border-violet-400 bg-violet-500/15':'border-slate-700 bg-slate-900/70')}>
                                                     <span className="h-28 sm:h-32 w-full rounded-lg bg-slate-950 flex items-center justify-center overflow-hidden">{tpl.frontBg?<img src={tpl.frontBg} alt="" className="max-w-full max-h-full object-contain"/>:<i className="fa-solid fa-image text-slate-500"></i>}</span>
