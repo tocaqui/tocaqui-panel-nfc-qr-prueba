@@ -6,10 +6,16 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Admin NFC & QR Dinámico PWA</title>
+    <title>TOCAQUI</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/icon-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="TOCAQUI">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2430';
+    const TOCAQUI_BUILD = '2026.11.15.2450';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -603,6 +609,16 @@
 
         const getBaseTagUrl = (code) => {
             return `https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-admin-qr-test-r/${code}`;
+        };
+
+        // Use WhatsApp's international HTTPS link; Chilean mobile numbers may be entered locally.
+        const makeWhatsAppLink = (value) => {
+            const raw=String(value||'').trim();
+            if(!raw || /[^0-9+()\s.-]/.test(raw) || (raw.match(/\+/g)||[]).length>1 || (raw.includes('+')&&!raw.startsWith('+'))) return '';
+            let digits=raw.replace(/\D/g,'');
+            if(/^9\d{8}$/.test(digits)) digits='56'+digits;
+            if(!/^[1-9]\d{9,14}$/.test(digits)) return '';
+            return 'https://wa.me/'+digits;
         };
 
         const generateQRBase64 = async (text, size = 300) => {
@@ -4342,6 +4358,7 @@ const resetTestInventory = async () => {
                 const [selectedPlace, setSelectedPlace] = useState(qr.businessName && qr.placeId ? { name: qr.businessName, address: qr.businessAddress || '', placeId: qr.placeId } : null);
                 const [presetType, setPresetType] = useState(qr.functionType || 'review_gate');
                 const [customUrl, setCustomUrl] = useState(qr.dynamicUrl || '');
+                const [whatsAppNumber, setWhatsAppNumber] = useState('');
                 const [assignedClient, setAssignedClient] = useState(qr.clientId || '');
 
                 const [placeSuggestions, setPlaceSuggestions] = useState([]);
@@ -4619,7 +4636,15 @@ const resetTestInventory = async () => {
                                             </button>
                                         ))}
                                     </div>
-                                    {presetType==='custom_url'&&<input type="url" value={customUrl} onChange={e=>setCustomUrl(e.target.value)} className="w-full glass-input px-3 py-3 rounded-xl text-xs font-mono mt-3" placeholder="https://..."/>}
+                                    {presetType==='custom_url'&&<div className="mt-3 space-y-2">
+                                        <input type="url" value={customUrl} onChange={e=>setCustomUrl(e.target.value)} className="w-full glass-input px-3 py-3 rounded-xl text-xs font-mono" placeholder="https://..."/>
+                                        <details className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3">
+                                            <summary className="cursor-pointer text-xs font-semibold text-emerald-300"><i className="fa-brands fa-whatsapp mr-2"></i>Crear enlace de WhatsApp</summary>
+                                            <p className="text-[11px] text-slate-400 mt-2">Escribe el número con código de país. En Chile también puedes ingresar 9 dígitos, comenzando por 9.</p>
+                                            <div className="flex gap-2 mt-2"><input type="tel" inputMode="tel" value={whatsAppNumber} onChange={e=>setWhatsAppNumber(e.target.value)} className="min-w-0 flex-1 glass-input px-3 py-2 text-sm rounded-lg" placeholder="+56 9 1234 5678"/><button type="button" onClick={()=>{const link=makeWhatsAppLink(whatsAppNumber);if(!link){showToast('Revisa el número y su código de país.','warning');return;}setCustomUrl(link);showToast('Enlace de WhatsApp preparado.','success');}} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Usar</button></div>
+                                            <p className="text-[10px] text-slate-500 mt-2">Verifica el número antes de activar la tarjeta.</p>
+                                        </details>
+                                    </div>}
                                 </section>
 
                                 <section className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
@@ -4951,6 +4976,7 @@ root.render(<TocaquiErrorBoundary><App cloud={cloud} /></TocaquiErrorBoundary>);
     </script>
 </body>
 </html>
+
 
 
 
