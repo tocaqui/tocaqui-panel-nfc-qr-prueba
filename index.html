@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.16.1010';
+    const TOCAQUI_BUILD = '2026.11.16.1020';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -630,6 +630,9 @@
         const getBaseTagUrl = (code) => {
             return `https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-admin-qr-test-r/${code}`;
         };
+
+        // This URL is used only for NFC programming; existing printed QR codes keep working.
+        const getNfcTagUrl = (code) => `https://go.tocaqui.store/nfc/?tag=${encodeURIComponent(code)}`;
 
         // Use WhatsApp's international HTTPS link; Chilean mobile numbers may be entered locally.
         const makeWhatsAppLink = (value) => {
@@ -1358,7 +1361,7 @@ const resetTestInventory = async () => {
                 qrs.forEach(q => {
                     const client = clients.find(c => c.id === q.clientId);
                     const clientName = client ? `"${client.name} - ${client.company}"` : "Sin Asignar";
-                    csv += `${q.id},${q.trackingCode},${getBaseTagUrl(q.trackingCode)},${q.status},${clientName}\n`;
+                    csv += `${q.id},${q.trackingCode},${getNfcTagUrl(q.trackingCode)},${q.status},${clientName}\n`;
                 });
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement("a");
@@ -1373,7 +1376,7 @@ const resetTestInventory = async () => {
                     try {
                         const ndef = new NDEFReader();
                         await ndef.write({
-                            records: [{ recordType: "url", data: getBaseTagUrl(trackingCode) }]
+                            records: [{ recordType: "url", data: getNfcTagUrl(trackingCode) }]
                         });
                         showToast("¡Tarjeta NFC grabada con éxito!", "success");
                     } catch (error) {
@@ -5062,10 +5065,10 @@ const resetTestInventory = async () => {
                                 </div>
                                 <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 space-y-2">
                                     <div className="flex items-center gap-2 text-slate-200 text-sm font-semibold"><i className="fa-solid fa-nfc-symbol text-cyan-400"></i> Enlace NFC de esta tarjeta</div>
-                                    <p className="text-[11px] text-slate-400">Es exactamente el mismo enlace dinámico del QR. No lo reemplaces por la dirección del negocio.</p>
+                                    <p className="text-[11px] text-slate-400">Este enlace lleva a la misma tarjeta que el QR y permite actualizar su destino.</p>
                                     <div className="flex gap-2 items-center">
-                                        <input aria-label="URL para grabar en NFC" readOnly value={getBaseTagUrl(individualQr.trackingCode)} onFocus={e=>e.target.select()} className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 text-xs font-mono p-2.5" />
-                                        <button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(getBaseTagUrl(individualQr.trackingCode));showToast('Enlace NFC copiado.','success');}catch{showToast('Mantén pulsado el enlace para copiarlo.','info');}}} className="shrink-0 bg-blue-600 text-white text-xs font-semibold rounded-lg px-3 py-2.5"><i className="fa-solid fa-copy mr-1"></i>Copiar</button>
+                                        <input aria-label="URL para grabar en NFC" readOnly value={getNfcTagUrl(individualQr.trackingCode)} onFocus={e=>e.target.select()} className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 text-xs font-mono p-2.5" />
+                                        <button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(getNfcTagUrl(individualQr.trackingCode));showToast('Enlace NFC copiado.','success');}catch{showToast('Mantén pulsado el enlace para copiarlo.','info');}}} className="shrink-0 bg-blue-600 text-white text-xs font-semibold rounded-lg px-3 py-2.5"><i className="fa-solid fa-copy mr-1"></i>Copiar</button>
                                     </div>
                                     <details className="text-xs text-slate-300">
                                         <summary className="cursor-pointer text-cyan-300 font-semibold py-1">Cómo grabar el NFC</summary>
