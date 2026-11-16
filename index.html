@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2500';
+    const TOCAQUI_BUILD = '2026.11.15.2510';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -634,6 +634,10 @@
                 if(type!=='custom_url' && (!allow[type] || !allow[type].includes(host))) return '';
                 return u.href;
             } catch { return ''; }
+        };
+
+        const makeReleasedCard = (card, now) => {
+            return {...card,status:'pending',clientId:null,businessName:null,businessAddress:null,placeId:null,functionType:null,destinationType:null,dynamicUrl:'',updatedAt:now,history:[...(Array.isArray(card.history)?card.history:[]),{timestamp:now,type:'release',description:'Tarjeta liberada para nueva asignación'}]};
         };
 
         const generateQRBase64 = async (text, size = 300) => {
@@ -1270,6 +1274,38 @@ const resetTestInventory = async () => {
                 last.current={...last.current,qrs:last.current.qrs.map(q=>q.id===id?updated:q)};
                 setQrs(prev=>prev.map(q=>q.id===id?updated:q));
                 showToast('Tarjeta guardada en Supabase.','success');
+            };
+
+            const releaseInFlight=React.useRef(false);
+            const requestReleaseCard = (card) => {
+                if(!card || card.status!=='active') return;
+                setConfirmModal({
+                    open:true,
+                    title:'Liberar tarjeta '+(card.serialNumber||card.trackingCode),
+                    message:'El QR dejará de abrir el destino actual y la tarjeta quedará por activar. Se conservarán su código, lote, QR/NFC, diseño e historial de lecturas. El cliente no se eliminará.',
+                    onConfirm: async () => {
+                        if(releaseInFlight.current)return;
+                        releaseInFlight.current=true;
+                        setConfirmModal({open:false,title:'',message:'',onConfirm:null});
+                        try{
+                            if(!cloudReady || !workshopSession || !initialized.current) throw new Error('Se requiere una sesión autorizada.');
+                            const latest=await workshopApi({action:'list',session:workshopSession});
+                            const current=(latest.cards||[]).find(item=>item.id===card.id);
+                            if(!current) throw new Error('No se encontró la tarjeta.');
+                            if(current.status!=='active') throw new Error('La tarjeta ya no está activa; actualiza la lista.');
+                            const updated=makeReleasedCard(current,Date.now());
+                            await workshopApi({action:'save',session:workshopSession,kind:'cards',items:[updated]});
+                            const checked=await workshopApi({action:'list',session:workshopSession});
+                            const verified=(checked.cards||[]).find(item=>item.id===card.id);
+                            if(!verified || verified.status!=='pending' || verified.dynamicUrl || verified.clientId || verified.businessName || verified.placeId || verified.trackingCode!==current.trackingCode) throw new Error('No se pudo confirmar el estado final. Actualiza la lista antes de reintentar.');
+                            last.current={...last.current,qrs:(last.current.qrs||[]).map(item=>item.id===verified.id?verified:item)};
+                            setQrs(prev=>prev.map(item=>item.id===verified.id?verified:item));
+                            try{sessionStorage.removeItem('tocaqui_activation_draft_v1:'+verified.id);}catch{}
+                            showToast('Tarjeta liberada. Ya puedes asignarla nuevamente.','success');
+                        }catch(error){showToast('No se confirmó la liberación: '+(error.message||error),'error');}
+                        finally{releaseInFlight.current=false;}
+                    }
+                });
             };
 
             const deleteQR = (id) => {
@@ -2398,6 +2434,7 @@ const resetTestInventory = async () => {
                                                 <button onClick={()=>setIndividualQr(qr)} className="min-h-[38px] rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-200 px-2 text-[10px] font-semibold"><i className="fa-solid fa-qrcode mr-1"></i>QR</button>
                                                 <button onClick={()=>setActivateModal({open:true,qr})} className="min-h-[38px] rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-200 px-2 text-[10px] font-semibold"><i className="fa-solid fa-pen-to-square mr-1"></i>{qr.status==='active'?'Editar':'Asignar'}</button>
                                                 <button onClick={()=>writeWebNFC(qr.trackingCode)} className="min-h-[38px] rounded-xl bg-violet-500/10 border border-violet-500/25 text-violet-200 px-2 text-[10px] font-semibold"><i className="fa-solid fa-nfc-symbol mr-1"></i>NFC</button>
+                                                {qr.status==='active'&&<button type="button" onClick={()=>requestReleaseCard(qr)} className="min-h-[38px] rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 px-2 text-[10px] font-semibold"><i className="fa-solid fa-arrow-rotate-left mr-1"></i>Liberar</button>}
                                                 <button onClick={()=>deleteQR(qr.id)} className="min-h-[38px] rounded-xl bg-rose-500/5 border border-rose-500/20 text-rose-300 px-2 text-[10px] font-semibold"><i className="fa-regular fa-trash-can mr-1"></i>Eliminar</button>
                                             </div>
                                         </div>
@@ -5002,6 +5039,7 @@ root.render(<TocaquiErrorBoundary><App cloud={cloud} /></TocaquiErrorBoundary>);
     </script>
 </body>
 </html>
+
 
 
 
