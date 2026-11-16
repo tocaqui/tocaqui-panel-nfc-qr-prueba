@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.16.1020';
+    const TOCAQUI_BUILD = '2026.11.16.1030';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1067,7 +1067,7 @@ const [authRevision,setAuthRevision]=useState(0);
 const [workshopSession,setWorkshopSession]=useState(()=>sessionStorage.getItem('tocaqui_workshop_session')||'');
 const workshopApi=async(payload)=>{
  const res=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify(payload)});
- const json=await res.json();if(!res.ok||!json.ok)throw new Error(json.error||'Acceso rechazado');return json;
+ const json=await res.json();if(!res.ok||!json.ok){const err=new Error(json.error||'Acceso rechazado');err.status=res.status;throw err;}return json;
 };
 const openRecognizedDeviceSession=async(credential)=>{
  const result=await workshopApi({action:'resume',credential});
@@ -1144,21 +1144,28 @@ useEffect(()=>{
   return()=>{alive=false;clearInterval(interval);window.removeEventListener('focus',onFocus)};
 },[cloudReady,workshopSession]);
 const [cloudError,setCloudError]=useState('');
+const [templatesReady,setTemplatesReady]=useState(false);
+const [templateError,setTemplateError]=useState('');
+const [loadRetry,setLoadRetry]=useState(0);
 const last=React.useRef({qrs:[],clients:[],templates:[]});
 const initialized=React.useRef(false);
-useEffect(()=>{let live=true;initialized.current=false;setCloudReady(false);
+useEffect(()=>{let live=true;initialized.current=false;setCloudReady(false);setTemplatesReady(false);setTemplateError('');
  if(!workshopSession)return;
  (async()=>{try{
- const result=await workshopApi({action:'list',session:workshopSession});if(!live)return;
- const m=[result.cards,result.clients,result.templates];
- last.current={qrs:m[0],clients:m[1],templates:m[2]};
- setQrs(m[0]);setClients(m[1]);setTemplates(m[2]);
+ const result=await workshopApi({action:'listCore',session:workshopSession});if(!live)return;
+ last.current={qrs:result.cards,clients:result.clients,templates:[]};
+ setQrs(result.cards);setClients(result.clients);
  initialized.current=true;setCloudReady(true);setCloudError('');
- }catch(e){if(live){setCloudError(e.message);sessionStorage.removeItem('tocaqui_workshop_session');setWorkshopSession('');}}})();
+ // The full list is fetched separately; no partial template is ever persisted.
+ try{
+ const full=await workshopApi({action:'listTemplates',session:workshopSession});if(!live)return;
+ last.current={...last.current,templates:full.templates};setTemplates(full.templates);setTemplatesReady(true);
+ }catch(err){if(live)setTemplateError(err.message||'No se pudieron cargar las plantillas.');}
+ }catch(e){if(live){setCloudError(e.message);if(e.status===401){sessionStorage.removeItem('tocaqui_workshop_session');setWorkshopSession('');}}}})();
  return()=>{live=false};
-},[workshopSession,authRevision]);
+},[workshopSession,authRevision,loadRetry]);
 const queue=React.useRef(Promise.resolve());
-const sync=(name,table,items)=>{if(!cloudReady||!initialized.current)return;
+const sync=(name,table,items)=>{if(!cloudReady||!initialized.current||(name==='templates'&&!templatesReady))return;
  const prev=last.current[name];if(JSON.stringify(prev)===JSON.stringify(items))return;
  last.current={...last.current,[name]:items};
  queue.current=queue.current.then(async()=>{
@@ -1171,7 +1178,7 @@ const sync=(name,table,items)=>{if(!cloudReady||!initialized.current)return;
 };
 useEffect(()=>sync('qrs','tocaqui_admin_qr_cards',qrs),[qrs,cloudReady]);
 useEffect(()=>sync('clients','tocaqui_admin_qr_clients',clients),[clients,cloudReady]);
-useEffect(()=>sync('templates','tocaqui_admin_qr_templates',templates),[templates,cloudReady]);
+useEffect(()=>sync('templates','tocaqui_admin_qr_templates',templates),[templates,cloudReady,templatesReady]);
 
 const resetTestInventory = async () => {
                 if (resetConfirmText !== 'REINICIAR TOCAQUI' || resetBusy) return;
@@ -5004,7 +5011,7 @@ const resetTestInventory = async () => {
                     <TopHeader />
                     {!cloudReady && (
                       <div className="no-print mx-auto w-full max-w-xl p-4 sm:p-6">
-                        {(loginBusy || workshopSession) ? <div role="status" className="rounded-2xl border border-blue-500/40 bg-slate-900 p-5 text-sm text-slate-200"><i className="fa-solid fa-spinner fa-spin mr-2 text-blue-400"></i>Reconociendo este equipo y preparando el taller…</div> : <form onSubmit={signInAdmin} className="rounded-2xl border border-blue-500/40 bg-slate-900 p-5 shadow-xl space-y-3">
+                        {(loginBusy || workshopSession) ? <div role="status" className="rounded-2xl border border-blue-500/40 bg-slate-900 p-5 text-sm text-slate-200">{cloudError ? <>{cloudError} <button onClick={()=>setLoadRetry(v=>v+1)}>Reintentar</button></> : <><i className="fa-solid fa-spinner fa-spin mr-2 text-blue-400"></i>Reconociendo este equipo y preparando el taller…</>}</div> : <form onSubmit={signInAdmin} className="rounded-2xl border border-blue-500/40 bg-slate-900 p-5 shadow-xl space-y-3">
                           <h2 className="text-lg font-bold text-white">Acceso privado TOCAQUI</h2>
                           <p className="text-sm text-slate-300">Ingresa el PIN de cuatro dígitos del taller. Se verificará en Supabase desde este dispositivo autorizado.</p>
                           <input type="password" inputMode="numeric" pattern="[0-9]{4}" maxLength="4" autoComplete="off" required value={loginPin} onChange={e=>setLoginPin(e.target.value.replace(/\D/g,''))} placeholder="PIN de cuatro dígitos" className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-3 text-white text-center tracking-widest" />
@@ -5025,13 +5032,14 @@ const resetTestInventory = async () => {
                                 <main className="tocaqui-app-main flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 no-print">
                                     <div className="max-w-7xl mx-auto">
                                         {adminTab === 'dashboard' && <DashboardView />}
-                                        {adminTab === 'batch' && <StableBatchView />}
-                                        {adminTab === 'qrs' && <QRManagementView />}
-                                        {adminTab === 'clients' && <ClientView />}
-                                        {adminTab === 'client-detail' && <ClientView />}
-                                        {adminTab === 'templates' && TemplatesView()}
-                                        {adminTab === 'print' && <StablePrintView />}
-                                        {adminTab === 'settings' && <SettingsView />}
+                                        {!templatesReady && adminTab!=='dashboard' ? <div role="status" className="rounded-xl p-5 bg-slate-900 text-slate-200">{templateError ? <>No se pudieron cargar las plantillas. <button onClick={()=>setLoadRetry(v=>v+1)}>Reintentar</button></> : 'Cargando plantillas…'}</div> : null}
+                                        {templatesReady && adminTab === 'batch' && <StableBatchView />}
+                                        {templatesReady && adminTab === 'qrs' && <QRManagementView />}
+                                        {templatesReady && adminTab === 'clients' && <ClientView />}
+                                        {templatesReady && adminTab === 'client-detail' && <ClientView />}
+                                        {templatesReady && adminTab === 'templates' && TemplatesView()}
+                                        {templatesReady && adminTab === 'print' && <StablePrintView />}
+                                        {templatesReady && adminTab === 'settings' && <SettingsView />}
                                     </div>
                                 </main>
                             </>
