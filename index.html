@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2540';
+    const TOCAQUI_BUILD = '2026.11.16.1010';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -225,6 +225,23 @@
                 align-content: center !important;
                 height: 100% !important;
             }
+        }
+
+        /* Optional trim guides are overlays; they do not change card dimensions or grid spacing. */
+        .cut-guides .card-pvc-vertical::after,
+        .cut-guides .card-pvc-horizontal::after,
+        .cut-guides .card-poster-10x15::after,
+        .cut-guides .card-magnet-horizontal::after,
+        .cut-guides .card-magnet-square::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            box-sizing: border-box;
+            border: 0.15mm dashed #111827;
+            outline: 0.12mm solid rgba(255,255,255,0.85);
+            border-radius: 0;
+            pointer-events: none;
+            z-index: 30;
         }
 
         /* Screen Preview A4 Sheet Box */
@@ -2925,6 +2942,7 @@ const resetTestInventory = async () => {
                 const [printDirectPage, setPrintDirectPage] = useState(1);
                 const printDirectPageSize = 12;
                 const [previewZoom, setPreviewZoom] = useState(58);
+                const [showCutGuides, setShowCutGuides] = useState(false);
                 const [artworkFitMode, setArtworkFitMode] = useState('cover');
                 const [artworkBleedMm, setArtworkBleedMm] = useState(() => {
                     const raw=localStorage.getItem('tocaqui_print_bleed_mm_v1');
@@ -3755,6 +3773,10 @@ const resetTestInventory = async () => {
 
                                 </div>
 
+                                <label className="w-full max-w-[780px] flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/75 p-3 text-xs text-slate-200 no-print cursor-pointer">
+                                    <input type="checkbox" checked={showCutGuides} onChange={e=>setShowCutGuides(e.target.checked)} className="h-4 w-4 accent-cyan-500" />
+                                    <span><strong className="block text-white">Guías de corte</strong><span className="text-slate-400">Imprime una línea fina en el borde de cada tarjeta. No cambia el tamaño; imprime al 100%.</span></span>
+                                </label>
                                 <div className="flex items-center gap-2 no-print text-xs text-slate-400">
                                     <span>Vista reducida</span>
                                     <input aria-label="Escala de previsualización" type="range" min="35" max="85" step="5" value={previewZoom} onChange={e=>setPreviewZoom(Number(e.target.value))} className="w-28 accent-blue-500"/>
@@ -3762,7 +3784,7 @@ const resetTestInventory = async () => {
                                     <span className="text-slate-500">Impresión: 100%</span>
                                 </div>
                                 {pages.map((pageItems, pageIdx) => (
-                                    <div key={pageIdx} className="a4-sheet-preview preview-compact rounded-lg" style={{zoom: previewZoom + '%'}}>
+                                    <div key={pageIdx} className={'a4-sheet-preview preview-compact rounded-lg'+(showCutGuides ? ' cut-guides' : '')} style={{zoom: previewZoom + '%'}}>
                                         <div className="absolute top-2 right-3 text-[10px] font-mono font-bold text-slate-400 no-print">
                                             Hoja A4 #{pageIdx + 1} - Cara: {printConfig.activeSide.toUpperCase()}
                                         </div>
@@ -3786,7 +3808,7 @@ const resetTestInventory = async () => {
                         {/* Printable wrapper: exactly one physical A4 per logical page, for the selected side only. */}
                         <div id="print-area-wrapper" className="hidden">
                             {pages.map((pageItems, pageIdx) => (
-                                <div className="print-page-a4" key={pageIdx}>
+                                <div className={'print-page-a4'+(showCutGuides ? ' cut-guides' : '')} key={pageIdx}>
                                     <div className={printConfig.templateType === '10x15' ? 'print-grid-posters' : printConfig.templateType === 'pvc-horizontal' ? 'print-grid-pvc-horizontal' : printConfig.templateType === 'magnet-horizontal' ? 'print-grid-magnet-horizontal' : printConfig.templateType === 'magnet-square' ? 'print-grid-magnet-square' : 'print-grid-pvc-vertical'}>
                                         {pageItems.map(item => renderCardContent(item, printConfig.activeSide))}
                                     </div>
@@ -4780,6 +4802,11 @@ const resetTestInventory = async () => {
                 );
             };
 
+            // Keep the activation form mounted through background panel refreshes.
+            const activationModalLatest=useRef(ActivationModal);
+            activationModalLatest.current=ActivationModal;
+            const StableActivationModal=useMemo(()=>function StableActivationModal(){return activationModalLatest.current();},[]);
+
             // Preview only: does not perform a real scan or change card activation.
             const ScanSimulatorModal = () => {
                 const [cameraOn,setCameraOn]=useState(false);
@@ -5052,7 +5079,7 @@ const resetTestInventory = async () => {
                             </div>
                         </div>
                     )}
-                    <ActivationModal />
+                    {activateModal.open && <StableActivationModal key={activateModal.qr?.id} />}
                     {activationResult && <div className="fixed inset-0 z-[90] bg-black/80 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Tarjeta activada"><div className="w-full max-w-sm rounded-3xl border border-emerald-500/25 bg-slate-950 p-5 space-y-4 shadow-2xl"><div className="flex items-center gap-3"><span className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-300 flex items-center justify-center"><i className="fa-solid fa-check"></i></span><div><h2 className="font-bold text-white">Tarjeta guardada y activa</h2><p className="text-[11px] text-slate-400 font-mono break-all">{activationResult.card.trackingCode}</p></div></div><p className="text-xs text-slate-300 break-all">Destino guardado: {activationResult.card.dynamicUrl}</p><a href={getBaseTagUrl(activationResult.card.trackingCode)} target="_blank" rel="noopener noreferrer" className="block text-center rounded-xl bg-blue-600 py-3 text-sm font-bold text-white">Probar QR activado</a><p className="text-[10px] text-slate-500">Abre el enlace dinámico de la tarjeta y registra una lectura.</p><button type="button" onClick={()=>setActivationResult(null)} className="w-full rounded-xl border border-slate-700 py-3 text-sm text-slate-200">Volver a tarjetas</button></div></div>}
                     <ScanSimulatorModal />
                     <ConfirmModal />
