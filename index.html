@@ -9,7 +9,7 @@
     <title>Admin NFC & QR Dinámico PWA</title>
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.15.2420';
+    const TOCAQUI_BUILD = '2026.11.15.2430';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1161,13 +1161,29 @@ const resetTestInventory = async () => {
                 setTimeout(() => setToast({ show: false, msg: '', type: 'info' }), 3500);
             };
 
-            // Open a scanned pending card only after the authenticated inventory has loaded.
+            // Remember the scanned card during authorization in this browser, including another tab.
+            useEffect(() => {
+                const code=new URL(window.location.href).searchParams.get('activar');
+                if(code && /^TAG-[A-Z0-9]{5,32}$/.test(code)) {
+                    try { localStorage.setItem('tocaqui_pending_activation_v1',JSON.stringify({code,expires:Date.now()+15*60*1000})); } catch {}
+                }
+            }, []);
             useEffect(() => {
                 if (!cloudReady || !workshopSession || !initialized.current) return;
                 const url = new URL(window.location.href);
-                const code = url.searchParams.get('activar');
-                if (!code || !/^TAG-[A-Z0-9]{5,32}$/.test(code)) return;
+                let code = url.searchParams.get('activar');
+                if(!code){
+                    try {
+                        const pending=JSON.parse(localStorage.getItem('tocaqui_pending_activation_v1') || 'null');
+                        if(pending && Number.isFinite(pending.expires) && pending.expires>Date.now()) code=pending.code;
+                    } catch {}
+                }
+                if (!code || !/^TAG-[A-Z0-9]{5,32}$/.test(code)) {
+                    try { localStorage.removeItem('tocaqui_pending_activation_v1'); } catch {}
+                    return;
+                }
                 const card = qrs.find(q => q.trackingCode === code || q.id === code);
+                try { localStorage.removeItem('tocaqui_pending_activation_v1'); } catch {}
                 url.searchParams.delete('activar');
                 window.history.replaceState(null, '', url.pathname + url.search + url.hash);
                 if (!card) { showToast('La tarjeta no está en el inventario de este equipo.', 'warning'); return; }
@@ -4515,20 +4531,21 @@ const resetTestInventory = async () => {
 
                 return (
                     <div className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-                        <div className="w-full max-w-2xl max-h-[94dvh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl">
+                        <div className="w-full max-w-xl max-h-[94dvh] overflow-y-auto rounded-3xl border border-blue-500/25 bg-slate-950 shadow-2xl shadow-blue-950/50">
                             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-950/95 backdrop-blur px-4 sm:px-5 py-4">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <span className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-300 flex items-center justify-center"><i className="fa-solid fa-id-card"></i></span>
                                     <div className="min-w-0">
-                                        <h3 className="font-bold text-white text-base sm:text-lg">{qr.status==='active'?'Editar asignación':'Asignar tarjeta'}</h3>
-                                        <p className="text-[11px] text-slate-400 font-mono truncate">{qr.trackingCode}</p>
+                                        <h3 className="font-bold text-white text-base sm:text-lg">{qr.status==='active'?'Editar tarjeta':'Activar tarjeta'}</h3>
+                                        <p className="text-[11px] text-slate-400 font-mono truncate">{qr.trackingCode} · {qr.status==='active'?'Activa':'Pendiente'}</p>
                                     </div>
                                 </div>
                                 <button type="button" onClick={() => setActivateModal({open:false,qr:null})} className="w-9 h-9 shrink-0 rounded-xl bg-slate-800 text-slate-300" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
                             </div>
 
-                            <div className="p-4 sm:p-5 space-y-4">
-                                <section className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
+                            <div className="p-4 sm:p-5 space-y-3">
+                                <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-600/15 to-violet-600/10 px-4 py-3 text-xs text-slate-300"><span className="font-bold text-blue-200">Prepara tu tarjeta</span><span className="block mt-1">Elige el cliente, confirma el negocio y define su destino.</span></div>
+                                <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3.5">
                                     <div className="flex items-center gap-3 mb-3">
                                         <span className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-300 flex items-center justify-center text-xs font-bold">1</span>
                                         <div><h4 className="text-sm font-bold text-white">Cliente</h4><p className="text-[11px] text-slate-500">Opcional. Define a quién pertenece la tarjeta.</p></div>
@@ -4539,10 +4556,10 @@ const resetTestInventory = async () => {
                                     </select>
                                 </section>
 
-                                <section className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
+                                <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3.5">
                                     <div className="flex items-center gap-3 mb-3">
                                         <span className="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-300 flex items-center justify-center text-xs font-bold">2</span>
-                                        <div><h4 className="text-sm font-bold text-white">Negocio</h4><p className="text-[11px] text-slate-500">Busca y confirma el local que recibirá la tarjeta.</p></div>
+                                        <div><h4 className="text-sm font-bold text-white">Negocio</h4><p className="text-[11px] text-slate-500">Busca el negocio o ingresa sus datos.</p></div>
                                     </div>
 
                                     {selectedPlace ? (
@@ -4584,7 +4601,7 @@ const resetTestInventory = async () => {
                                     </details>
                                 </section>
 
-                                <section className="rounded-2xl border border-slate-800 bg-slate-900/55 p-4">
+                                <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3.5">
                                     <div className="flex items-center gap-3 mb-3">
                                         <span className="w-8 h-8 rounded-lg bg-violet-500/10 text-violet-300 flex items-center justify-center text-xs font-bold">3</span>
                                         <div><h4 className="text-sm font-bold text-white">Destino</h4><p className="text-[11px] text-slate-500">Qué ocurrirá al acercar NFC o escanear el QR.</p></div>
@@ -4934,6 +4951,7 @@ root.render(<TocaquiErrorBoundary><App cloud={cloud} /></TocaquiErrorBoundary>);
     </script>
 </body>
 </html>
+
 
 
 
