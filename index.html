@@ -3143,7 +3143,8 @@ const resetTestInventory = async () => {
                     const format=selectedMixBatch?.productType || printConfig.templateType;
                     const compatible=templates.find(t=>t.id===printMixTemplateId && isPrintTemplateCompatible(format, t.category));
                     if(!compatible){
-                        const first=templates.find(t=>t.category===format);
+                        const first=templates.find(t=>t.category===format)
+                            || templates.find(t=>isPrintTemplateCompatible(format, t.category));
                         setPrintMixTemplateId(first?.id || '');
                     }
                 }, [templates, selectedMixBatch?.productType, printConfig.templateType, printMixTemplateId]);
