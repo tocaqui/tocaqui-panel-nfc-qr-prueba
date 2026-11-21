@@ -1,0 +1,24 @@
+/* Hallmark v2.0.0 | TOCAQUI Pages | ajustes de pantalla */
+@media screen {
+  .tocaqui-dashboard .dashboard-hero h1,
+  .tocaqui-dashboard .dashboard-hero h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .tocaqui-dashboard .dashboard-actions button {
+    min-width: 0;
+    text-align: start;
+  }
+
+  @media (max-width: 639px) {
+    .tocaqui-dashboard .dashboard-hero { padding: 14px; }
+    .tocaqui-dashboard .metric-card { min-height: 96px; padding: 12px !important; }
+    .tocaqui-dashboard .dashboard-actions button { min-height: 96px; padding: 12px !important; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tocaqui-sidebar, .tocaqui-sidebar button, .tocaqui-dashboard button { transition: none; }
+  }
+}
