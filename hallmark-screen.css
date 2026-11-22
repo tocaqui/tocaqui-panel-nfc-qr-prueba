@@ -1,0 +1,50 @@
+/* Hallmark v2.0.0 | TOCAQUI Pages | ajustes de pantalla */
+@media screen {
+  .tocaqui-dashboard .dashboard-hero h1,
+  .tocaqui-dashboard .dashboard-hero h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .tocaqui-dashboard .dashboard-actions button {
+    min-width: 0;
+    text-align: start;
+  }
+
+  @media (max-width: 639px) {
+    .tocaqui-dashboard .dashboard-hero { padding: 14px; }
+    .tocaqui-dashboard .metric-card { min-height: 96px; padding: 12px !important; }
+    .tocaqui-dashboard .dashboard-actions button { min-height: 96px; padding: 12px !important; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tocaqui-sidebar, .tocaqui-sidebar button, .tocaqui-dashboard button { transition: none; }
+  }
+}
+
+@media screen {
+  .tocaqui-app-main, .tq-print-controls > *, .tq-library-heading > div {
+    min-width: 0;
+  }
+
+  .tocaqui-app-main h1 {
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .tq-library-heading { flex-wrap: wrap; gap: 12px; }
+  .tq-library-heading > button { flex-shrink: 0; }
+  .tq-template-dialog input, .tq-print-controls select, .tq-settings input {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  @media (max-width: 639px) {
+    .tq-library-heading { align-items: flex-start; }
+    .tq-template-dialog .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tq-print-controls { gap: 12px; }
+    .tocaqui-operation-page .glass-panel, .tq-settings .glass-panel { padding-inline: 12px; }
+    .tocaqui-sidebar { max-width: calc(100% - 44px); }
+  }
+}
