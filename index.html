@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.25.1630';
+    const TOCAQUI_BUILD = '2026.11.25.1740';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1274,6 +1274,30 @@ useEffect(()=>{let live=true;initialized.current=false;setCloudReady(false);setT
  }catch(e){if(live){setTemplatesRefreshing(false);setCloudError(e.message);if(e.status===401){sessionStorage.removeItem('tocaqui_workshop_session');setWorkshopSession('');}}}})();
  return()=>{live=false};
 },[workshopSession,authRevision,loadRetry]);
+useEffect(()=>{
+ if(!cloudReady || !workshopSession)return;
+ let alive=true;
+ let lastRun=0;
+ const refreshCore=async()=>{
+   const now=Date.now();
+   if(now-lastRun<1500 || !alive)return;
+   const active=document.activeElement;
+   if(active && ['INPUT','TEXTAREA','SELECT'].includes(active.tagName)) return;
+   lastRun=now;
+   try{
+     const result=await workshopApi({action:'listCore',session:workshopSession});
+     if(!alive)return;
+     last.current={...last.current,qrs:result.cards||[],clients:result.clients||[]};
+     setQrs(result.cards||[]);
+     setClients(result.clients||[]);
+   }catch(e){}
+ };
+ const onFocus=()=>refreshCore();
+ const onVisibility=()=>{if(document.visibilityState==='visible')refreshCore();};
+ window.addEventListener('focus',onFocus);
+ document.addEventListener('visibilitychange',onVisibility);
+ return()=>{alive=false;window.removeEventListener('focus',onFocus);document.removeEventListener('visibilitychange',onVisibility);};
+},[cloudReady,workshopSession]);
 const queue=React.useRef(Promise.resolve());
 const sync=(name,table,items)=>{if(!cloudReady||!initialized.current||(name==='templates'&&!templatesReady))return;
  const prev=last.current[name];if(JSON.stringify(prev)===JSON.stringify(items))return;
