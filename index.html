@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.24.2325';
+    const TOCAQUI_BUILD = '2026.11.25.0635';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -727,6 +727,85 @@
             });
         };
 
+
+        const TocaquiThumb = ({src,alt='',className=''}) => {
+            const [ready,setReady]=useState(false);
+            const [failed,setFailed]=useState(false);
+            useEffect(()=>{setReady(false);setFailed(false)},[src]);
+            return (
+                <span className={'relative overflow-hidden bg-slate-950 border border-slate-800 '+className}>
+                    {!ready&&!failed&&<span className="absolute inset-0 animate-pulse bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900"></span>}
+                    {src&&!failed
+                        ? <img src={src} alt={alt} loading="lazy" decoding="async" onLoad={()=>setReady(true)} onError={()=>setFailed(true)} className={'w-full h-full object-contain transition-opacity duration-200 '+(ready?'opacity-100':'opacity-0')}/>
+                        : <span className="absolute inset-0 flex items-center justify-center text-slate-600"><i className="fa-solid fa-image"></i></span>}
+                </span>
+            );
+        };
+
+        const TocaquiPicker = ({
+            label='',value='',options=[],onChange,placeholder='Seleccionar…',searchPlaceholder='Buscar…',
+            icon='fa-list',emptyText='Sin resultados',tone='blue',showSearch=true,className=''
+        }) => {
+            const [open,setOpen]=useState(false);
+            const [search,setSearch]=useState('');
+            const selected=options.find(option=>String(option.value)===String(value))||null;
+            const term=search.trim().toLowerCase();
+            const filtered=term
+                ? options.filter(option=>[option.label,option.subLabel,option.meta].some(v=>String(v||'').toLowerCase().includes(term)))
+                : options;
+            const toneClasses=tone==='violet'
+                ? 'border-violet-500/25 bg-violet-500/[0.07] text-violet-300'
+                : tone==='cyan'
+                ? 'border-cyan-500/25 bg-cyan-500/[0.07] text-cyan-300'
+                : tone==='emerald'
+                ? 'border-emerald-500/25 bg-emerald-500/[0.07] text-emerald-300'
+                : 'border-blue-500/25 bg-blue-500/[0.07] text-blue-300';
+            const choose=option=>{onChange?.(option.value,option);setOpen(false);setSearch('')};
+            return (
+                <div className={'relative '+className}>
+                    {label&&<span className="block text-[9px] uppercase tracking-[.14em] text-slate-500 mb-1.5">{label}</span>}
+                    <button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open} className={'w-full min-h-[48px] rounded-2xl border px-3 py-2.5 flex items-center gap-3 text-left transition-all '+(open?toneClasses:'border-slate-700 bg-slate-950/55 hover:border-slate-600')}>
+                        {selected?.thumb
+                            ? <TocaquiThumb src={selected.thumb} alt="" className="w-11 h-9 rounded-lg shrink-0"/>
+                            : <span className={'w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 '+toneClasses}><i className={'fa-solid '+(selected?.icon||icon)}></i></span>}
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-[9px] uppercase tracking-wider text-slate-500">{label||'Selector'}</span>
+                            <span className="block text-sm font-semibold text-white truncate">{selected?.label||placeholder}</span>
+                            {(selected?.subLabel||selected?.meta)&&<span className="block text-[10px] text-slate-500 truncate mt-0.5">{selected?.subLabel||selected?.meta}</span>}
+                        </span>
+                        {selected?.count!==undefined&&<span className="shrink-0 rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] text-slate-400">{selected.count}</span>}
+                        <i className={'fa-solid fa-chevron-down text-slate-500 text-[10px] transition-transform '+(open?'rotate-180':'')}></i>
+                    </button>
+                    {open&&<>
+                        <button type="button" aria-label="Cerrar selector" onClick={()=>{setOpen(false);setSearch('')}} className="fixed inset-0 z-[118] bg-black/50 sm:bg-black/15"></button>
+                        <section className="fixed inset-x-3 bottom-3 z-[119] max-h-[72dvh] rounded-3xl border border-slate-700 bg-[#050b16] shadow-2xl overflow-hidden sm:absolute sm:inset-x-0 sm:bottom-auto sm:top-full sm:mt-2 sm:max-h-[420px] sm:rounded-2xl">
+                            <div className="sticky top-0 z-[2] border-b border-slate-800 bg-[#050b16]/95 backdrop-blur p-3">
+                                <div className="flex items-center justify-between gap-3 mb-2">
+                                    <div><div className="text-[9px] uppercase tracking-[.16em] text-slate-500">{label||'Seleccionar'}</div><div className="text-sm font-bold text-white">{selected?.label||placeholder}</div></div>
+                                    <button type="button" onClick={()=>{setOpen(false);setSearch('')}} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
+                                </div>
+                                {showSearch&&options.length>5&&<div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3">
+                                    <i className="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i>
+                                    <input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder={searchPlaceholder} className="w-full bg-transparent py-2.5 text-xs text-white outline-none placeholder:text-slate-600"/>
+                                </div>}
+                            </div>
+                            <div className="overflow-y-auto overscroll-contain p-2 max-h-[54dvh] sm:max-h-[320px] space-y-1">
+                                {filtered.map(option=><button type="button" key={String(option.value)} onClick={()=>choose(option)} className={'w-full min-h-[48px] rounded-xl px-3 py-2.5 flex items-center gap-3 text-left border '+(String(option.value)===String(value)?toneClasses:'border-transparent hover:border-slate-800 hover:bg-slate-900/80')}>
+                                    {option.thumb
+                                        ? <TocaquiThumb src={option.thumb} alt="" className="w-12 h-9 rounded-lg shrink-0"/>
+                                        : <span className={'w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 '+(String(option.value)===String(value)?toneClasses:'border-slate-800 bg-slate-900 text-slate-500')}><i className={'fa-solid '+(option.icon||icon)+' text-xs'}></i></span>}
+                                    <span className="min-w-0 flex-1"><strong className="block text-xs text-white truncate">{option.label}</strong>{(option.subLabel||option.meta)&&<span className="block text-[9px] text-slate-500 truncate mt-0.5">{option.subLabel||option.meta}</span>}</span>
+                                    {option.count!==undefined&&<span className="rounded-full bg-slate-900 border border-slate-700 px-2 py-1 text-[9px] text-slate-400">{option.count}</span>}
+                                    {String(option.value)===String(value)&&<i className="fa-solid fa-check text-[10px]"></i>}
+                                </button>)}
+                                {!filtered.length&&<div className="p-6 text-center text-xs text-slate-500"><i className="fa-solid fa-magnifying-glass mb-2 block"></i>{emptyText}</div>}
+                            </div>
+                        </section>
+                    </>}
+                </div>
+            );
+        };
+
         const App = ({cloud}) => {
             const focusSnapshotRef = useRef(null);
 
@@ -1162,24 +1241,37 @@ useEffect(()=>{
   return()=>{alive=false;clearInterval(interval);window.removeEventListener('focus',onFocus)};
 },[cloudReady,workshopSession]);
 const [cloudError,setCloudError]=useState('');
-const [templatesReady,setTemplatesReady]=useState(false);
+const [templatesReady,setTemplatesReady]=useState(()=>templates.length>0);
+const [templatesRefreshing,setTemplatesRefreshing]=useState(false);
 const [templateError,setTemplateError]=useState('');
 const [loadRetry,setLoadRetry]=useState(0);
 const last=React.useRef({qrs:[],clients:[],templates:[]});
 const initialized=React.useRef(false);
-useEffect(()=>{let live=true;initialized.current=false;setCloudReady(false);setTemplatesReady(false);setTemplateError('');
- if(!workshopSession)return;
+useEffect(()=>{let live=true;initialized.current=false;setCloudReady(false);setTemplateError('');
+ const hasCachedTemplates=templates.length>0;
+ setTemplatesReady(hasCachedTemplates);
+ setTemplatesRefreshing(!!workshopSession);
+ if(!workshopSession){setTemplatesRefreshing(false);return;}
  (async()=>{try{
  const result=await workshopApi({action:'listCore',session:workshopSession});if(!live)return;
- last.current={qrs:result.cards,clients:result.clients,templates:[]};
+ last.current={qrs:result.cards,clients:result.clients,templates:hasCachedTemplates?templates:[]};
  setQrs(result.cards);setClients(result.clients);
  initialized.current=true;setCloudReady(true);setCloudError('');
- // The full list is fetched separately; no partial template is ever persisted.
  try{
  const full=await workshopApi({action:'listTemplates',session:workshopSession});if(!live)return;
- last.current={...last.current,templates:full.templates};setTemplates(full.templates);setTemplatesReady(true);
- }catch(err){if(live)setTemplateError(err.message||'No se pudieron cargar las plantillas.');}
- }catch(e){if(live){setCloudError(e.message);if(e.status===401){sessionStorage.removeItem('tocaqui_workshop_session');setWorkshopSession('');}}}})();
+ const nextTemplates=Array.isArray(full.templates)?full.templates:[];
+ last.current={...last.current,templates:nextTemplates};
+ setTemplates(nextTemplates);
+ setTemplatesReady(true);
+ setTemplatesRefreshing(false);
+ setTemplateError('');
+ }catch(err){
+   if(!live)return;
+   setTemplatesRefreshing(false);
+   if(hasCachedTemplates){setTemplatesReady(true);setTemplateError('No se pudo actualizar la biblioteca; se mantiene la copia guardada.');}
+   else {setTemplatesReady(false);setTemplateError(err.message||'No se pudieron cargar las plantillas.');}
+ }
+ }catch(e){if(live){setTemplatesRefreshing(false);setCloudError(e.message);if(e.status===401){sessionStorage.removeItem('tocaqui_workshop_session');setWorkshopSession('');}}}})();
  return()=>{live=false};
 },[workshopSession,authRevision,loadRetry]);
 const queue=React.useRef(Promise.resolve());
@@ -2148,10 +2240,16 @@ const resetTestInventory = async () => {
                                                         </div>
 
                                                         <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px] gap-2">
-                                                            <select value={distributionTemplateId} onChange={e=>setDistributionTemplateId(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-sm">
-                                                                <option value="">Seleccionar plantilla</option>
-                                                                {selectedBatchTemplates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-                                                            </select>
+                                                            <TocaquiPicker
+                                                                label="Plantilla"
+                                                                value={distributionTemplateId}
+                                                                onChange={setDistributionTemplateId}
+                                                                placeholder="Seleccionar plantilla"
+                                                                searchPlaceholder="Buscar plantilla…"
+                                                                tone="violet"
+                                                                icon="fa-swatchbook"
+                                                                options={[{value:'',label:'Sin plantilla seleccionada',subLabel:'Elige un diseño para distribuir',icon:'fa-ban'},...selectedBatchTemplates.map(t=>({value:t.id,label:t.name,subLabel:t.category,thumb:t.frontBg}))]}
+                                                            />
                                                             <input type="number" min="1" max={Math.max(1,undistributedCards.length)} value={distributionQty} onChange={e=>setDistributionQty(Math.max(1,Number(e.target.value)||1))} className="glass-input rounded-xl px-3 py-3 text-center font-bold" />
                                                         </div>
                                                         <div className="flex flex-wrap gap-1.5">
@@ -2206,10 +2304,16 @@ const resetTestInventory = async () => {
                                                         </div>
 
                                                         <div className="border-t border-slate-800 pt-4 space-y-3">
-                                                            <select value={bulkClientId} onChange={e=>setBulkClientId(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-sm">
-                                                                <option value="">Sin cliente / asignar después</option>
-                                                                {clients.map(c=><option key={c.id} value={c.id}>{c.name}{c.company?' · '+c.company:''}</option>)}
-                                                            </select>
+                                                            <TocaquiPicker
+                                                                label="Cliente"
+                                                                value={bulkClientId}
+                                                                onChange={setBulkClientId}
+                                                                placeholder="Sin cliente / asignar después"
+                                                                searchPlaceholder="Buscar cliente o empresa…"
+                                                                tone="blue"
+                                                                icon="fa-user"
+                                                                options={[{value:'',label:'Sin cliente',subLabel:'Asignar después',icon:'fa-user-slash'},...clients.map(c=>({value:c.id,label:c.name,subLabel:c.company||c.email||c.phone,icon:'fa-user-tie'}))]}
+                                                            />
                                                             <input value={bulkBusinessName} onChange={e=>setBulkBusinessName(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-sm" placeholder="Nombre del negocio"/>
                                                             <input value={bulkBusinessAddress} onChange={e=>setBulkBusinessAddress(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-sm" placeholder="Dirección (opcional)"/>
                                                         </div>
@@ -2794,13 +2898,13 @@ const resetTestInventory = async () => {
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="h-32 rounded-lg bg-slate-950 border border-slate-800 relative overflow-hidden flex items-center justify-center p-2">
                                             {tpl.frontBg
-                                                ? <img src={tpl.frontBg} alt={'Anverso de '+tpl.name} className="max-w-full max-h-full w-auto h-auto object-contain" style={{imageOrientation:'from-image'}} />
+                                                ? <img src={tpl.frontBg} alt={'Anverso de '+tpl.name} loading="lazy" decoding="async" className="max-w-full max-h-full w-auto h-auto object-contain" style={{imageOrientation:'from-image'}} />
                                                 : <div className="absolute inset-0 bg-gradient-to-br from-blue-900 to-slate-950"></div>}
                                             <span className="absolute top-2 left-2 text-[8px] font-bold uppercase bg-black/70 text-white px-1.5 py-0.5 rounded">Anverso</span>
                                         </div>
                                         <div className="h-32 rounded-lg bg-slate-950 border border-slate-800 relative overflow-hidden flex items-center justify-center p-2">
                                             {tpl.backBg
-                                                ? <img src={tpl.backBg} alt={'Reverso de '+tpl.name} className="max-w-full max-h-full w-auto h-auto object-contain" style={{imageOrientation:'from-image'}} />
+                                                ? <img src={tpl.backBg} alt={'Reverso de '+tpl.name} loading="lazy" decoding="async" className="max-w-full max-h-full w-auto h-auto object-contain" style={{imageOrientation:'from-image'}} />
                                                 : <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-indigo-950"></div>}
                                             <span className="absolute top-2 left-2 text-[8px] font-bold uppercase bg-black/70 text-white px-1.5 py-0.5 rounded">Reverso</span>
                                         </div>
@@ -3638,7 +3742,7 @@ const resetTestInventory = async () => {
                                             {selectedMixBatch?.productType==='10x15' && <p className="text-[10px] text-amber-300">Puedes usar diseños de otros formatos. La imagen se adapta a 10 × 15 cm y puede recortarse; revisa la vista previa y la posición del QR antes de imprimir.</p>}
                                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[26rem] overflow-y-auto overscroll-contain">
                                                 {mixTemplates.length?mixTemplates.map(tpl=><button key={tpl.id} type="button" onClick={()=>choosePrintTemplate(tpl)} aria-pressed={tpl.id===printMixTemplateId} className={'min-w-0 rounded-xl border p-2 text-left '+(tpl.id===printMixTemplateId?'border-violet-400 bg-violet-500/15':'border-slate-700 bg-slate-900/70')}>
-                                                    <span className="h-28 sm:h-32 w-full rounded-lg bg-slate-950 flex items-center justify-center overflow-hidden">{tpl.frontBg?<img src={tpl.frontBg} alt="" className="max-w-full max-h-full object-contain"/>:<i className="fa-solid fa-image text-slate-500"></i>}</span>
+                                                    <span className="h-28 sm:h-32 w-full rounded-lg bg-slate-950 flex items-center justify-center overflow-hidden">{tpl.frontBg?<img src={tpl.frontBg} alt="" loading="lazy" decoding="async" className="max-w-full max-h-full object-contain"/>:<i className="fa-solid fa-image text-slate-500"></i>}</span>
                                                     <span className="block text-xs font-semibold text-white mt-2 truncate">{tpl.name}</span><span className="block text-[10px] text-slate-400 mt-0.5">{printFormatLabel(tpl.category)} {tpl.id===printMixTemplateId?'· Seleccionada':''}</span>
                                                 </button>):<p className="col-span-2 text-xs text-slate-400 p-4">No hay plantillas compatibles con este lote.</p>}
                                             </div>
@@ -5240,14 +5344,26 @@ const resetTestInventory = async () => {
                                                     <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
                                                     <input value={businessCardSearch} onChange={e=>setBusinessCardSearch(e.target.value)} className="w-full glass-input pl-9 pr-3 py-3 rounded-xl text-sm" placeholder="Buscar TQ, lote o diseño…"/>
                                                 </div>
-                                                <select value={businessBatchFilter} onChange={e=>setBusinessBatchFilter(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-xs">
-                                                    <option value="all">Todos los lotes</option>
-                                                    {businessBatches.map(batch=><option key={batch.id} value={batch.id}>{batch.label}</option>)}
-                                                </select>
-                                                <select value={businessDesignFilter} onChange={e=>setBusinessDesignFilter(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-xs">
-                                                    <option value="all">Todos los diseños</option>
-                                                    {businessDesigns.map(design=><option key={design.id} value={design.id}>{design.label}</option>)}
-                                                </select>
+                                                <TocaquiPicker
+                                                    label="Lote"
+                                                    value={businessBatchFilter}
+                                                    onChange={setBusinessBatchFilter}
+                                                    placeholder="Todos los lotes"
+                                                    searchPlaceholder="Buscar lote…"
+                                                    icon="fa-layer-group"
+                                                    tone="blue"
+                                                    options={[{value:'all',label:'Todos los lotes',subLabel:pendingBusinessCards.length+' tarjetas disponibles',icon:'fa-layer-group'},...businessBatches.map(batch=>({value:batch.id,label:batch.label,subLabel:'Lote de fabricación',count:pendingBusinessCards.filter(card=>(card.batchId||card.batchName||'sin-lote')===batch.id).length,icon:'fa-boxes-stacked'}))]}
+                                                />
+                                                <TocaquiPicker
+                                                    label="Diseño"
+                                                    value={businessDesignFilter}
+                                                    onChange={setBusinessDesignFilter}
+                                                    placeholder="Todos los diseños"
+                                                    searchPlaceholder="Buscar diseño…"
+                                                    icon="fa-swatchbook"
+                                                    tone="violet"
+                                                    options={[{value:'all',label:'Todos los diseños',subLabel:businessDesigns.length+' diseños disponibles',icon:'fa-swatchbook'},...businessDesigns.map(design=>{const tpl=templates.find(t=>t.id===design.id);return {value:design.id,label:design.label,subLabel:design.category||'Plantilla',thumb:tpl?.frontBg,count:pendingBusinessCards.filter(card=>(card.designTemplateId||'sin-diseno')===design.id).length}})]}
+                                                />
                                             </div></div>
 
                                             <div className="flex flex-wrap items-center gap-2">
@@ -5269,7 +5385,7 @@ const resetTestInventory = async () => {
                                                                 const tpl=templates.find(t=>t.id===card.designTemplateId);
                                                                 return <button type="button" key={card.id} onClick={()=>assignBusinessToCard(card)} className="w-full hover:bg-slate-900 px-3.5 py-3 text-left transition-colors">
                                                                     <div className="flex items-center justify-between gap-3">
-                                                                        {tpl?.frontBg?<img src={tpl.frontBg} alt="" className="w-14 h-10 sm:w-16 sm:h-11 rounded-lg object-contain bg-slate-950 border border-slate-700 shrink-0"/>:<span className="w-14 h-10 sm:w-16 sm:h-11 rounded-lg bg-slate-900 border border-slate-800 text-slate-600 flex items-center justify-center shrink-0"><i className="fa-solid fa-image"></i></span>}
+                                                                        {tpl?.frontBg?<img src={tpl.frontBg} alt="" loading="lazy" decoding="async" className="w-14 h-10 sm:w-16 sm:h-11 rounded-lg object-contain bg-slate-950 border border-slate-700 shrink-0"/>:<span className="w-14 h-10 sm:w-16 sm:h-11 rounded-lg bg-slate-900 border border-slate-800 text-slate-600 flex items-center justify-center shrink-0"><i className="fa-solid fa-image"></i></span>}
                                                                         <div className="min-w-0 flex-1">
                                                                             <div className="flex items-center gap-2 min-w-0"><span className="text-sm font-bold text-white truncate">{cardNumber(card)}</span>{tpl?.category&&<span className="shrink-0 rounded-md bg-slate-800 px-1.5 py-0.5 text-[8px] uppercase text-slate-400">{tpl.category}</span>}</div>
                                                                             <div className="text-[10px] text-slate-500 mt-0.5 truncate">{tpl?.name||'Sin diseño asignado'} · {card.productType||'formato no definido'}</div>
@@ -5435,7 +5551,13 @@ const resetTestInventory = async () => {
                                 <main className="tocaqui-app-main flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 no-print">
                                     <div className="max-w-7xl mx-auto">
                                         {adminTab === 'dashboard' && <StableDashboardView />}
-                                        {!templatesReady && adminTab!=='dashboard' ? <div role="status" className="rounded-xl p-5 bg-slate-900 text-slate-200">{templateError ? <>No se pudieron cargar las plantillas. <button onClick={()=>setLoadRetry(v=>v+1)}>Reintentar</button></> : 'Cargando plantillas…'}</div> : null}
+                                        {templatesRefreshing&&templatesReady&&adminTab!=='dashboard'&&<div role="status" className="mb-3 rounded-xl border border-cyan-500/15 bg-cyan-500/[0.05] px-3 py-2 text-[10px] text-cyan-200 flex items-center gap-2"><i className="fa-solid fa-arrows-rotate fa-spin"></i>Sincronizando plantillas en segundo plano…</div>}
+                                        {!templatesReady&&adminTab!=='dashboard'?<div role="status" className="space-y-3">
+                                            {templateError?<div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4 text-xs text-amber-200">No se pudieron cargar las plantillas. <button type="button" className="underline font-semibold" onClick={()=>setLoadRetry(v=>v+1)}>Reintentar</button></div>:<>
+                                                <div className="flex items-center gap-2 text-xs text-slate-400"><i className="fa-solid fa-spinner fa-spin text-cyan-300"></i>Cargando biblioteca TOCAQUI…</div>
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">{Array.from({length:6}).map((_,i)=><div key={i} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 animate-pulse"><div className="h-24 rounded-xl bg-slate-800"></div><div className="h-3 w-2/3 bg-slate-800 rounded mt-3"></div><div className="h-2 w-1/2 bg-slate-800 rounded mt-2"></div></div>)}</div>
+                                            </>}
+                                        </div>:null}
                                         {templatesReady && adminTab === 'batch' && <StableBatchView />}
                                         {templatesReady && adminTab === 'qrs' && <QRManagementView />}
                                         {templatesReady && adminTab === 'clients' && <ClientView />}
