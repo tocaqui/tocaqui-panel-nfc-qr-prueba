@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.16.1070';
+    const TOCAQUI_BUILD = '2026.11.24.2235';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -684,39 +684,6 @@
             return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
         };
 
-        let googlePlacesLoaderPromise = null;
-        const loadGooglePlacesLibrary = async (apiKey) => {
-            if (!apiKey) throw new Error('Falta Google Places API Key');
-            if (window.google?.maps?.importLibrary) {
-                return await window.google.maps.importLibrary('places');
-            }
-            if (!googlePlacesLoaderPromise) {
-                googlePlacesLoaderPromise = new Promise((resolve, reject) => {
-                    const existing = document.getElementById('tocaqui-google-maps-js');
-                    if (existing) {
-                        existing.addEventListener('load', resolve, { once: true });
-                        existing.addEventListener('error', () => reject(new Error('No se pudo cargar Google Maps')), { once: true });
-                        return;
-                    }
-                    const script = document.createElement('script');
-                    script.id = 'tocaqui-google-maps-js';
-                    script.async = true;
-                    script.defer = true;
-                    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&libraries=places&loading=async`;
-                    script.onload = resolve;
-                    script.onerror = () => reject(new Error('No se pudo cargar Google Maps'));
-                    document.head.appendChild(script);
-                }).then(async () => {
-                    if (!window.google?.maps?.importLibrary) throw new Error('Google Maps no inicializó correctamente');
-                    return await window.google.maps.importLibrary('places');
-                }).catch(err => {
-                    googlePlacesLoaderPromise = null;
-                    throw err;
-                });
-            }
-            return await googlePlacesLoaderPromise;
-        };
-
         const compressImageToDataURL = (file, targetWidth = 600, targetHeight = 950, quality = 0.9, fitMode = 'stretch') => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -909,12 +876,9 @@
             });
 
             const [googleApiKey, setGoogleApiKey] = useState(() => {
-                try {
-                    return localStorage.getItem('google_places_api_key_v6') || '';
-                } catch (e) {
-                    return '';
-                }
+                try { return localStorage.getItem('google_places_api_key_v6') || ''; } catch { return ''; }
             });
+            const [placesBackendStatus, setPlacesBackendStatus] = useState({configured:false,loading:true,updatedAt:null});
 
             const [driveConfig, setDriveConfig] = useState(() => {
                 try {
@@ -1055,7 +1019,6 @@
             const [templateImageBusy, setTemplateImageBusy] = useState({ front:false, back:false });
             const [toast, setToast] = useState({ show: false, msg: '', type: 'info' });
             useEffect(() => { try { void masterPin; } catch (e){} }, [masterPin]);
-            useEffect(() => { try { localStorage.setItem('google_places_api_key_v6', googleApiKey); } catch (e){} }, [googleApiKey]);
             useEffect(() => { try { localStorage.setItem('gdrive_config_v6', JSON.stringify(driveConfig)); } catch (e){} }, [driveConfig]);
             useEffect(() => { try { localStorage.setItem('tocaqui_google_cloud_config_v1', JSON.stringify(googleCloudConfig)); } catch (e){} }, [googleCloudConfig]);
             useEffect(() => { try { localStorage.setItem('cloud_db_config_v6', JSON.stringify(cloudDbConfig)); } catch (e){} }, [cloudDbConfig]);
@@ -1076,6 +1039,25 @@ const workshopApi=async(payload)=>{
  const res=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify(payload)});
  const json=await res.json();if(!res.ok||!json.ok){const err=new Error(json.error||'Acceso rechazado');err.status=res.status;throw err;}return json;
 };
+useEffect(()=>{
+ if(!workshopSession)return;
+ let live=true;
+ (async()=>{
+  try{
+   const legacy=String(googleApiKey||localStorage.getItem('google_places_api_key_v6')||'').trim();
+   if(/^AIza[0-9A-Za-z_-]{20,}$/.test(legacy)){
+    await workshopApi({action:'googlePlacesStoreKey',session:workshopSession,key:legacy});
+    try{localStorage.removeItem('google_places_api_key_v6')}catch{}
+    if(live)setGoogleApiKey('');
+   }
+   const status=await workshopApi({action:'googlePlacesStatus',session:workshopSession});
+   if(live)setPlacesBackendStatus({configured:!!status.configured,loading:false,updatedAt:status.updatedAt||null});
+  }catch(e){
+   if(live)setPlacesBackendStatus({configured:false,loading:false,updatedAt:null,error:e.message||String(e)});
+  }
+ })();
+ return()=>{live=false};
+},[workshopSession,authRevision]);
 const openRecognizedDeviceSession=async(credential)=>{
  const result=await workshopApi({action:'resume',credential});
  sessionStorage.setItem('tocaqui_workshop_session',result.session);
@@ -3930,7 +3912,6 @@ const resetTestInventory = async () => {
             const SettingsView = () => {
                 const [pinInput, setPinInput] = useState('');
                 const [oldPinInput,setOldPinInput]=useState('');
-                const [keyInput, setKeyInput] = useState(googleApiKey);
                 const [placesUsage, setPlacesUsage] = useState(readPlacesUsage);
                 const [authorizedDevices, setAuthorizedDevices] = useState([]);
                 const [currentDeviceId, setCurrentDeviceId] = useState('');
@@ -3955,8 +3936,8 @@ const resetTestInventory = async () => {
  if(!/^[0-9]{4}$/.test(pinInput)||!/^[0-9]{4}$/.test(oldPinInput))throw new Error('Ingresa PIN actual y nuevo PIN de cuatro dígitos');
  await workshopApi({action:'changePin',session:workshopSession,currentPin:oldPinInput,newPin:pinInput});
  setMasterPin(pinInput);localStorage.removeItem('nfc_master_pin_v6');setPinInput('');setOldPinInput('');
+ showToast('PIN actualizado en Supabase.','success');
  }
- setGoogleApiKey(keyInput);showToast('Configuración guardada. PIN actualizado en Supabase.','success');
  }catch(e){showToast(e.message,'error')}
  };
 
@@ -4134,11 +4115,11 @@ const resetTestInventory = async () => {
                         const token = await getGoogleCloudToken();
                         setGoogleCloudMessage('Habilitando APIs y creando clave restringida…');
                         const result = await workshopApi({action:'googleCloudCreateKey',session:workshopSession,accessToken:token,projectId});
-                        if (!result.keyString || !result.keyName) throw new Error('Google no devolvió la nueva clave.');
-                        setGoogleApiKey(result.keyString);
-                        setKeyInput(result.keyString);
+                        if (!result.configured || !result.keyName) throw new Error('Google no confirmó la nueva clave.');
                         setGoogleCloudKeys(Array.isArray(result.keys) ? result.keys : []);
+                        setPlacesBackendStatus({configured:true,loading:false,updatedAt:new Date().toISOString()});
                         setGoogleCloudConfig(prev => ({...prev, projectId, oauthClientId, configured:true, activeKeyName:result.keyName, lastCreatedAt:new Date().toISOString()}));
+                        setGoogleCloudMessage('Google Places quedó conectado al backend de TOCAQUI.');
                     } catch (e) {
                         setGoogleCloudMessage(e.message || 'No se pudo crear la clave.');
                         setGoogleCloudBusy(false);
@@ -4152,10 +4133,10 @@ const resetTestInventory = async () => {
                     try {
                         const token = await getGoogleCloudToken();
                         const result = await workshopApi({action:'googleCloudKeyString',session:workshopSession,accessToken:token,keyName:key.name});
-                        if (!result.keyString) throw new Error('Google no devolvió la clave.');
-                        setGoogleApiKey(result.keyString);
-                        setKeyInput(result.keyString);
+                        if (!result.configured) throw new Error('Google no confirmó la clave.');
+                        setPlacesBackendStatus({configured:true,loading:false,updatedAt:new Date().toISOString()});
                         setGoogleCloudConfig(prev => ({...prev, activeKeyName:key.name}));
+                        setGoogleCloudMessage('Clave aplicada al backend de TOCAQUI.');
                     } catch (e) {
                         setGoogleCloudMessage(e.message || 'No se pudo aplicar la clave.');
                         setGoogleCloudBusy(false);
@@ -4340,12 +4321,12 @@ const resetTestInventory = async () => {
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                                 <div>
                                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <i className="fa-brands fa-google text-blue-400"></i> Google Cloud · Claves de Maps / Places
+                                        <i className="fa-brands fa-google text-blue-400"></i> Google Places · Conexión central
                                     </h2>
-                                    <p className="text-xs text-slate-400 mt-1">Crea, rota y selecciona la clave que usa TOCAQUI sin volver al panel de Google para la operación diaria.</p>
+                                    <p className="text-xs text-slate-400 mt-1">Configura Google una sola vez. La credencial queda protegida en backend y todos tus equipos autorizados usan la misma conexión.</p>
                                 </div>
-                                <span className={googleApiKey?'shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold text-emerald-300':'shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold text-amber-300'}>
-                                    <i className={googleApiKey?'fa-solid fa-circle-check mr-1':'fa-solid fa-triangle-exclamation mr-1'}></i>{googleApiKey?'Clave activa':'Sin clave activa'}
+                                <span className={placesBackendStatus.configured?'shrink-0 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold text-emerald-300':'shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold text-amber-300'}>
+                                    <i className={placesBackendStatus.configured?'fa-solid fa-circle-check mr-1':'fa-solid fa-triangle-exclamation mr-1'}></i>{placesBackendStatus.configured?'Conectado al backend':'Pendiente de configurar'}
                                 </span>
                             </div>
 
@@ -4405,13 +4386,12 @@ const resetTestInventory = async () => {
                                 )}
                             </div>
 
-                            <details className="rounded-2xl border border-slate-800 bg-slate-950/35 p-4">
-                                <summary className="cursor-pointer text-xs font-semibold text-slate-300">Clave manual / respaldo</summary>
-                                <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                                    <input type="password" value={keyInput} onChange={e=>setKeyInput(e.target.value)} placeholder="AIzaSyB..." className="flex-1 glass-input px-3.5 py-2.5 rounded-xl text-sm font-mono"/>
-                                    <button type="button" onClick={saveSettings} className="rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2.5 text-xs">Guardar manualmente</button>
+                            <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-300 flex items-center justify-center shrink-0"><i className="fa-solid fa-shield-halved"></i></div>
+                                    <div><div className="text-sm font-semibold text-white">Credencial protegida en TOCAQUI</div><p className="text-[11px] text-slate-400 mt-1">La API key no se guarda en Safari, PWA ni localStorage. Una vez conectada, web, iPhone y computador consultan Google Places mediante Supabase.</p></div>
                                 </div>
-                            </details>
+                            </div>
 
                             <p className="text-[10px] leading-4 text-slate-500">Las nuevas claves se crean con restricción de navegador para <span className="font-mono text-slate-400">go.tocaqui.store</span> y restricciones para Maps JavaScript API y Places API. Generar otra clave no reinicia cuotas ni facturación del proyecto.</p>
                         </div>
@@ -4441,6 +4421,11 @@ const resetTestInventory = async () => {
                     </div>
                 );
             };
+
+            // Keep Settings mounted while editing configuration on mobile/PWA.
+            const settingsViewLatest=useRef(SettingsView);
+            settingsViewLatest.current=SettingsView;
+            const StableSettingsView=useMemo(()=>function StableSettingsView(){return settingsViewLatest.current();},[]);
 
             // MODAL ACTIVATION FLOW WITH SECURITY PIN & GOOGLE PLACES
             const ActivationModal = () => {
@@ -4489,84 +4474,65 @@ const resetTestInventory = async () => {
                 const [placeSuggestions, setPlaceSuggestions] = useState([]);
                 const [placesLoading, setPlacesLoading] = useState(false);
                 const [placesError, setPlacesError] = useState('');
-                const placesSessionTokenRef = useRef(null);
                 const placesRequestIdRef = useRef(0);
                 const [manualPlaceId,setManualPlaceId]=useState(qr.placeId||'');
                 const [manualBusinessName,setManualBusinessName]=useState(qr.businessName||'');
 
                 useEffect(() => {
                     const query = searchQuery.trim();
-                    if (!googleApiKey || query.length < 2 || selectedPlace) {
+                    if (query.length < 2 || selectedPlace) {
                         setPlaceSuggestions([]);
                         setPlacesLoading(false);
-                        if (!googleApiKey) setPlacesError('');
                         return;
                     }
-
+                    if (!placesBackendStatus.configured) {
+                        setPlaceSuggestions([]);
+                        setPlacesLoading(false);
+                        setPlacesError(placesBackendStatus.loading ? '' : 'Google Places todavía no está configurado en TOCAQUI.');
+                        return;
+                    }
                     const requestId = ++placesRequestIdRef.current;
                     const timer = setTimeout(async () => {
                         setPlacesLoading(true);
                         setPlacesError('');
                         try {
-                            const { AutocompleteSuggestion, AutocompleteSessionToken } = await loadGooglePlacesLibrary(googleApiKey);
-                            if (!placesSessionTokenRef.current) {
-                                placesSessionTokenRef.current = new AutocompleteSessionToken();
-                            }
                             recordPlacesUsage('request');
-                            const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-                                input: query,
-                                region: 'cl',
-                                language: 'es-CL',
-                                sessionToken: placesSessionTokenRef.current
-                            });
+                            const result=await workshopApi({action:'placesAutocomplete',session:workshopSession,input:query});
                             recordPlacesUsage('success');
                             if (requestId !== placesRequestIdRef.current) return;
-                            setPlaceSuggestions(
-                                (suggestions || [])
-                                    .map(item => item.placePrediction)
-                                    .filter(Boolean)
-                                    .slice(0, 6)
-                            );
+                            setPlaceSuggestions(Array.isArray(result.suggestions)?result.suggestions:[]);
                         } catch (err) {
                             if (requestId !== placesRequestIdRef.current) return;
-                            console.error('Google Places autocomplete error', err);
                             recordPlacesUsage('error');
                             setPlaceSuggestions([]);
-                            setPlacesError('No se pudo consultar Google Places. Revisa la API Key y que Places API (New) esté habilitada.');
+                            setPlacesError(err.message || 'No se pudo consultar Google Places.');
                         } finally {
                             if (requestId === placesRequestIdRef.current) setPlacesLoading(false);
                         }
-                    }, 350);
-
+                    }, 320);
                     return () => clearTimeout(timer);
-                }, [searchQuery, selectedPlace, googleApiKey]);
+                }, [searchQuery, selectedPlace, workshopSession, placesBackendStatus.configured, placesBackendStatus.loading]);
 
                 const selectGooglePlace = async (prediction) => {
                     setPlacesLoading(true);
                     setPlacesError('');
                     try {
-                        const place = prediction.toPlace();
-                        await place.fetchFields({ fields: ['displayName', 'formattedAddress'] });
-                        const picked = {
-                            name: place.displayName || prediction.mainText?.text || prediction.text?.text || 'Negocio',
-                            address: place.formattedAddress || prediction.secondaryText?.text || '',
-                            placeId: prediction.placeId
-                        };
+                        const result=await workshopApi({action:'placesDetails',session:workshopSession,placeId:prediction.placeId});
+                        const picked=result.place;
+                        if(!picked?.placeId)throw new Error('Google no devolvió el Place ID.');
                         setSelectedPlace(picked);
                         recordPlacesUsage('selection');
-                        setManualBusinessName(picked.name);
-                        setManualPlaceId(picked.placeId || '');
+                        setManualBusinessName(picked.name||'');
+                        setManualPlaceId(picked.placeId||'');
                         setSearchQuery('');
                         setPlaceSuggestions([]);
-                        placesSessionTokenRef.current = null;
                     } catch (err) {
-                        console.error('Google Places selection error', err);
-                        setPlacesError('No se pudieron cargar los datos del negocio seleccionado.');
+                        setPlacesError(err.message || 'No se pudieron cargar los datos del negocio seleccionado.');
                     } finally {
                         setPlacesLoading(false);
                     }
                 };
-                const handleConfirmActivation = async () => {
+                                const handleConfirmActivation = async () => {
                     if (activationSaving) return;
                     setPinError(false);
 
@@ -4745,17 +4711,17 @@ const resetTestInventory = async () => {
                                         </div>
                                     ) : (
                                         <div>
-                                            {googleApiKey ? <div className="relative">
+                                            {placesBackendStatus.configured ? <div className="relative">
                                                 <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
                                                 <input type="text" placeholder="Buscar negocio en Google..." value={searchQuery} onChange={e=>{setSearchQuery(e.target.value);setSelectedPlace(null);}} className="w-full glass-input pl-9 pr-9 py-3 rounded-xl text-sm"/>
                                                 {placesLoading&&<i className="fa-solid fa-spinner fa-spin absolute right-3 top-3.5 text-cyan-400 text-xs"></i>}
-                                            </div> : <p className="text-xs text-amber-200">La búsqueda automática de Google no está configurada en este navegador. Puedes ingresar el negocio y Place ID manualmente abajo, o elegir URL personalizada.</p>}
+                                            </div> : <p className="text-xs text-amber-200">{placesBackendStatus.loading?'Verificando Google Places…':'Google Places aún no está configurado en TOCAQUI. Se configura una sola vez en Configuración y luego funciona en todos tus equipos autorizados.'}</p>}
                                             {placesError&&<p className="text-[11px] text-rose-300 mt-2">{placesError}</p>}
                                             {searchQuery&&placeSuggestions.length>0&&(
                                                 <div className="mt-2 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 divide-y divide-slate-800">
                                                     {placeSuggestions.map((prediction,idx)=>(
                                                         <button type="button" key={prediction.placeId||idx} onClick={()=>selectGooglePlace(prediction)} className="w-full px-3 py-3 hover:bg-slate-900 text-left flex items-center justify-between gap-3">
-                                                            <span className="min-w-0"><span className="block text-sm font-semibold text-white truncate">{prediction.mainText?.text||prediction.text?.text||'Negocio'}</span><span className="block text-[11px] text-slate-500 truncate">{prediction.secondaryText?.text||''}</span></span>
+                                                            <span className="min-w-0"><span className="block text-sm font-semibold text-white truncate">{prediction.mainText||prediction.text||'Negocio'}</span><span className="block text-[11px] text-slate-500 truncate">{prediction.secondaryText||''}</span></span>
                                                             <i className="fa-solid fa-chevron-right text-slate-600 text-xs"></i>
                                                         </button>
                                                     ))}
@@ -4764,7 +4730,7 @@ const resetTestInventory = async () => {
                                         </div>
                                     )}
 
-                                    <details open={!googleApiKey} className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                                    <details open={!placesBackendStatus.configured} className="mt-3 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
                                         <summary className="cursor-pointer text-xs font-semibold text-slate-300">Ingresar negocio manualmente / Place ID</summary>
                                         <div className="mt-3 space-y-2">
                                             <input type="text" className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" placeholder="Nombre comercial" value={manualBusinessName} onChange={e=>setManualBusinessName(e.target.value)}/>
@@ -5028,7 +4994,7 @@ const resetTestInventory = async () => {
                                         {templatesReady && adminTab === 'client-detail' && <ClientView />}
                                         {templatesReady && adminTab === 'templates' && TemplatesView()}
                                         {templatesReady && adminTab === 'print' && <StablePrintView />}
-                                        {templatesReady && adminTab === 'settings' && <SettingsView />}
+                                        {templatesReady && adminTab === 'settings' && <StableSettingsView />}
                                     </div>
                                 </main>
                             </>
