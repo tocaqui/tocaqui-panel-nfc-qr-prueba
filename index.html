@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.24.2335';
+    const TOCAQUI_BUILD = '2026.11.24.2325';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -4868,6 +4868,7 @@ const resetTestInventory = async () => {
                 const [cameraOn,setCameraOn]=useState(false);
                 const [cameraError,setCameraError]=useState('');
                 const [starting,setStarting]=useState(false);
+                const mode=scanSimModal.mode||'choose';
                 const [manualInput,setManualInput]=useState('');
                 const [businessQuery,setBusinessQuery]=useState('');
                 const [businessSuggestions,setBusinessSuggestions]=useState([]);
@@ -4889,7 +4890,6 @@ const resetTestInventory = async () => {
                     }))}catch{}
                 },[scanSimModal.open,mode,selectedBusiness,businessCardSearch,businessBatchFilter,businessDesignFilter,businessCardPage]);
                 const videoRef=useRef(null),streamRef=useRef(null),frameRef=useRef(null);
-                const mode=scanSimModal.mode||'choose';
 
                 const stop=()=>{
                     if(frameRef.current)clearTimeout(frameRef.current);
@@ -5103,6 +5103,9 @@ const resetTestInventory = async () => {
                 },[scanSimModal.open,mode,scanSimModal.code]);
 
                 useEffect(()=>()=>stop(),[]);
+                useEffect(()=>{
+                    setBusinessCardPage(1);
+                },[businessCardSearch,businessBatchFilter,businessDesignFilter,selectedBusiness?.placeId]);
 
                 if(!scanSimModal.open)return null;
 
@@ -5134,7 +5137,6 @@ const resetTestInventory = async () => {
                         const batchCmp=batchA.localeCompare(batchB,undefined,{numeric:true});
                         return batchCmp||String(cardNumber(a)).localeCompare(String(cardNumber(b)),undefined,{numeric:true});
                     });
-                useEffect(()=>{setBusinessCardPage(1)},[businessCardSearch,businessBatchFilter,businessDesignFilter,selectedBusiness?.placeId]);
                 const businessCardPageCount=Math.max(1,Math.ceil(availableBusinessCards.length/businessCardPageSize));
                 const safeBusinessCardPage=Math.min(businessCardPage,businessCardPageCount);
                 const pagedBusinessCards=availableBusinessCards.slice((safeBusinessCardPage-1)*businessCardPageSize,safeBusinessCardPage*businessCardPageSize);
