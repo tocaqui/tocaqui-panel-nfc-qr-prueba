@@ -60,7 +60,7 @@ body{min-height:100dvh}.app{max-width:720px;margin:0 auto;min-height:100dvh;padd
 </main>
 
 <main id="main" class="main hidden">
-  <div id="installHint" class="install hidden"><b>Para dejarlo como app aparte:</b> en Safari toca Compartir → Añadir a pantalla de inicio. Después abrirá directamente aquí.</div>
+  <div id="installHint" class="install hidden"><b>Para dejarlo como app aparte:</b> después de esta primera vinculación, en Safari toca Compartir → Añadir a pantalla de inicio. El icono TOCAQUI Activador quedará autorizado para abrir directo aquí.</div>
   <section class="hero">
     <div class="eyebrow">Operación directa</div>
     <h1>Activa una tarjeta</h1>
@@ -141,6 +141,7 @@ async function pair(code){
   state.credential=out.credential;
   localStorage.setItem('tocaqui_activator_credential_v1',out.credential);
   localStorage.setItem('tocaqui_device_credential_v1',out.credential);
+  document.cookie='tocaqui_activator_device='+encodeURIComponent(out.credential)+'; Path=/activar; Max-Age=31536000; Secure; SameSite=Strict';
 }
 async function resume(){
   if(!state.credential)throw new Error('Activador no autorizado');
@@ -284,7 +285,13 @@ async function launch(){
 async function boot(){
   cachedBoot();
   var params=new URLSearchParams(location.search),code=params.get('vincular');
-  state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';
+  var cookieMatch=document.cookie.match(/(?:^|;\s*)tocaqui_activator_device=([^;]+)/);
+  var cookieCredential=cookieMatch?decodeURIComponent(cookieMatch[1]):'';
+  state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||cookieCredential||'';
+  if(state.credential&&cookieCredential&&!localStorage.getItem('tocaqui_activator_credential_v1')){
+    localStorage.setItem('tocaqui_activator_credential_v1',state.credential);
+    localStorage.setItem('tocaqui_device_credential_v1',state.credential);
+  }
   if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD)}catch(e){console.warn(e)}}
   if(state.credential)await launch();else{show('loading',false);show('setup',true);$('deviceStatus').textContent='Por autorizar'}
 }
