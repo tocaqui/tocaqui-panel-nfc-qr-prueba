@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.24.2235';
+    const TOCAQUI_BUILD = '2026.11.24.2255';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1050,8 +1050,17 @@ useEffect(()=>{
     try{localStorage.removeItem('google_places_api_key_v6')}catch{}
     if(live)setGoogleApiKey('');
    }
+   const localProject=String(googleCloudConfig.projectId||'').trim();
+   const localOauth=String(googleCloudConfig.oauthClientId||'').trim();
+   if(localProject&&localOauth){
+    try{await workshopApi({action:'googleCloudConfigSet',session:workshopSession,projectId:localProject,oauthClientId:localOauth})}catch{}
+   }
    const status=await workshopApi({action:'googlePlacesStatus',session:workshopSession});
-   if(live)setPlacesBackendStatus({configured:!!status.configured,loading:false,updatedAt:status.updatedAt||null});
+   if(!live)return;
+   setPlacesBackendStatus({configured:!!status.configured,loading:false,updatedAt:status.updatedAt||null});
+   if(status.cloud?.configured){
+    setGoogleCloudConfig(prev=>({...prev,projectId:status.cloud.projectId,oauthClientId:status.cloud.oauthClientId,configured:true}));
+   }
   }catch(e){
    if(live)setPlacesBackendStatus({configured:false,loading:false,updatedAt:null,error:e.message||String(e)});
   }
@@ -3923,6 +3932,10 @@ const resetTestInventory = async () => {
                 const [googleCloudMessage, setGoogleCloudMessage] = useState('');
                 const [cloudProjectInput, setCloudProjectInput] = useState(googleCloudConfig.projectId || '');
                 const [cloudOAuthInput, setCloudOAuthInput] = useState(googleCloudConfig.oauthClientId || driveConfig.clientId || '');
+                useEffect(()=>{
+                    if(googleCloudConfig.projectId)setCloudProjectInput(googleCloudConfig.projectId);
+                    if(googleCloudConfig.oauthClientId)setCloudOAuthInput(googleCloudConfig.oauthClientId);
+                },[googleCloudConfig.projectId,googleCloudConfig.oauthClientId]);
                 useEffect(() => {
                     const refresh = () => setPlacesUsage(readPlacesUsage());
                     window.addEventListener('tocaqui-places-usage-updated', refresh);
@@ -4012,16 +4025,25 @@ const resetTestInventory = async () => {
                 const revokedDevices = authorizedDevices.filter(device => !!device.revoked_at);
                 const visibleDevices = showRevokedDevices ? revokedDevices : activeDevices;
 
-                const saveGoogleCloudBootstrap = () => {
+                const saveGoogleCloudBootstrap = async () => {
                     const projectId = cloudProjectInput.trim();
                     const oauthClientId = cloudOAuthInput.trim();
                     if (!projectId || !oauthClientId) {
                         setGoogleCloudMessage('Completa Project ID y OAuth Client ID.');
                         return false;
                     }
-                    setGoogleCloudConfig(prev => ({ ...prev, projectId, oauthClientId, configured:true }));
-                    setGoogleCloudMessage('Configuración base guardada. Ya puedes autorizar Google Cloud.');
-                    return true;
+                    setGoogleCloudBusy(true);
+                    try{
+                        await workshopApi({action:'googleCloudConfigSet',session:workshopSession,projectId,oauthClientId});
+                        setGoogleCloudConfig(prev => ({ ...prev, projectId, oauthClientId, configured:true }));
+                        setGoogleCloudMessage('Configuración central guardada. Este proyecto ya queda disponible en todos tus equipos autorizados.');
+                        return true;
+                    }catch(e){
+                        setGoogleCloudMessage(e.message||'No se pudo guardar la configuración central.');
+                        return false;
+                    }finally{
+                        setGoogleCloudBusy(false);
+                    }
                 };
 
                 const getGoogleCloudToken = async () => {
@@ -4333,7 +4355,7 @@ const resetTestInventory = async () => {
                             <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4 space-y-3">
                                 <div className="flex items-center gap-2">
                                     <span className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-300 flex items-center justify-center text-xs font-bold">1</span>
-                                    <div><div className="text-sm font-semibold text-white">Configuración inicial</div><div className="text-[11px] text-slate-500">Se hace una sola vez por proyecto.</div></div>
+                                    <div><div className="text-sm font-semibold text-white">Configuración inicial</div><div className="text-[11px] text-slate-500">Se guarda una sola vez en TOCAQUI y se comparte con todos tus equipos autorizados.</div></div>
                                 </div>
                                 <input type="text" value={cloudProjectInput} onChange={e=>setCloudProjectInput(e.target.value)} placeholder="Google Cloud Project ID" className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono"/>
                                 <input type="text" value={cloudOAuthInput} onChange={e=>setCloudOAuthInput(e.target.value)} placeholder="OAuth Client ID ...apps.googleusercontent.com" className="w-full glass-input px-3.5 py-2.5 rounded-xl text-xs font-mono"/>
@@ -4345,7 +4367,7 @@ const resetTestInventory = async () => {
                             <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4 space-y-3">
                                 <div className="flex items-center gap-2">
                                     <span className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 flex items-center justify-center text-xs font-bold">2</span>
-                                    <div><div className="text-sm font-semibold text-white">Administrar claves</div><div className="text-[11px] text-slate-500">Google pedirá autorización de tu cuenta cuando sea necesario.</div></div>
+                                    <div><div className="text-sm font-semibold text-white">Administrar claves</div><div className="text-[11px] text-slate-500">Solo esta autorización inicial abre Google; la API key queda guardada de forma privada en el backend.</div></div>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     <button type="button" disabled={googleCloudBusy} onClick={createGoogleCloudKey} className="rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 py-3 px-3 text-xs font-bold text-white">
