@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.25.0025';
+    const TOCAQUI_BUILD = '2026.11.25.0115';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -4838,9 +4838,19 @@ const resetTestInventory = async () => {
                 const [businessSuggestions,setBusinessSuggestions]=useState([]);
                 const [businessLoading,setBusinessLoading]=useState(false);
                 const [businessError,setBusinessError]=useState('');
-                const [selectedBusiness,setSelectedBusiness]=useState(null);
-                const [businessCardSearch,setBusinessCardSearch]=useState('');
+                const businessWizardKey='tocaqui_business_assignment_wizard_v1';
+                const [businessWizardDraft]=useState(()=>{try{const d=JSON.parse(sessionStorage.getItem(businessWizardKey)||'null');return d&&d.expires>Date.now()?d:null}catch{return null}});
+                const [selectedBusiness,setSelectedBusiness]=useState(businessWizardDraft?.selectedBusiness||null);
+                const [businessCardSearch,setBusinessCardSearch]=useState(businessWizardDraft?.businessCardSearch||'');
+                const [businessBatchFilter,setBusinessBatchFilter]=useState(businessWizardDraft?.businessBatchFilter||'all');
+                const [businessDesignFilter,setBusinessDesignFilter]=useState(businessWizardDraft?.businessDesignFilter||'all');
                 const businessRequestIdRef=useRef(0);
+                useEffect(()=>{
+                    if(!scanSimModal.open||mode!=='business')return;
+                    try{sessionStorage.setItem(businessWizardKey,JSON.stringify({
+                        selectedBusiness,businessCardSearch,businessBatchFilter,businessDesignFilter,expires:Date.now()+2*60*60*1000
+                    }))}catch{}
+                },[scanSimModal.open,mode,selectedBusiness,businessCardSearch,businessBatchFilter,businessDesignFilter]);
                 const videoRef=useRef(null),streamRef=useRef(null),frameRef=useRef(null);
                 const mode=scanSimModal.mode||'choose';
 
@@ -4861,6 +4871,9 @@ const resetTestInventory = async () => {
                     setBusinessError('');
                     setSelectedBusiness(null);
                     setBusinessCardSearch('');
+                    setBusinessBatchFilter('all');
+                    setBusinessDesignFilter('all');
+                    try{sessionStorage.removeItem(businessWizardKey)}catch{}
                     setScanSimModal({open:false,mode:'choose',code:'',reviewGateStep:'stars',selectedStars:0});
                 };
                 const openMode=next=>{
@@ -4959,11 +4972,13 @@ const resetTestInventory = async () => {
 
                 const assignBusinessToCard=card=>{
                     if(!selectedBusiness||!card)return;
+                    const business=selectedBusiness;
+                    try{sessionStorage.removeItem(businessWizardKey)}catch{}
                     setScanSimModal({open:false,mode:'choose',code:'',reviewGateStep:'stars',selectedStars:0});
                     setTimeout(()=>setActivateModal({
                         open:true,
                         qr:card,
-                        preselectedPlace:selectedBusiness,
+                        preselectedPlace:business,
                         preselectedDestinationType:'google_review'
                     }),0);
                 };
@@ -5057,12 +5072,37 @@ const resetTestInventory = async () => {
                 const scannedQr=qrs.find(q=>q.trackingCode===scanSimModal.code||q.id===scanSimModal.code);
                 const term=manualInput.trim().toLowerCase();
                 const manualMatches=term.length<1?[]:qrs.filter(card=>cardSearchText(card).includes(term)).slice(0,8);
+                const pendingBusinessCards=qrs.filter(card=>card.status!=='active');
+                const businessBatches=[...new Map(pendingBusinessCards.map(card=>[
+                    card.batchId||card.batchName||'sin-lote',
+                    {id:card.batchId||card.batchName||'sin-lote',label:card.batchName||card.batchId||'Sin lote'}
+                ])).values()].sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
+                const businessDesigns=[...new Map(pendingBusinessCards.map(card=>{
+                    const tpl=templates.find(t=>t.id===card.designTemplateId);
+                    const id=card.designTemplateId||'sin-diseno';
+                    return [id,{id,label:tpl?.name||'Sin diseño asignado',category:tpl?.category||card.productType||''}];
+                })).values()].sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
                 const businessCardTerm=businessCardSearch.trim().toLowerCase();
-                const availableBusinessCards=qrs
-                    .filter(card=>card.status!=='active')
-                    .filter(card=>!businessCardTerm||cardSearchText(card).includes(businessCardTerm))
-                    .sort((a,b)=>String(cardNumber(a)).localeCompare(String(cardNumber(b)),undefined,{numeric:true}))
-                    .slice(0,30);
+                const availableBusinessCards=pendingBusinessCards
+                    .filter(card=>businessBatchFilter==='all'||(card.batchId||card.batchName||'sin-lote')===businessBatchFilter)
+                    .filter(card=>businessDesignFilter==='all'||(card.designTemplateId||'sin-diseno')===businessDesignFilter)
+                    .filter(card=>{
+                        if(!businessCardTerm)return true;
+                        const tpl=templates.find(t=>t.id===card.designTemplateId);
+                        return (cardSearchText(card)+' '+(tpl?.name||'')+' '+(tpl?.category||'')).includes(businessCardTerm);
+                    })
+                    .sort((a,b)=>{
+                        const batchA=String(a.batchName||a.batchId||'Sin lote');
+                        const batchB=String(b.batchName||b.batchId||'Sin lote');
+                        const batchCmp=batchA.localeCompare(batchB,undefined,{numeric:true});
+                        return batchCmp||String(cardNumber(a)).localeCompare(String(cardNumber(b)),undefined,{numeric:true});
+                    });
+                const businessCardGroups=availableBusinessCards.reduce((acc,card)=>{
+                    const key=card.batchId||card.batchName||'sin-lote';
+                    if(!acc[key])acc[key]={label:card.batchName||card.batchId||'Sin lote',cards:[]};
+                    acc[key].cards.push(card);
+                    return acc;
+                },{});
 
                 if(scannedQr?.status==='active'){
                     const owner=clients.find(c=>c.id===scannedQr.clientId);
@@ -5152,25 +5192,52 @@ const resetTestInventory = async () => {
                                                 <span className="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] text-slate-400">{qrs.filter(card=>card.status!=='active').length} disponibles</span>
                                             </div>
 
-                                            <div className="relative">
-                                                <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
-                                                <input value={businessCardSearch} onChange={e=>setBusinessCardSearch(e.target.value)} className="w-full glass-input pl-9 pr-3 py-3 rounded-xl text-sm" placeholder="Filtrar TQ, lote o diseño…"/>
+                                            <div className="grid sm:grid-cols-[1fr_180px_180px] gap-2">
+                                                <div className="relative">
+                                                    <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
+                                                    <input value={businessCardSearch} onChange={e=>setBusinessCardSearch(e.target.value)} className="w-full glass-input pl-9 pr-3 py-3 rounded-xl text-sm" placeholder="Buscar TQ, lote o diseño…"/>
+                                                </div>
+                                                <select value={businessBatchFilter} onChange={e=>setBusinessBatchFilter(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-xs">
+                                                    <option value="all">Todos los lotes</option>
+                                                    {businessBatches.map(batch=><option key={batch.id} value={batch.id}>{batch.label}</option>)}
+                                                </select>
+                                                <select value={businessDesignFilter} onChange={e=>setBusinessDesignFilter(e.target.value)} className="glass-input w-full rounded-xl px-3 py-3 text-xs">
+                                                    <option value="all">Todos los diseños</option>
+                                                    {businessDesigns.map(design=><option key={design.id} value={design.id}>{design.label}</option>)}
+                                                </select>
                                             </div>
 
-                                            {availableBusinessCards.length ? <div className="space-y-2">
-                                                {availableBusinessCards.map(card=>{
-                                                    const tpl=templates.find(t=>t.id===card.designTemplateId);
-                                                    return <button type="button" key={card.id} onClick={()=>assignBusinessToCard(card)} className="w-full rounded-xl border border-slate-800 bg-slate-900/55 hover:border-blue-500/35 hover:bg-slate-900 px-3.5 py-3 text-left transition-colors">
-                                                        <div className="flex items-center justify-between gap-3">
-                                                            <div className="min-w-0">
-                                                                <div className="text-sm font-bold text-white truncate">{cardNumber(card)}</div>
-                                                                <div className="text-[10px] text-slate-500 mt-0.5 truncate">{card.batchName||card.batchId||'Sin lote'} · {tpl?.name||'Sin diseño asignado'}</div>
-                                                            </div>
-                                                            <span className="shrink-0 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-200 px-2.5 py-1.5 text-[10px] font-semibold">Seleccionar</span>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="rounded-full border border-blue-500/20 bg-blue-500/[0.06] px-2.5 py-1 text-[10px] text-blue-200">{availableBusinessCards.length} visibles</span>
+                                                <span className="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] text-slate-400">{businessBatches.length} lotes</span>
+                                                <span className="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] text-slate-400">{businessDesigns.length} diseños</span>
+                                                {(businessBatchFilter!=='all'||businessDesignFilter!=='all'||businessCardSearch)&&<button type="button" onClick={()=>{setBusinessCardSearch('');setBusinessBatchFilter('all');setBusinessDesignFilter('all');}} className="text-[10px] text-cyan-300 underline">Limpiar filtros</button>}
+                                            </div>
+
+                                            {availableBusinessCards.length ? <div className="space-y-3">
+                                                {Object.entries(businessCardGroups).map(([groupId,group])=>(
+                                                    <section key={groupId} className="rounded-2xl border border-slate-800 bg-slate-950/30 overflow-hidden">
+                                                        <div className="sticky top-0 z-[1] flex items-center justify-between gap-3 px-3.5 py-2.5 border-b border-slate-800 bg-slate-900/95 backdrop-blur">
+                                                            <div className="min-w-0"><div className="text-[9px] uppercase tracking-wider text-slate-500">Lote</div><div className="text-xs font-bold text-white truncate">{group.label}</div></div>
+                                                            <span className="rounded-full border border-slate-700 px-2 py-1 text-[9px] text-slate-400">{group.cards.length} tarjeta{group.cards.length===1?'':'s'}</span>
                                                         </div>
-                                                    </button>;
-                                                })}
-                                            </div> : <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4 text-xs text-amber-200">No hay tarjetas pendientes que coincidan con el filtro.</div>}
+                                                        <div className="divide-y divide-slate-800">
+                                                            {group.cards.map(card=>{
+                                                                const tpl=templates.find(t=>t.id===card.designTemplateId);
+                                                                return <button type="button" key={card.id} onClick={()=>assignBusinessToCard(card)} className="w-full hover:bg-slate-900 px-3.5 py-3 text-left transition-colors">
+                                                                    <div className="flex items-center justify-between gap-3">
+                                                                        <div className="min-w-0">
+                                                                            <div className="flex items-center gap-2 min-w-0"><span className="text-sm font-bold text-white truncate">{cardNumber(card)}</span>{tpl?.category&&<span className="shrink-0 rounded-md bg-slate-800 px-1.5 py-0.5 text-[8px] uppercase text-slate-400">{tpl.category}</span>}</div>
+                                                                            <div className="text-[10px] text-slate-500 mt-0.5 truncate">{tpl?.name||'Sin diseño asignado'} · {card.productType||'formato no definido'}</div>
+                                                                        </div>
+                                                                        <span className="shrink-0 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-200 px-2.5 py-1.5 text-[10px] font-semibold">Elegir</span>
+                                                                    </div>
+                                                                </button>;
+                                                            })}
+                                                        </div>
+                                                    </section>
+                                                ))}
+                                            </div> : <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4 text-xs text-amber-200">No hay tarjetas pendientes que coincidan con los filtros.</div>}
                                         </section>
                                     )}
                                 </div>
@@ -5271,6 +5338,11 @@ const resetTestInventory = async () => {
                     </div>
                 );
             };
+
+            // Keep card/business assignment mounted through background refreshes.
+            const scanSimulatorLatest=useRef(ScanSimulatorModal);
+            scanSimulatorLatest.current=ScanSimulatorModal;
+            const StableScanSimulatorModal=useMemo(()=>function StableScanSimulatorModal(){return scanSimulatorLatest.current();},[]);
 
             const ConfirmModal = () => {
                 if (!confirmModal.open) return null;
@@ -5374,7 +5446,7 @@ const resetTestInventory = async () => {
                     )}
                     {activateModal.open && <StableActivationModal key={activateModal.qr?.id} />}
                     {activationResult && <div className="fixed inset-0 z-[90] bg-black/80 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Tarjeta activada"><div className="w-full max-w-sm rounded-3xl border border-emerald-500/25 bg-slate-950 p-5 space-y-4 shadow-2xl"><div className="flex items-center gap-3"><span className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-300 flex items-center justify-center"><i className="fa-solid fa-check"></i></span><div><h2 className="font-bold text-white">Tarjeta guardada y activa</h2><p className="text-[11px] text-slate-400 font-mono break-all">{activationResult.card.trackingCode}</p></div></div><p className="text-xs text-slate-300 break-all">Destino guardado: {activationResult.card.dynamicUrl}</p><a href={getBaseTagUrl(activationResult.card.trackingCode)} target="_blank" rel="noopener noreferrer" className="block text-center rounded-xl bg-blue-600 py-3 text-sm font-bold text-white">Probar QR activado</a><p className="text-[10px] text-slate-500">Abre el enlace dinámico de la tarjeta y registra una lectura.</p><button type="button" onClick={()=>setActivationResult(null)} className="w-full rounded-xl border border-slate-700 py-3 text-sm text-slate-200">Volver a tarjetas</button></div></div>}
-                    <ScanSimulatorModal />
+                    <StableScanSimulatorModal />
                     <ConfirmModal />
 
                     {toast.show && (
