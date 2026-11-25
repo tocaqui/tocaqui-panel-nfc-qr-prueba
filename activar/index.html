@@ -1,1 +1,295 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>Activa tu tarjeta · TOCAQUI</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#020617;color:#f8fafc;font-family:system-ui,sans-serif}.card{width:min(100%,460px);padding:28px;border:1px solid #1e3a5f;border-radius:24px;background:#0b1427}.brand{color:#93c5fd;font-weight:800;font-size:13px}h1{font-size:25px}p{color:#b8c4d6;line-height:1.5}.code{word-break:break-all;color:#fff;font-weight:bold}.btn{display:block;text-align:center;margin-top:20px;padding:15px;border-radius:14px;background:#2563eb;color:white;text-decoration:none;font-weight:700}.small{font-size:12px;color:#94a3b8}</style></head><body><main class="card"><div class="brand">TOCAQUI · NFC / QR</div><h1>Activa tu tarjeta</h1><p>Esta tarjeta está pendiente de activación. Entra al panel de TOCAQUI para configurar esta tarjeta:</p><p class="code" id="card">Código no disponible</p><a id="panel" class="btn" href="https://go.tocaqui.store/">Entrar al panel de TOCAQUI</a><p class="small">El acceso requiere un equipo autorizado y la verificación habitual.</p></main><script>const c=new URLSearchParams(location.search).get('card');if(c&&/^TAG-[A-Z0-9]{5,32}$/.test(c)){document.getElementById('card').textContent=c;document.getElementById('panel').href='/?activar='+encodeURIComponent(c);}</script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#050b16">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TOCAQUI Activador">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icon-180.png">
+<title>TOCAQUI Activador</title>
+<script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#030712;--panel:#081120;--card:#0d1728;--line:#1f2d42;--muted:#91a0b7;--text:#f8fafc;--blue:#3b82f6;--cyan:#22d3ee;--green:#34d399;--amber:#fbbf24;--red:#fb7185}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -10%,#10203d 0,#050b16 38%,#020617 72%);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;color:var(--text);-webkit-tap-highlight-color:transparent}
+body{min-height:100dvh}.app{max-width:720px;margin:0 auto;min-height:100dvh;padding:env(safe-area-inset-top) 14px calc(20px + env(safe-area-inset-bottom))}
+.top{position:sticky;top:0;z-index:20;margin:0 -14px;padding:12px 14px;background:rgba(3,7,18,.92);backdrop-filter:blur(18px);border-bottom:1px solid rgba(148,163,184,.12);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}.mark{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(145deg,#1d4ed8,#06b6d4);box-shadow:0 10px 25px rgba(37,99,235,.24);font-weight:900}.brand strong{display:block;font-size:14px;letter-spacing:.02em}.brand small{display:block;color:var(--muted);font-size:10px;margin-top:2px}.status{font-size:10px;border:1px solid #14532d;background:#052e1b;color:#86efac;padding:7px 9px;border-radius:999px;white-space:nowrap}
+.main{padding:16px 0 110px}.hero{padding:6px 2px 14px}.eyebrow{font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#67e8f9}.hero h1{font-size:25px;line-height:1.05;margin:7px 0}.hero p{font-size:12px;color:var(--muted);line-height:1.5;margin:0}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0 14px}.step{border:1px solid var(--line);background:rgba(13,23,40,.68);padding:9px;border-radius:14px;text-align:center;font-size:10px;color:#64748b}.step b{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;margin:0 auto 5px;background:#111c30;color:#64748b}.step.on{border-color:#2563eb66;color:#bfdbfe;background:#2563eb12}.step.on b{background:#2563eb;color:white}.step.done{border-color:#05966955;color:#a7f3d0}.step.done b{background:#065f46;color:#a7f3d0}
+.panel{border:1px solid var(--line);background:linear-gradient(180deg,rgba(13,23,40,.92),rgba(6,13,25,.96));border-radius:22px;padding:14px;margin-bottom:12px;box-shadow:0 14px 38px rgba(0,0,0,.18)}.panel h2{font-size:14px;margin:0}.panel .sub{font-size:10px;color:var(--muted);margin:5px 0 12px;line-height:1.4}
+.input{width:100%;border:1px solid #26364f;background:#050b16;color:white;border-radius:14px;padding:13px 14px;font-size:14px;outline:none;min-height:48px}.input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}.search{position:relative}.search .input{padding-left:40px}.search:before{content:"⌕";position:absolute;left:14px;top:10px;color:#64748b;font-size:20px}
+.suggestions{margin-top:8px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#050b16}.suggestions button{width:100%;text-align:left;border:0;border-bottom:1px solid #172338;background:transparent;color:white;padding:12px 13px}.suggestions button:last-child{border-bottom:0}.suggestions strong{display:block;font-size:12px}.suggestions span{display:block;font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chosen{display:flex;gap:10px;align-items:center;padding:11px;border:1px solid #0f766e66;background:#064e3b22;border-radius:15px}.chosen .ico{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:#05966922;color:#6ee7b7}.chosen .copy{min-width:0;flex:1}.chosen strong,.chosen span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chosen strong{font-size:12px}.chosen span{font-size:10px;color:var(--muted);margin-top:3px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.btn{border:1px solid #26364f;background:#111c30;color:#dbeafe;border-radius:14px;min-height:46px;padding:10px 13px;font-weight:700;font-size:12px}.btn.primary{background:linear-gradient(135deg,#2563eb,#4f46e5);border-color:#3b82f6;color:white}.btn.green{background:#065f46;border-color:#059669;color:#d1fae5}.btn.ghost{background:#050b16}.btn:disabled{opacity:.4}.btn.wide{width:100%}
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.filter{border:1px solid #26364f;background:#050b16;border-radius:14px;padding:10px 11px;min-height:48px;text-align:left;color:white}.filter small{display:block;color:#64748b;font-size:9px;text-transform:uppercase;letter-spacing:.12em}.filter strong{display:block;font-size:11px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}.card{border:1px solid #1f2d42;background:#050b16;border-radius:16px;padding:9px;text-align:left;color:white;min-width:0}.card.selected{border-color:#3b82f6;background:#2563eb12}.thumb{height:86px;border-radius:11px;background:#0b1427;border:1px solid #172338;display:flex;align-items:center;justify-content:center;overflow:hidden}.thumb img{width:100%;height:100%;object-fit:contain}.thumb span{color:#475569;font-size:22px}.card strong{display:block;font-size:11px;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card small{display:block;color:#718096;font-size:9px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:11px}.pager span{font-size:10px;color:var(--muted)}
+.destinations{display:grid;grid-template-columns:1fr 1fr;gap:8px}.dest{border:1px solid #26364f;background:#050b16;color:#cbd5e1;border-radius:14px;padding:12px;text-align:left;font-size:11px;font-weight:700;min-height:54px}.dest.active{border-color:#3b82f6;background:#2563eb18;color:white}
+.footer{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(3,7,18,.94);backdrop-filter:blur(18px);border-top:1px solid rgba(148,163,184,.13)}.footer-inner{max-width:692px;margin:0 auto;display:flex;gap:8px}.footer .btn{flex:1;min-height:50px}
+.notice{border:1px solid #92400e55;background:#78350f22;color:#fde68a;border-radius:15px;padding:11px;font-size:11px;line-height:1.45}.ok{border-color:#065f4655;background:#064e3b22;color:#a7f3d0}.error{border-color:#be123c55;background:#88133722;color:#fecdd3}
+.hidden{display:none!important}.loading{padding:70px 20px;text-align:center;color:#94a3b8}.spinner{width:34px;height:34px;border:3px solid #1e293b;border-top-color:#38bdf8;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 15px}@keyframes spin{to{transform:rotate(360deg)}}
+.overlay{position:fixed;inset:0;z-index:80;background:rgba(2,6,23,.88);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;padding:12px}.sheet{width:min(100%,620px);max-height:78dvh;background:#050b16;border:1px solid #26364f;border-radius:26px;overflow:hidden}.sheet-head{padding:14px;border-bottom:1px solid #172338;display:flex;justify-content:space-between;align-items:center}.sheet-head strong{font-size:14px}.sheet-body{padding:10px;overflow:auto;max-height:65dvh}.choice{width:100%;border:1px solid transparent;background:transparent;color:white;border-radius:13px;padding:11px;text-align:left;display:flex;gap:10px;align-items:center}.choice:hover,.choice.active{background:#111c30;border-color:#26364f}.choice .copy{min-width:0;flex:1}.choice strong,.choice small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.choice strong{font-size:12px}.choice small{font-size:9px;color:#718096;margin-top:2px}
+.scanbox{position:relative;background:black;border-radius:20px;overflow:hidden;aspect-ratio:4/3}.scanbox video{width:100%;height:100%;object-fit:cover}.finder{position:absolute;inset:12%;border:2px solid #22d3ee;border-radius:24px;box-shadow:0 0 0 999px rgba(0,0,0,.28)}
+.install{margin:10px 0;border:1px solid #0e749055;background:#164e6322;color:#a5f3fc;border-radius:15px;padding:10px 11px;font-size:10px;line-height:1.45}
+@media(min-width:640px){.cards{grid-template-columns:repeat(3,1fr)}.overlay{align-items:center}.app{padding-left:20px;padding-right:20px}.top{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+  <div class="brand"><div class="mark">T</div><div><strong>TOCAQUI Activador</strong><small>Activación rápida NFC / QR</small></div></div>
+  <div id="deviceStatus" class="status">Conectando…</div>
+</header>
+
+<div id="loading" class="loading"><div class="spinner"></div><div>Abriendo Activador…</div></div>
+
+<main id="setup" class="main hidden">
+  <section class="hero"><div class="eyebrow">Vinculación inicial</div><h1>Autoriza este Activador una sola vez</h1><p>Después abrirá directo, sin PIN ni panel de diseño.</p></section>
+  <section class="panel">
+    <div class="notice">Abre el Activador desde el botón <b>Activador</b> del TOCAQUI principal. Ese enlace trae una autorización de un solo uso válida por 15 minutos.</div>
+    <label class="sub" for="pairCode" style="display:block;margin-top:14px">También puedes pegar aquí un código de vinculación.</label>
+    <input id="pairCode" class="input" autocomplete="off" autocapitalize="off" placeholder="Código de vinculación">
+    <button id="pairBtn" class="btn primary wide" style="margin-top:9px">Autorizar Activador</button>
+    <a class="btn ghost wide" style="display:block;text-align:center;text-decoration:none;margin-top:8px" href="../">Volver a TOCAQUI</a>
+  </section>
+</main>
+
+<main id="main" class="main hidden">
+  <div id="installHint" class="install hidden"><b>Para dejarlo como app aparte:</b> en Safari toca Compartir → Añadir a pantalla de inicio. Después abrirá directamente aquí.</div>
+  <section class="hero">
+    <div class="eyebrow">Operación directa</div>
+    <h1>Activa una tarjeta</h1>
+    <p>Busca el negocio, elige o escanea la tarjeta y confirma el destino. Sin entrar al panel completo.</p>
+  </section>
+
+  <div class="steps">
+    <div id="step1" class="step on"><b>1</b>Negocio</div>
+    <div id="step2" class="step"><b>2</b>Tarjeta</div>
+    <div id="step3" class="step"><b>3</b>Activar</div>
+  </div>
+
+  <section class="panel">
+    <h2>1 · Negocio</h2><p class="sub">Busca el local en Google Places. El Place ID queda asociado a la tarjeta.</p>
+    <div id="businessSearchWrap">
+      <div class="search"><input id="businessSearch" class="input" autocomplete="off" placeholder="Buscar negocio en Google…"></div>
+      <div id="businessSuggestions" class="suggestions hidden"></div>
+    </div>
+    <div id="businessChosen" class="chosen hidden">
+      <div class="ico">✓</div><div class="copy"><strong id="businessName"></strong><span id="businessAddress"></span></div>
+      <button id="changeBusiness" class="btn ghost">Cambiar</button>
+    </div>
+  </section>
+
+  <section id="cardPanel" class="panel hidden">
+    <div style="display:flex;align-items:end;justify-content:space-between;gap:10px"><div><h2>2 · Tarjeta</h2><p class="sub">Solo tarjetas disponibles. Se muestran 10 por página.</p></div><button id="scanBtn" class="btn green">Escanear QR</button></div>
+    <div class="search"><input id="cardSearch" class="input" autocomplete="off" placeholder="Buscar TQ, TAG, lote o diseño…"></div>
+    <div class="filters">
+      <button id="batchFilterBtn" class="filter"><small>Lote</small><strong>Todos los lotes</strong></button>
+      <button id="designFilterBtn" class="filter"><small>Diseño</small><strong>Todos los diseños</strong></button>
+    </div>
+    <div id="cards" class="cards"></div>
+    <div class="pager"><button id="prevPage" class="btn ghost">Anterior</button><span id="pageLabel">1/1</span><button id="nextPage" class="btn ghost">Siguiente</button></div>
+  </section>
+
+  <section id="configPanel" class="panel hidden">
+    <h2>3 · Configurar y activar</h2><p class="sub">El diseño físico no cambia. Aquí solo defines el destino y, opcionalmente, el cliente.</p>
+    <div id="selectedCardBox" class="chosen" style="margin-bottom:11px"></div>
+    <div class="destinations">
+      <button class="dest active" data-dest="google_review">Google Reseñas</button>
+      <button class="dest" data-dest="review_gate">Experiencia + reseña</button>
+      <button class="dest" data-dest="whatsapp">WhatsApp</button>
+      <button class="dest" data-dest="custom_url">URL / Menú / Catálogo</button>
+    </div>
+    <div id="customWrap" class="hidden" style="margin-top:10px"><input id="customUrl" class="input" placeholder="https://…"></div>
+    <div style="margin-top:10px"><button id="clientBtn" class="filter" style="width:100%"><small>Cliente opcional</small><strong>Sin cliente asignado</strong></button></div>
+    <div id="destinationPreview" class="notice ok" style="margin-top:10px"></div>
+  </section>
+</main>
+
+<footer id="footer" class="footer hidden">
+  <div class="footer-inner"><button id="resetBtn" class="btn ghost">Nueva</button><button id="activateBtn" class="btn primary" disabled>Activar tarjeta</button></div>
+</footer>
+
+<div id="pickerOverlay" class="overlay hidden"><div class="sheet"><div class="sheet-head"><strong id="pickerTitle">Seleccionar</strong><button id="pickerClose" class="btn ghost">Cerrar</button></div><div id="pickerBody" class="sheet-body"></div></div></div>
+<div id="scannerOverlay" class="overlay hidden"><div class="sheet"><div class="sheet-head"><strong>Escanear QR TOCAQUI</strong><button id="scannerClose" class="btn ghost">Cerrar</button></div><div class="sheet-body"><div class="scanbox"><video id="scannerVideo" playsinline muted autoplay></video><div class="finder"></div></div><div id="scannerMessage" class="notice" style="margin-top:10px">Acerca el QR al recuadro.</div></div></div></div>
+
+<script>
+(function(){
+'use strict';
+var BUILD='2026.11.25.1100';
+var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
+var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
+var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
+var state={credential:'',session:'',cards:[],clients:[],templates:[],business:null,card:null,destination:'google_review',customUrl:'',clientId:'',batch:'all',design:'all',page:1,pageSize:10,scannerStream:null,scannerTimer:null};
+var $=function(id){return document.getElementById(id)};
+function show(id,on){$(id).classList.toggle('hidden',!on)}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function cardNo(c){return c.serialNumber||c.trackingCode||c.id}
+function cacheSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function cacheGet(k,f){try{var v=JSON.parse(localStorage.getItem(k)||'null');return v==null?f:v}catch(e){return f}}
+async function call(url,payload){var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify(payload)});var j=await r.json();if(!r.ok||j.ok===false||j.error){throw new Error(j.error||'Solicitud rechazada')}return j}
+async function api(payload){payload.session=state.session;return call(API,payload)}
+async function pair(code){
+  code=String(code||'').trim().toLowerCase();
+  if(!/^[a-f0-9]{64}$/.test(code))throw new Error('Código de vinculación inválido');
+  var out=await call(DEVICE,{action:'pair',code:code,label:'TOCAQUI Activador iPhone'});
+  state.credential=out.credential;
+  localStorage.setItem('tocaqui_activator_credential_v1',out.credential);
+  localStorage.setItem('tocaqui_device_credential_v1',out.credential);
+}
+async function resume(){
+  if(!state.credential)throw new Error('Activador no autorizado');
+  var out=await call(API,{action:'resume',credential:state.credential});
+  state.session=out.session;
+  sessionStorage.setItem('tocaqui_activator_session_v1',out.session);
+}
+function cachedBoot(){
+  state.cards=cacheGet('tocaqui_activator_cards_v1',[]);
+  state.clients=cacheGet('tocaqui_activator_clients_v1',[]);
+  state.templates=cacheGet('tocaqui_activator_templates_v1',[]);
+}
+async function loadData(){
+  var data=await Promise.all([api({action:'listCore'}),api({action:'listTemplates'}),api({action:'googlePlacesStatus'})]);
+  state.cards=data[0].cards||[];state.clients=data[0].clients||[];state.templates=data[1].templates||[];
+  cacheSet('tocaqui_activator_cards_v1',state.cards);cacheSet('tocaqui_activator_clients_v1',state.clients);cacheSet('tocaqui_activator_templates_v1',state.templates);
+}
+function templateFor(c){return state.templates.find(function(t){return t.id===c.designTemplateId})||null}
+function pendingCards(){
+  var term=$('cardSearch').value.trim().toLowerCase();
+  return state.cards.filter(function(c){
+    if(c.status==='active'&&(!state.card||state.card.id!==c.id))return false;
+    if(state.batch!=='all'&&(c.batchId||'legacy')!==state.batch)return false;
+    if(state.design!=='all'&&(c.designTemplateId||'none')!==state.design)return false;
+    if(!term)return true;
+    var t=templateFor(c);
+    return [cardNo(c),c.id,c.trackingCode,c.batchId,c.batchName,c.businessName,t&&t.name].some(function(v){return String(v||'').toLowerCase().indexOf(term)>=0})
+  }).sort(function(a,b){return String(a.batchName||a.batchId||'').localeCompare(String(b.batchName||b.batchId||''),'es',{numeric:true})||String(cardNo(a)).localeCompare(String(cardNo(b)),'es',{numeric:true})})
+}
+function batches(){
+  var map={};state.cards.filter(function(c){return c.status!=='active'}).forEach(function(c){var id=c.batchId||'legacy';if(!map[id])map[id]={id:id,label:c.batchName||c.batchId||'Tarjetas anteriores',count:0};map[id].count++});return Object.values(map)
+}
+function designs(){
+  var map={};state.cards.filter(function(c){return c.status!=='active'}).forEach(function(c){var id=c.designTemplateId||'none',t=templateFor(c);if(!map[id])map[id]={id:id,label:t?t.name:'Sin diseño',count:0};map[id].count++});return Object.values(map)
+}
+function renderSteps(){
+  var hasB=!!state.business,hasC=!!state.card;
+  $('step1').className='step '+(hasB?'done':'on');
+  $('step2').className='step '+(hasC?'done':hasB?'on':'');
+  $('step3').className='step '+(hasC?'on':'');
+  show('cardPanel',hasB);show('configPanel',hasC);show('footer',hasC);
+}
+function renderBusiness(){
+  if(state.business){show('businessSearchWrap',false);show('businessChosen',true);$('businessName').textContent=state.business.name;$('businessAddress').textContent=state.business.address||state.business.placeId}
+  else{show('businessSearchWrap',true);show('businessChosen',false)}
+  renderSteps()
+}
+function renderCards(){
+  var all=pendingCards(),pages=Math.max(1,Math.ceil(all.length/state.pageSize));if(state.page>pages)state.page=pages;
+  var list=all.slice((state.page-1)*state.pageSize,state.page*state.pageSize);
+  $('cards').innerHTML=list.length?list.map(function(c){var t=templateFor(c),img=t&&t.frontBg?'<img loading="lazy" decoding="async" src="'+esc(t.frontBg)+'" alt="">':'<span>▧</span>';return '<button class="card '+(state.card&&state.card.id===c.id?'selected':'')+'" data-card="'+esc(c.id)+'"><div class="thumb">'+img+'</div><strong>'+esc(cardNo(c))+'</strong><small>'+esc((c.batchName||c.batchId||'Sin lote')+' · '+(t?t.name:'Sin diseño'))+'</small></button>'}).join(''):'<div class="notice" style="grid-column:1/-1">No hay tarjetas disponibles con estos filtros.</div>';
+  Array.from($('cards').querySelectorAll('[data-card]')).forEach(function(btn){btn.onclick=function(){selectCard(btn.getAttribute('data-card'))}});
+  $('pageLabel').textContent=state.page+' / '+pages+' · '+all.length+' disponibles';$('prevPage').disabled=state.page<=1;$('nextPage').disabled=state.page>=pages;
+  $('batchFilterBtn').querySelector('strong').textContent=state.batch==='all'?'Todos los lotes':((batches().find(function(x){return x.id===state.batch})||{}).label||state.batch);
+  $('designFilterBtn').querySelector('strong').textContent=state.design==='all'?'Todos los diseños':((designs().find(function(x){return x.id===state.design})||{}).label||state.design);
+}
+function selectCard(id){var c=state.cards.find(function(x){return x.id===id});if(!c)return;state.card=c;state.page=1;renderCards();renderConfig();renderSteps()}
+function makeDestination(){
+  if(state.destination==='google_review'||state.destination==='review_gate'){return state.business&&state.business.placeId?'https://search.google.com/local/writereview?placeid='+encodeURIComponent(state.business.placeId):''}
+  var raw=$('customUrl').value.trim();
+  if(state.destination==='whatsapp'){var digits=raw.replace(/\D/g,'');if(digits.length<8)return '';return 'https://wa.me/'+digits}
+  if(!/^https:\/\//i.test(raw))return '';return raw
+}
+function renderConfig(){
+  if(!state.card)return;
+  var t=templateFor(state.card);
+  $('selectedCardBox').innerHTML='<div class="ico">✓</div><div class="copy"><strong>'+esc(cardNo(state.card))+'</strong><span>'+esc((state.card.batchName||state.card.batchId||'Sin lote')+' · '+(t?t.name:'Sin diseño'))+'</span></div>';
+  Array.from(document.querySelectorAll('.dest')).forEach(function(b){b.classList.toggle('active',b.getAttribute('data-dest')===state.destination)});
+  show('customWrap',state.destination==='custom_url'||state.destination==='whatsapp');
+  $('customUrl').placeholder=state.destination==='whatsapp'?'+56 9 1234 5678':'https://…';
+  var client=state.clients.find(function(c){return c.id===state.clientId});$('clientBtn').querySelector('strong').textContent=client?(client.name+(client.company?' · '+client.company:'')):'Sin cliente asignado';
+  var url=makeDestination();$('destinationPreview').textContent=url?'Destino: '+url:'Completa un destino válido';$('destinationPreview').className='notice '+(url?'ok':'error');
+  $('activateBtn').disabled=!url||!state.business||!state.card;
+}
+function picker(title,items,current,onPick){
+  $('pickerTitle').textContent=title;$('pickerBody').innerHTML=items.map(function(x){return '<button class="choice '+(String(x.id)===String(current)?'active':'')+'" data-choice="'+esc(x.id)+'"><div class="copy"><strong>'+esc(x.label)+'</strong><small>'+esc(x.sub||'')+'</small></div><span>'+esc(x.count==null?'':x.count)+'</span></button>'}).join('');
+  Array.from($('pickerBody').querySelectorAll('[data-choice]')).forEach(function(b){b.onclick=function(){onPick(b.getAttribute('data-choice'));show('pickerOverlay',false)}});
+  show('pickerOverlay',true)
+}
+var businessTimer=null;
+$('businessSearch').addEventListener('input',function(){
+  clearTimeout(businessTimer);var q=this.value.trim();if(q.length<2){show('businessSuggestions',false);return}
+  businessTimer=setTimeout(async function(){try{var out=await api({action:'placesAutocomplete',input:q}),arr=out.suggestions||[];$('businessSuggestions').innerHTML=arr.map(function(p,i){return '<button data-place="'+i+'"><strong>'+esc(p.mainText||p.text||'Negocio')+'</strong><span>'+esc(p.secondaryText||'')+'</span></button>'}).join('');Array.from($('businessSuggestions').querySelectorAll('[data-place]')).forEach(function(b){b.onclick=async function(){var p=arr[Number(b.getAttribute('data-place'))];try{var d=await api({action:'placesDetails',placeId:p.placeId});state.business=d.place;$('businessSearch').value='';show('businessSuggestions',false);renderBusiness();renderCards()}catch(e){alert(e.message)}}});show('businessSuggestions',arr.length>0)}catch(e){$('businessSuggestions').innerHTML='<button><strong>No se pudo buscar</strong><span>'+esc(e.message)+'</span></button>';show('businessSuggestions',true)}},280)
+});
+$('changeBusiness').onclick=function(){state.business=null;state.card=null;renderBusiness();renderCards();renderConfig()};
+$('cardSearch').addEventListener('input',function(){state.page=1;renderCards()});
+$('prevPage').onclick=function(){state.page=Math.max(1,state.page-1);renderCards()};
+$('nextPage').onclick=function(){state.page++;renderCards()};
+$('batchFilterBtn').onclick=function(){picker('Filtrar por lote',[{id:'all',label:'Todos los lotes',sub:'No cambiar de lote automáticamente'}].concat(batches().map(function(b){return {id:b.id,label:b.label,sub:'Lote de fabricación',count:b.count}})),state.batch,function(id){state.batch=id;state.page=1;renderCards()})};
+$('designFilterBtn').onclick=function(){picker('Filtrar por diseño',[{id:'all',label:'Todos los diseños',sub:'Ver cualquier diseño'}].concat(designs().map(function(d){return {id:d.id,label:d.label,sub:'Plantilla',count:d.count}})),state.design,function(id){state.design=id;state.page=1;renderCards()})};
+$('clientBtn').onclick=function(){var items=[{id:'',label:'Sin cliente',sub:'Asignar después'}].concat(state.clients.map(function(c){return {id:c.id,label:c.name,sub:c.company||c.email||c.phone||''}}));picker('Cliente',items,state.clientId,function(id){state.clientId=id;renderConfig()})};
+Array.from(document.querySelectorAll('.dest')).forEach(function(b){b.onclick=function(){state.destination=b.getAttribute('data-dest');renderConfig()}});
+$('customUrl').addEventListener('input',renderConfig);
+$('pickerClose').onclick=function(){show('pickerOverlay',false)};
+$('pickerOverlay').onclick=function(e){if(e.target===this)show('pickerOverlay',false)};
+$('resetBtn').onclick=function(){state.business=null;state.card=null;state.clientId='';state.destination='google_review';state.customUrl='';state.batch='all';state.design='all';state.page=1;$('businessSearch').value='';$('cardSearch').value='';$('customUrl').value='';renderBusiness();renderCards();renderConfig()};
+$('activateBtn').onclick=async function(){
+  var url=makeDestination();if(!url||!state.card||!state.business)return;
+  this.disabled=true;this.textContent='Guardando…';
+  try{
+    var now=Date.now(),card=Object.assign({},state.card,{status:'active',clientId:state.clientId||null,businessName:state.business.name,businessAddress:state.business.address||'',placeId:state.business.placeId||null,functionType:(state.destination==='google_review'||state.destination==='review_gate')?state.destination:'custom_url',destinationType:state.destination,dynamicUrl:url,updatedAt:now});
+    var out=await api({action:'activateCard',card:card});
+    state.cards=state.cards.map(function(c){return c.id===out.card.id?out.card:c});cacheSet('tocaqui_activator_cards_v1',state.cards);
+    $('destinationPreview').className='notice ok';$('destinationPreview').textContent='Tarjeta activada correctamente · '+cardNo(out.card);
+    this.textContent='Activada ✓';var self=this;setTimeout(function(){self.textContent='Activar tarjeta';$('resetBtn').click()},1000)
+  }catch(e){$('destinationPreview').className='notice error';$('destinationPreview').textContent='No se pudo activar: '+e.message;this.textContent='Activar tarjeta';this.disabled=false}
+};
+function resolveCard(raw){
+  raw=String(raw||'');var tag=(raw.match(/TAG-[A-Z0-9-]+/i)||[])[0],serial=(raw.match(/TQ-\d+/i)||[])[0];
+  return state.cards.find(function(c){return (tag&&[c.id,c.trackingCode].some(function(v){return String(v||'').toUpperCase()===tag.toUpperCase()}))||(serial&&String(c.serialNumber||'').toUpperCase()===serial.toUpperCase())})
+}
+async function startScanner(){
+  show('scannerOverlay',true);$('scannerMessage').textContent='Iniciando cámara…';
+  try{
+    var stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});state.scannerStream=stream;var video=$('scannerVideo');video.srcObject=stream;await video.play();$('scannerMessage').textContent='Acerca el QR al recuadro.';
+    var detector=null;if('BarcodeDetector' in window){try{detector=new BarcodeDetector({formats:['qr_code']})}catch(e){}}
+    var canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
+    async function tick(){
+      if(!state.scannerStream)return;
+      try{
+        var raw='';
+        if(detector){var codes=await detector.detect(video);raw=codes&&codes[0]&&codes[0].rawValue||''}
+        else if(window.jsQR&&video.videoWidth){var max=640,scale=Math.min(1,max/video.videoWidth);canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);ctx.drawImage(video,0,0,canvas.width,canvas.height);var px=ctx.getImageData(0,0,canvas.width,canvas.height),found=window.jsQR(px.data,px.width,px.height,{inversionAttempts:'attemptBoth'});raw=found&&found.data||''}
+        if(raw){var c=resolveCard(raw);if(c){stopScanner();state.card=c;renderCards();renderConfig();renderSteps();return}else $('scannerMessage').textContent='QR leído, pero no corresponde a una tarjeta cargada.'}
+      }catch(e){}
+      state.scannerTimer=setTimeout(tick,120)
+    }tick()
+  }catch(e){$('scannerMessage').textContent='No se pudo abrir la cámara: '+e.message}
+}
+function stopScanner(){if(state.scannerTimer)clearTimeout(state.scannerTimer);state.scannerTimer=null;if(state.scannerStream){state.scannerStream.getTracks().forEach(function(t){t.stop()});state.scannerStream=null}show('scannerOverlay',false)}
+$('scanBtn').onclick=startScanner;$('scannerClose').onclick=stopScanner;$('scannerOverlay').onclick=function(e){if(e.target===this)stopScanner()};
+$('pairBtn').onclick=async function(){this.disabled=true;try{await pair($('pairCode').value);await launch()}catch(e){alert(e.message);this.disabled=false}};
+async function launch(){
+  show('loading',true);show('setup',false);show('main',false);show('footer',false);
+  try{
+    await resume();$('deviceStatus').textContent='Equipo autorizado';cachedBoot();renderBusiness();renderCards();
+    show('loading',false);show('main',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);
+    loadData().then(function(){renderCards();renderConfig()}).catch(function(e){console.warn(e)});
+  }catch(e){show('loading',false);show('setup',true);$('deviceStatus').textContent='Por autorizar'}
+}
+async function boot(){
+  cachedBoot();
+  var params=new URLSearchParams(location.search),code=params.get('vincular');
+  state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';
+  if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD)}catch(e){console.warn(e)}}
+  if(state.credential)await launch();else{show('loading',false);show('setup',true);$('deviceStatus').textContent='Por autorizar'}
+}
+boot();
+})();
+</script>
+</body>
+</html>
