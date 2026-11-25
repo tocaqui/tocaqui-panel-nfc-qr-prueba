@@ -1554,7 +1554,7 @@ const resetTestInventory = async () => {
                     if(!workshopSession)throw new Error('Abre una sesión autorizada primero.');
                     const result=await workshopApi({action:'createPairing',session:workshopSession});
                     if(!result?.code)throw new Error('No se pudo preparar el Activador.');
-                    const url='/activar/?vincular='+encodeURIComponent(result.code)+'&v=2026.11.25.1615';
+                    const url='/activar/?vincular='+encodeURIComponent(result.code)+'&v=2026.11.25.1745';
                     const win=window.open(url,'_blank','noopener');
                     if(!win)location.href=url;
                     showToast('Activador preparado. En Safari puedes añadirlo a Inicio una sola vez.','success');
