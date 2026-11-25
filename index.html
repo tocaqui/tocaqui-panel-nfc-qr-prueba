@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.25.1520';
+    const TOCAQUI_BUILD = '2026.11.25.1630';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1427,6 +1427,35 @@ const resetTestInventory = async () => {
                 });
             };
 
+            const requestResetCardScans = (card) => {
+                if(!card) return;
+                const currentScans=getCardScans(card);
+                setConfirmModal({
+                    open:true,
+                    title:'Reiniciar escaneos · '+cardNumber(card),
+                    message:'Se reiniciará únicamente el contador de escaneos de esta tarjeta ('+currentScans+'). La activación, negocio, cliente, diseño, TAG, QR/NFC y destino se conservarán.',
+                    onConfirm: async () => {
+                        setConfirmModal({open:false,title:'',message:'',onConfirm:null});
+                        try{
+                            if(!workshopSession) throw new Error('Se requiere una sesión autorizada.');
+                            const result=await workshopApi({action:'resetCardScans',session:workshopSession,cardId:card.id});
+                            const analytics=await workshopApi({action:'analytics',session:workshopSession});
+                            setServerAnalytics({
+                                scans:Number(analytics.totalScans||0),
+                                activations:Number(analytics.totalActivations||0),
+                                perCard:analytics.perCard||{},
+                                perClient:analytics.perClient||{},
+                                perBusiness:analytics.perBusiness||{},
+                                updatedAt:analytics.updatedAt||null
+                            });
+                            showToast('Escaneos reiniciados: '+Number(result.removed||0)+' lectura(s) eliminada(s).','success');
+                        }catch(error){
+                            showToast('No se pudieron reiniciar los escaneos: '+(error.message||error),'error');
+                        }
+                    }
+                });
+            };
+
             const deleteQR = (id) => {
                 setConfirmModal({
                     open: true,
@@ -2617,6 +2646,7 @@ const resetTestInventory = async () => {
                                                 <button onClick={()=>setActivateModal({open:true,qr})} className="min-h-[38px] rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-200 px-2 text-[10px] font-semibold"><i className="fa-solid fa-pen-to-square mr-1"></i>{qr.status==='active'?'Editar':'Asignar'}</button>
                                                 <button onClick={()=>writeWebNFC(qr.trackingCode)} className="min-h-[38px] rounded-xl bg-violet-500/10 border border-violet-500/25 text-violet-200 px-2 text-[10px] font-semibold"><i className="fa-solid fa-nfc-symbol mr-1"></i>NFC</button>
                                                 {qr.status==='active'&&<button type="button" onClick={()=>requestReleaseCard(qr)} className="min-h-[38px] rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 px-2 text-[10px] font-semibold"><i className="fa-solid fa-arrow-rotate-left mr-1"></i>Liberar</button>}
+                                                {getCardScans(qr)>0&&<button type="button" onClick={()=>requestResetCardScans(qr)} className="min-h-[38px] rounded-xl bg-slate-500/10 border border-slate-500/25 text-slate-300 px-2 text-[10px] font-semibold"><i className="fa-solid fa-chart-simple mr-1"></i>Reiniciar scans</button>}
                                                 <button onClick={()=>deleteQR(qr.id)} className="min-h-[38px] rounded-xl bg-rose-500/5 border border-rose-500/20 text-rose-300 px-2 text-[10px] font-semibold"><i className="fa-regular fa-trash-can mr-1"></i>Eliminar</button>
                                             </div>
                                         </div>
