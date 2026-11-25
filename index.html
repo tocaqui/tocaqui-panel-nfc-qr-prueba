@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.25.0635';
+    const TOCAQUI_BUILD = '2026.11.25.1055';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1496,6 +1496,18 @@ const resetTestInventory = async () => {
                 </button>
             );
 
+            const openActivatorApp = async () => {
+                try{
+                    if(!workshopSession)throw new Error('Abre una sesión autorizada primero.');
+                    const result=await workshopApi({action:'createPairing',session:workshopSession});
+                    if(!result?.code)throw new Error('No se pudo preparar el Activador.');
+                    const url='/activar/?vincular='+encodeURIComponent(result.code)+'&v=2026.11.25.1100';
+                    const win=window.open(url,'_blank','noopener');
+                    if(!win)location.href=url;
+                    showToast('Activador preparado. En Safari puedes añadirlo a Inicio una sola vez.','success');
+                }catch(e){showToast('No se pudo abrir el Activador: '+(e.message||e),'error');}
+            };
+
             // --- HEADER & NAVIGATION ---
             const TopHeader = () => (
                 <header className="app-shell-header bg-slate-900/95 border-b border-slate-800 sticky top-0 z-40 no-print backdrop-blur-md">
@@ -1534,6 +1546,16 @@ const resetTestInventory = async () => {
                                     <span className="hidden sm:inline">Portal Cliente</span>
                                 </button>
                             </div>
+
+                            <button
+                                onClick={openActivatorApp}
+                                aria-label="Abrir TOCAQUI Activador"
+                                title="Abrir app rápida de activación"
+                                className="w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 bg-cyan-600/15 hover:bg-cyan-600/25 text-cyan-300 border border-cyan-500/25 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                            >
+                                <i className="fa-solid fa-bolt"></i>
+                                <span className="hidden lg:inline">Activador</span>
+                            </button>
 
                             <button
                                 onClick={() => setScanSimModal({ open: true, mode:'business', code: '', reviewGateStep: 'stars', selectedStars: 0 })}
@@ -2025,7 +2047,9 @@ const resetTestInventory = async () => {
                 const openBatchInPrint = batch => {
                     if (!batch) return;
                     setPrintComposition([]);
-                    setSelectedQrIdsForSheet(batch.cards.map(card=>card.id));
+                    const ids=batch.cards.map(card=>card.id);
+                    setSelectedQrIdsForSheet(ids);
+                    try{sessionStorage.setItem('tocaqui_print_locked_batch_v1',batch.id)}catch{}
                     setPrintConfig(prev=>({...prev,templateType:batch.productType||'pvc-vertical'}));
                     setAdminTab('print');
                 };
@@ -3046,6 +3070,10 @@ const resetTestInventory = async () => {
                 };
                 const [qrCodeImages, setQrCodeImages] = useState({});
                 const [printBatchFilter, setPrintBatchFilter] = useState(() => {
+                    try{
+                        const locked=sessionStorage.getItem('tocaqui_print_locked_batch_v1');
+                        if(locked)return locked;
+                    }catch{}
                     const selected = qrs.filter(q => selectedQrIdsForSheet.includes(q.id));
                     const ids = [...new Set(selected.map(q=>q.batchId || 'legacy'))];
                     return selected.length && ids.length === 1 ? ids[0] : 'all';
@@ -3147,6 +3175,24 @@ const resetTestInventory = async () => {
                     ...batch,
                     total:qrs.filter(q=>(q.batchId||'legacy')===batch.id).length
                 })), [qrs]);
+                useEffect(()=>{
+                    let locked='';
+                    try{locked=sessionStorage.getItem('tocaqui_print_locked_batch_v1')||''}catch{}
+                    if(locked && printBatches.some(batch=>batch.id===locked) && printBatchFilter!==locked){
+                        setPrintBatchFilter(locked);
+                        setPrintDirectPage(1);
+                    }
+                },[adminTab,printBatches.length]);
+                useEffect(()=>{
+                    if(printBatchFilter==='all'){
+                        try{sessionStorage.removeItem('tocaqui_print_locked_batch_v1')}catch{}
+                        return;
+                    }
+                    try{sessionStorage.setItem('tocaqui_print_locked_batch_v1',printBatchFilter)}catch{}
+                    const allowed=new Set(qrs.filter(q=>(q.batchId||'legacy')===printBatchFilter).map(q=>q.id));
+                    setSelectedQrIdsForSheet(prev=>prev.filter(id=>allowed.has(id)));
+                },[printBatchFilter]);
+
                 const filteredPrintBatches = useMemo(() => {
                     const term=printBatchSearch.trim().toLowerCase();
                     if(!term)return printBatches;
@@ -3280,11 +3326,12 @@ const resetTestInventory = async () => {
                     if (compositionItems.length) return compositionItems;
                     return qrs
                         .filter(q => selectedQrIdsForSheet.includes(q.id))
+                        .filter(q => printBatchFilter==='all' || (q.batchId||'legacy')===printBatchFilter)
                         .map(q => {
                             const tpl = q.designTemplateId ? templates.find(t => t.id === q.designTemplateId) : null;
                             return tpl ? { ...q, _printTemplate:tpl } : q;
                         });
-                }, [compositionItems, qrs, selectedQrIdsForSheet, templates]);
+                }, [compositionItems, qrs, selectedQrIdsForSheet, templates, printBatchFilter]);
 
                 const compositionGroups = useMemo(() => {
                     const map = new Map();
@@ -3755,6 +3802,7 @@ const resetTestInventory = async () => {
                                         <div>
                                             <h3 className="text-[11px] font-bold text-slate-300 uppercase">Selección directa</h3>
                                             <p className="text-[9px] text-slate-500 mt-0.5">{printComposition.length ? 'En pausa mientras exista una composición mixta.' : selectedItems.length + ' tarjeta(s) seleccionada(s).'}</p>
+                                            {!printComposition.length&&selectedPrintBatch&&<p className="text-[9px] text-cyan-300 mt-1"><i className="fa-solid fa-lock mr-1"></i>Lote bloqueado: {selectedPrintBatch.name}. No se imprimirán tarjetas de otros lotes.</p>}
                                         </div>
                                         {printComposition.length
                                             ? <button type="button" onClick={()=>setPrintComposition([])} className="min-h-[32px] px-2.5 rounded-lg border border-slate-700 text-[9px] text-slate-300">Usar selección directa</button>
@@ -3775,8 +3823,8 @@ const resetTestInventory = async () => {
                                                         <div className="mt-2 rounded-xl border border-slate-700 bg-slate-950 overflow-hidden">
                                                             <div className="p-2 border-b border-slate-800"><div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3"><i className="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i><input value={printBatchSearch} onChange={e=>setPrintBatchSearch(e.target.value)} placeholder="Buscar lote…" className="w-full bg-transparent py-2 text-xs text-white outline-none placeholder:text-slate-600"/></div></div>
                                                             <div className="max-h-56 overflow-y-auto p-1.5 space-y-1">
-                                                                <button type="button" onClick={()=>{setPrintBatchFilter('all');setPrintBatchPickerOpen(false)}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter==='all'?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="text-[11px] font-semibold">Todos los lotes</span><span className="text-[9px]">{qrs.length}</span></button>
-                                                                {filteredPrintBatches.map(batch=><button type="button" key={batch.id} onClick={()=>{setPrintBatchFilter(batch.id);setPrintBatchPickerOpen(false);const first=qrs.find(q=>(q.batchId||'legacy')===batch.id);if(first)setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType}));}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter===batch.id?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="min-w-0"><strong className="block truncate text-[11px]">{batch.name}</strong><span className="block truncate text-[9px] text-slate-500">{batch.id}</span></span><span className="text-[9px] shrink-0">{batch.total}</span></button>)}
+                                                                <button type="button" onClick={()=>{setPrintBatchFilter('all');setPrintDirectPage(1);setPrintBatchPickerOpen(false);try{sessionStorage.removeItem('tocaqui_print_locked_batch_v1')}catch{}}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter==='all'?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="text-[11px] font-semibold">Todos los lotes</span><span className="text-[9px]">{qrs.length}</span></button>
+                                                                {filteredPrintBatches.map(batch=><button type="button" key={batch.id} onClick={()=>{const allowed=qrs.filter(q=>(q.batchId||'legacy')===batch.id);const allowedIds=new Set(allowed.map(q=>q.id));setSelectedQrIdsForSheet(prev=>prev.filter(id=>allowedIds.has(id)));setPrintBatchFilter(batch.id);setPrintDirectPage(1);setPrintBatchPickerOpen(false);try{sessionStorage.setItem('tocaqui_print_locked_batch_v1',batch.id)}catch{}const first=allowed[0];if(first)setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType}));}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter===batch.id?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="min-w-0"><strong className="block truncate text-[11px]">{batch.name}</strong><span className="block truncate text-[9px] text-slate-500">{batch.id}</span></span><span className="text-[9px] shrink-0">{batch.total}</span></button>)}
                                                             </div>
                                                         </div>
                                                     </>)}
