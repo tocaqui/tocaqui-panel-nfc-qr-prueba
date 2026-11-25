@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.24.2315';
+    const TOCAQUI_BUILD = '2026.11.24.2355';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1032,7 +1032,7 @@
                 }
             };
 
-            const [scanSimModal, setScanSimModal] = useState({ open: false, code: '', reviewGateStep: 'stars', selectedStars: 0 });
+            const [scanSimModal, setScanSimModal] = useState({ open: false, mode:'choose', code: '', reviewGateStep: 'stars', selectedStars: 0 });
             const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
             const [templateModal, setTemplateModal] = useState({ open: false, isEditing: false, data: null });
             const [templateDraft, setTemplateDraft] = useState({ name:'', category:'pvc-horizontal', frontBg:'', backBg:'', frontName:'', backName:'' });
@@ -1444,13 +1444,13 @@ const resetTestInventory = async () => {
                             </div>
 
                             <button
-                                onClick={() => setScanSimModal({ open: true, code: '', reviewGateStep: 'stars', selectedStars: 0 })}
-                                aria-label="Escanear QR"
-                                title="Escanear QR de una tarjeta"
-                                className="w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                                onClick={() => setScanSimModal({ open: true, mode:'choose', code: '', reviewGateStep: 'stars', selectedStars: 0 })}
+                                aria-label="Acceder a tarjeta"
+                                title="Buscar o escanear una tarjeta"
+                                className="w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                             >
-                                <i className="fa-solid fa-qrcode"></i>
-                                <span className="hidden sm:inline">Escanear QR</span>
+                                <i className="fa-solid fa-id-card"></i>
+                                <span className="hidden sm:inline">Tarjeta</span>
                             </button>
                         </div>
                     </div>
@@ -4686,7 +4686,7 @@ const resetTestInventory = async () => {
 
                 return (
                     <div className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-                        <div className="w-full max-w-xl max-h-[94dvh] overflow-y-auto rounded-3xl border border-blue-500/25 bg-slate-950 shadow-2xl shadow-blue-950/50">
+                        <div className="w-full max-w-2xl max-h-[94dvh] overflow-hidden rounded-3xl border border-blue-500/25 bg-slate-950 shadow-2xl shadow-blue-950/50 flex flex-col">
                             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-950/95 backdrop-blur px-4 sm:px-5 py-4">
                                 <div className="flex items-center gap-3 min-w-0">
                                     <span className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-300 flex items-center justify-center"><i className="fa-solid fa-id-card"></i></span>
@@ -4698,9 +4698,18 @@ const resetTestInventory = async () => {
                                 <button type="button" onClick={() => {try{sessionStorage.removeItem(draftKey);}catch{}setActivateModal({open:false,qr:null});}} className="w-9 h-9 shrink-0 rounded-xl bg-slate-800 text-slate-300" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
                             </div>
 
-                            <div className="p-4 sm:p-5 space-y-3">
-                                <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-600/15 to-violet-600/10 px-4 py-3 text-xs text-slate-300"><span className="font-bold text-blue-200">Prepara tu tarjeta</span><span className="block mt-1">Elige el cliente, selecciona un destino y pruébalo antes de activar.</span></div>
-                                <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3.5">
+                            <div className="p-4 sm:p-5 space-y-3 overflow-y-auto min-h-0">
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="rounded-xl border border-slate-800 bg-slate-900/55 px-3 py-2.5"><div className="text-[9px] uppercase tracking-wider text-slate-500">Estado</div><div className={qr.status==='active'?'text-xs font-bold text-emerald-300 mt-1':'text-xs font-bold text-amber-300 mt-1'}>{qr.status==='active'?'Activa':'Por activar'}</div></div>
+                                    <div className="rounded-xl border border-slate-800 bg-slate-900/55 px-3 py-2.5 min-w-0"><div className="text-[9px] uppercase tracking-wider text-slate-500">Lote</div><div className="text-xs font-semibold text-white mt-1 truncate">{qr.batchName||qr.batchId||'Sin lote'}</div></div>
+                                    <div className="rounded-xl border border-slate-800 bg-slate-900/55 px-3 py-2.5 min-w-0"><div className="text-[9px] uppercase tracking-wider text-slate-500">Diseño</div><div className="text-xs font-semibold text-white mt-1 truncate">{templates.find(t=>t.id===qr.designTemplateId)?.name||'Sin diseño'}</div></div>
+                                </div>
+                                <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.05] px-3 py-2.5">
+                                    <div className="grid grid-cols-4 gap-1 text-center">
+                                        {[['1','Cliente'],['2','Destino'],['3',presetType==='custom_url'?'Revisar':'Negocio'],['4','Confirmar']].map(([n,label])=><div key={n} className="min-w-0"><div className="w-6 h-6 mx-auto rounded-lg bg-slate-800 text-[10px] font-bold text-blue-300 flex items-center justify-center">{n}</div><div className="text-[9px] text-slate-500 mt-1 truncate">{label}</div></div>)}
+                                    </div>
+                                </div>
+                                <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3">
                                     <div className="flex items-center gap-3 mb-3">
                                         <span className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-300 flex items-center justify-center text-xs font-bold">1</span>
                                         <div><h4 className="text-sm font-bold text-white">Cliente</h4><p className="text-[11px] text-slate-500">Opcional. Define a quién pertenece la tarjeta.</p></div>
@@ -4711,7 +4720,7 @@ const resetTestInventory = async () => {
                                     </select>
                                 </section>
 
-                                <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3.5 space-y-3">
+                                <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3 space-y-3">
                                     <div className="flex items-center gap-3"><span className="w-8 h-8 rounded-lg bg-violet-500/10 text-violet-300 flex items-center justify-center text-xs font-bold">2</span><div><h4 className="text-sm font-bold text-white">Destino de la tarjeta</h4><p className="text-[11px] text-slate-400">Elige qué abrirá el QR y el NFC.</p></div></div>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                         {[
@@ -4723,7 +4732,7 @@ const resetTestInventory = async () => {
                                             {id:'google_review',icon:'fa-brands fa-google',name:'Google Reseñas'},
                                             {id:'review_gate',icon:'fa-solid fa-star-half-stroke',name:'Experiencia + reseña'},
                                             {id:'custom_url',icon:'fa-solid fa-link',name:'Otro enlace'}
-                                        ].map(option=><button key={option.id} type="button" aria-pressed={destinationType===option.id} onClick={()=>{setDestinationType(option.id);if(option.id!==destinationType)setSocialInput('');}} className={'min-h-[48px] rounded-xl border px-3 py-2 text-left text-xs font-semibold '+(destinationType===option.id?'border-blue-400 bg-blue-500/15 text-white':'border-slate-700 bg-slate-950/40 text-slate-300 hover:border-slate-500')}><i className={option.icon+' mr-2 '+(destinationType===option.id?'text-cyan-300':'text-slate-400')}></i>{option.name}</button>)}
+                                        ].map(option=><button key={option.id} type="button" aria-pressed={destinationType===option.id} onClick={()=>{setDestinationType(option.id);if(option.id!==destinationType)setSocialInput('');}} className={'min-h-[44px] rounded-xl border px-2.5 py-2 text-left text-[11px] font-semibold '+(destinationType===option.id?'border-blue-400 bg-blue-500/15 text-white':'border-slate-700 bg-slate-950/40 text-slate-300 hover:border-slate-500')}><i className={option.icon+' mr-2 '+(destinationType===option.id?'text-cyan-300':'text-slate-400')}></i>{option.name}</button>)}
                                     </div>
                                     {presetType==='custom_url'&&<div className="space-y-2">
                                         <label className="block text-xs font-semibold text-slate-300" htmlFor="social-destination">{destinationType==='whatsapp'?'Número de WhatsApp':destinationType==='instagram'?'Usuario o enlace de Instagram':destinationType==='tiktok'?'Usuario o enlace de TikTok':destinationType==='facebook'?'Enlace de Facebook':destinationType==='youtube'?'Enlace de YouTube':'Enlace HTTPS'}</label>
@@ -4737,7 +4746,7 @@ const resetTestInventory = async () => {
                                     <p className="text-[10px] text-slate-500">Al volver encontrarás el formulario guardado. La apertura en la app depende del teléfono.</p>
                                 </section>
                                 {presetType!=='custom_url'&&(
-                                <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3.5">
+                                <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3">
                                     <div className="flex items-center gap-3 mb-3">
                                         <span className="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-300 flex items-center justify-center text-xs font-bold">3</span>
                                         <div><h4 className="text-sm font-bold text-white">Negocio</h4><p className="text-[11px] text-slate-500">Selecciona el negocio para Google Reseñas.</p></div>
@@ -4800,9 +4809,14 @@ const resetTestInventory = async () => {
                                     {pinError&&<p className="text-[11px] text-rose-300 mt-2">PIN inválido, bloqueado o no autorizado.</p>}
                                 </section>
 
-                                <button onClick={handleConfirmActivation} disabled={activationSaving} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 disabled:opacity-50 text-white font-bold shadow-lg">
-                                    {activationSaving?'Guardando y activando…':qr.status==='active'?'Guardar cambios':'Guardar y activar tarjeta'}
-                                </button>
+                            </div>
+                            <div className="shrink-0 border-t border-slate-800 bg-slate-950/95 backdrop-blur px-4 sm:px-5 py-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="hidden sm:block min-w-0"><div className="text-[10px] text-slate-500">Destino</div><div className="text-[10px] text-cyan-200 truncate max-w-[280px]">{computedDestination||'Completa los datos para activar'}</div></div>
+                                    <button onClick={handleConfirmActivation} disabled={activationSaving} className="w-full sm:w-auto sm:min-w-[220px] py-3 px-5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 disabled:opacity-50 text-white text-sm font-bold shadow-lg">
+                                        {activationSaving?'Guardando…':qr.status==='active'?'Guardar cambios':'Activar tarjeta'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4819,7 +4833,10 @@ const resetTestInventory = async () => {
                 const [cameraOn,setCameraOn]=useState(false);
                 const [cameraError,setCameraError]=useState('');
                 const [starting,setStarting]=useState(false);
+                const [manualInput,setManualInput]=useState('');
                 const videoRef=useRef(null),streamRef=useRef(null),frameRef=useRef(null);
+                const mode=scanSimModal.mode||'choose';
+
                 const stop=()=>{
                     if(frameRef.current)clearTimeout(frameRef.current);
                     frameRef.current=null;
@@ -4828,21 +4845,53 @@ const resetTestInventory = async () => {
                     setCameraOn(false);
                     setStarting(false);
                 };
-                const close=()=>{stop();setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});};
+                const close=()=>{
+                    stop();
+                    setManualInput('');
+                    setCameraError('');
+                    setScanSimModal({open:false,mode:'choose',code:'',reviewGateStep:'stars',selectedStars:0});
+                };
+                const openMode=next=>{
+                    stop();
+                    setCameraError('');
+                    setScanSimModal(prev=>({...prev,mode:next,code:''}));
+                };
+                const cardSearchText=card=>[
+                    card.serialNumber,card.trackingCode,card.id,card.batchId,card.batchName,
+                    card.businessName,clients.find(c=>c.id===card.clientId)?.name,
+                    clients.find(c=>c.id===card.clientId)?.company
+                ].filter(Boolean).join(' ').toLowerCase();
 
-                const scanValue=value=>{
-                    const match=String(value||'').match(/TAG-[A-Z0-9-]+/i);
-                    if(!match){return;}
-                    const card=qrs.find(q=>q.trackingCode?.toUpperCase()===match[0].toUpperCase());
-                    if(!card){setCameraError('El QR es TOCAQUI, pero esta tarjeta no está en el inventario cargado.');return;}
+                const resolveExactCard=value=>{
+                    const raw=String(value||'').trim();
+                    if(!raw)return null;
+                    const tagMatch=raw.match(/TAG-[A-Z0-9-]+/i)?.[0]?.toUpperCase();
+                    const serialMatch=raw.match(/TQ-\d{4,}/i)?.[0]?.toUpperCase();
+                    return qrs.find(card=>
+                        (tagMatch && [card.trackingCode,card.id].some(v=>String(v||'').toUpperCase()===tagMatch)) ||
+                        (serialMatch && String(card.serialNumber||'').toUpperCase()===serialMatch) ||
+                        [card.trackingCode,card.id,card.serialNumber].some(v=>String(v||'').toLowerCase()===raw.toLowerCase())
+                    )||null;
+                };
+                const openCard=card=>{
+                    if(!card){setCameraError('No encontré esa tarjeta en el inventario TOCAQUI.');return;}
                     stop();
                     setCameraError('');
                     if(card.status!=='active'){
-                        setScanSimModal({open:false,code:'',reviewGateStep:'stars',selectedStars:0});
+                        setScanSimModal({open:false,mode:'choose',code:'',reviewGateStep:'stars',selectedStars:0});
                         setTimeout(()=>setActivateModal({open:true,qr:card}),0);
                     }else{
-                        setScanSimModal(prev=>({...prev,code:card.trackingCode}));
+                        setScanSimModal(prev=>({...prev,mode:'result',code:card.trackingCode||card.id}));
                     }
+                };
+                const scanValue=value=>{
+                    const card=resolveExactCard(value);
+                    if(!card){
+                        const hasTocaqui=/TAG-|TQ-/i.test(String(value||''));
+                        setCameraError(hasTocaqui?'La tarjeta es TOCAQUI, pero no está en el inventario cargado.':'El código leído no corresponde a una tarjeta TOCAQUI.');
+                        return;
+                    }
+                    openCard(card);
                 };
 
                 const start=async()=>{
@@ -4864,11 +4913,7 @@ const resetTestInventory = async () => {
                         let stream;
                         try{
                             stream=await navigator.mediaDevices.getUserMedia({
-                                video:{
-                                    facingMode:{ideal:'environment'},
-                                    width:{ideal:1280,max:1920},
-                                    height:{ideal:720,max:1080}
-                                },
+                                video:{facingMode:{ideal:'environment'},width:{ideal:1280,max:1920},height:{ideal:720,max:1080}},
                                 audio:false
                             });
                         }catch(firstError){
@@ -4907,9 +4952,7 @@ const resetTestInventory = async () => {
                                         ctx.drawImage(video,0,0,canvas.width,canvas.height);
                                         const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
                                         passes++;
-                                        const found=decoder(pixels.data,pixels.width,pixels.height,{
-                                            inversionAttempts:passes%5===0?'attemptBoth':'dontInvert'
-                                        });
+                                        const found=decoder(pixels.data,pixels.width,pixels.height,{inversionAttempts:passes%5===0?'attemptBoth':'dontInvert'});
                                         if(found?.data){scanValue(found.data);return;}
                                     }
                                 }catch(e){}
@@ -4928,29 +4971,100 @@ const resetTestInventory = async () => {
                 };
 
                 useEffect(()=>{
-                    if(!scanSimModal.open||scanSimModal.code)return;
-                    const id=setTimeout(()=>start(),90);
+                    if(!scanSimModal.open||mode!=='camera'||scanSimModal.code)return;
+                    const id=setTimeout(()=>start(),120);
                     return()=>{clearTimeout(id);stop();};
-                },[scanSimModal.open,scanSimModal.code]);
+                },[scanSimModal.open,mode,scanSimModal.code]);
+
+                useEffect(()=>()=>stop(),[]);
 
                 if(!scanSimModal.open)return null;
-                const scannedQr=qrs.find(q=>q.trackingCode===scanSimModal.code);
+
+                const scannedQr=qrs.find(q=>q.trackingCode===scanSimModal.code||q.id===scanSimModal.code);
+                const term=manualInput.trim().toLowerCase();
+                const manualMatches=term.length<1?[]:qrs.filter(card=>cardSearchText(card).includes(term)).slice(0,8);
 
                 if(scannedQr?.status==='active'){
+                    const owner=clients.find(c=>c.id===scannedQr.clientId);
                     return (
-                        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-                            <div className="glass-panel w-full max-w-sm rounded-3xl border border-emerald-500/25 p-5 sm:p-6">
-                                <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 flex items-center justify-center text-2xl"><i className="fa-solid fa-circle-check"></i></div>
-                                <h3 className="text-center text-lg font-bold text-white mt-4">Tarjeta ya asignada</h3>
-                                <p className="text-center text-xs text-slate-400 mt-1 font-mono">{scannedQr.trackingCode}</p>
-                                <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
-                                    <div className="text-[10px] uppercase tracking-wider text-slate-500">Negocio</div>
-                                    <div className="text-sm font-semibold text-white mt-1">{scannedQr.businessName||'Negocio asignado'}</div>
-                                    {scannedQr.businessAddress&&<div className="text-xs text-slate-400 mt-1">{scannedQr.businessAddress}</div>}
+                        <div className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+                            <div className="w-full max-w-md rounded-3xl border border-emerald-500/25 bg-slate-950 shadow-2xl p-5">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 flex items-center justify-center"><i className="fa-solid fa-circle-check"></i></div>
+                                        <div className="min-w-0"><div className="text-[10px] uppercase tracking-[.16em] text-emerald-300 font-bold">Tarjeta activa</div><h3 className="font-bold text-white truncate">{cardNumber(scannedQr)}</h3></div>
+                                    </div>
+                                    <button type="button" onClick={close} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
+                                    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3"><div className="text-[9px] uppercase text-slate-500">Negocio</div><div className="text-white font-semibold mt-1 truncate">{scannedQr.businessName||'Sin negocio'}</div></div>
+                                    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3"><div className="text-[9px] uppercase text-slate-500">Cliente</div><div className="text-white font-semibold mt-1 truncate">{owner?.name||'Sin cliente'}</div></div>
+                                    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 col-span-2"><div className="text-[9px] uppercase text-slate-500">Destino</div><div className="text-cyan-200 font-mono text-[10px] mt-1 break-all">{scannedQr.dynamicUrl||'Sin destino'}</div></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 mt-4">
-                                    <button type="button" onClick={()=>setScanSimModal({open:true,code:'',reviewGateStep:'stars',selectedStars:0})} className="rounded-xl bg-blue-600 text-white py-3 text-sm font-semibold"><i className="fa-solid fa-qrcode mr-2"></i>Escanear otra</button>
-                                    <button type="button" onClick={close} className="rounded-xl bg-slate-800 text-slate-200 py-3 text-sm font-semibold">Cerrar</button>
+                                    <button type="button" onClick={()=>{close();setTimeout(()=>setActivateModal({open:true,qr:scannedQr}),0);}} className="rounded-xl bg-blue-600 hover:bg-blue-500 text-white py-3 text-xs font-bold"><i className="fa-solid fa-pen-to-square mr-2"></i>Gestionar</button>
+                                    <button type="button" onClick={()=>openMode('choose')} className="rounded-xl bg-slate-800 text-slate-200 py-3 text-xs font-semibold"><i className="fa-solid fa-arrow-rotate-left mr-2"></i>Otra tarjeta</button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
+                if(mode==='choose'){
+                    return (
+                        <div className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+                            <div className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl overflow-hidden">
+                                <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-slate-800">
+                                    <div><div className="text-[10px] uppercase tracking-[.16em] text-emerald-300 font-bold">Acceso rápido</div><h3 className="font-bold text-white text-lg mt-0.5">Abrir una tarjeta</h3><p className="text-[11px] text-slate-400 mt-1">Busca manualmente o usa la cámara solo cuando la necesites.</p></div>
+                                    <button type="button" onClick={close} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <div className="p-4 sm:p-5 grid sm:grid-cols-2 gap-3">
+                                    <button type="button" onClick={()=>openMode('manual')} className="min-h-[132px] rounded-2xl border border-blue-500/25 bg-blue-500/[0.08] hover:bg-blue-500/[0.13] p-4 text-left transition-colors">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-300 flex items-center justify-center"><i className="fa-solid fa-keyboard"></i></div>
+                                        <div className="text-sm font-bold text-white mt-3">Ingresar manualmente</div>
+                                        <div className="text-[11px] text-slate-400 mt-1">Busca por número TQ, TAG, lote, cliente o negocio.</div>
+                                    </button>
+                                    <button type="button" onClick={()=>openMode('camera')} className="min-h-[132px] rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.11] p-4 text-left transition-colors">
+                                        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-300 flex items-center justify-center"><i className="fa-solid fa-camera"></i></div>
+                                        <div className="text-sm font-bold text-white mt-3">Escanear QR</div>
+                                        <div className="text-[11px] text-slate-400 mt-1">Activa la cámara y lee una tarjeta física.</div>
+                                    </button>
+                                    <button type="button" onClick={()=>{close();setRoleMode('admin');setAdminTab('qrs');}} className="sm:col-span-2 min-h-[44px] rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold">
+                                        <i className="fa-solid fa-list-check mr-2 text-cyan-300"></i>Ver todas las tarjetas en Gestión
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
+                if(mode==='manual'){
+                    return (
+                        <div className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+                            <div className="w-full max-w-xl max-h-[88dvh] rounded-3xl border border-blue-500/20 bg-slate-950 shadow-2xl overflow-hidden flex flex-col">
+                                <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-slate-800">
+                                    <div><h3 className="font-bold text-white">Acceso manual</h3><p className="text-[11px] text-slate-400">Número TQ, TAG, lote, cliente o negocio.</p></div>
+                                    <div className="flex gap-2"><button type="button" onClick={()=>openMode('choose')} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-arrow-left"></i></button><button type="button" onClick={close} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button></div>
+                                </div>
+                                <div className="p-4 sm:p-5 min-h-0 overflow-y-auto">
+                                    <div className="relative">
+                                        <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
+                                        <input autoFocus value={manualInput} onChange={e=>{setManualInput(e.target.value);setCameraError('');}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();const exact=resolveExactCard(manualInput);if(exact)openCard(exact);}}} className="w-full glass-input pl-9 pr-3 py-3 rounded-xl text-sm" placeholder="Ej: TQ-000123, TAG-…, nombre o lote"/>
+                                    </div>
+                                    {cameraError&&<div className="mt-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">{cameraError}</div>}
+                                    {!term&&<div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 text-xs text-slate-400"><i className="fa-solid fa-circle-info text-blue-300 mr-2"></i>Escribe cualquier dato de la tarjeta. No necesitas escanearla.</div>}
+                                    {term&&manualMatches.length===0&&<div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 text-xs text-slate-400">No hay coincidencias. Revisa el número o abre Gestión de Tarjetas.</div>}
+                                    {manualMatches.length>0&&<div className="mt-3 space-y-2">
+                                        {manualMatches.map(card=>{
+                                            const owner=clients.find(c=>c.id===card.clientId);
+                                            return <button type="button" key={card.id} onClick={()=>openCard(card)} className="w-full rounded-xl border border-slate-800 bg-slate-900/60 hover:border-blue-500/30 hover:bg-slate-900 px-3 py-3 text-left">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div className="min-w-0"><div className="text-sm font-bold text-white truncate">{cardNumber(card)}</div><div className="text-[10px] text-slate-500 truncate mt-0.5">{card.batchName||card.batchId||'Sin lote'}{owner?' · '+owner.name:''}{card.businessName?' · '+card.businessName:''}</div></div>
+                                                    <span className={card.status==='active'?'shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[9px] font-bold text-emerald-300':'shrink-0 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[9px] font-bold text-amber-300'}>{card.status==='active'?'ACTIVA':'POR ACTIVAR'}</span>
+                                                </div>
+                                            </button>;
+                                        })}
+                                    </div>}
                                 </div>
                             </div>
                         </div>
@@ -4958,14 +5072,11 @@ const resetTestInventory = async () => {
                 }
 
                 return (
-                    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+                    <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
                         <div className="w-full max-w-xl rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl overflow-hidden">
                             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-                                <div>
-                                    <h3 className="font-bold text-white">Escanear QR TOCAQUI</h3>
-                                    <p className="text-[11px] text-slate-400">Apunta al QR. La detección es automática.</p>
-                                </div>
-                                <button type="button" onClick={close} aria-label="Cerrar lector" className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
+                                <div><h3 className="font-bold text-white">Escanear QR TOCAQUI</h3><p className="text-[11px] text-slate-400">La cámara se activa únicamente en esta pantalla.</p></div>
+                                <div className="flex gap-2"><button type="button" onClick={()=>openMode('choose')} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-arrow-left"></i></button><button type="button" onClick={close} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button></div>
                             </div>
                             <div className="p-3 sm:p-4">
                                 <div className="relative overflow-hidden rounded-2xl bg-black border border-slate-800 aspect-[4/3]">
@@ -4981,6 +5092,7 @@ const resetTestInventory = async () => {
                                 </div>
                                 {cameraError&&<div role="alert" className="mt-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">{cameraError}</div>}
                                 {!cameraOn&&!starting&&<button type="button" onClick={start} className="mt-3 w-full rounded-xl bg-blue-600 hover:bg-blue-500 py-3 text-sm font-bold text-white"><i className="fa-solid fa-camera mr-2"></i>Activar cámara</button>}
+                                <button type="button" onClick={()=>openMode('manual')} className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 py-3 text-xs font-semibold text-slate-300"><i className="fa-solid fa-keyboard mr-2"></i>Ingresar tarjeta manualmente</button>
                             </div>
                         </div>
                     </div>
