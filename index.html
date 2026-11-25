@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.24.2255';
+    const TOCAQUI_BUILD = '2026.11.24.2305';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -922,13 +922,33 @@
                         const html = await response.text();
                         const match = html.match(/TOCAQUI_BUILD\s*=\s*['"]([^'"]+)['"]/);
                         if (!cancelled && match?.[1] && match[1] !== TOCAQUI_BUILD) {
+                            const active=document.activeElement;
+                            const editing=!!active && active!==document.body && (
+                                active.matches?.('input,textarea,select,[contenteditable="true"]') ||
+                                !!active.closest?.('[role="dialog"],form')
+                            );
+                            if(editing){
+                                window.__tocaquiPendingBuild=match[1];
+                                return;
+                            }
                             location.replace(location.pathname + '?v=' + encodeURIComponent(match[1]));
                         }
                     } catch (e) {}
                 };
                 const first = setTimeout(checkBuild, 2500);
                 const interval = setInterval(checkBuild, 300000);
-                return () => { cancelled = true; clearTimeout(first); clearInterval(interval); };
+                const applyPending=()=>{
+                    const pending=window.__tocaquiPendingBuild;
+                    if(!pending)return;
+                    const active=document.activeElement;
+                    const editing=!!active && active!==document.body && active.matches?.('input,textarea,select,[contenteditable="true"]');
+                    if(!editing){
+                        window.__tocaquiPendingBuild='';
+                        location.replace(location.pathname + '?v=' + encodeURIComponent(pending));
+                    }
+                };
+                document.addEventListener('focusout',applyPending,true);
+                return () => { cancelled = true; clearTimeout(first); clearInterval(interval); document.removeEventListener('focusout',applyPending,true); };
             }, []);
 
             // Print & Studio Configuration State
