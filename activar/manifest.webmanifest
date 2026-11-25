@@ -2,23 +2,15 @@
   "name": "TOCAQUI Activador",
   "short_name": "Activador",
   "id": "/activar/",
-  "start_url": "/activar/",
+  "start_url": "/activar/?source=pwa",
   "scope": "/activar/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#050b16",
-  "theme_color": "#050b16",
+  "background_color": "#020617",
+  "theme_color": "#020617",
   "description": "Activación rápida de tarjetas NFC y QR TOCAQUI.",
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    {"src": "/icon-192.png","sizes": "192x192","type": "image/png","purpose":"any maskable"},
+    {"src": "/icon-512.png","sizes": "512x512","type": "image/png","purpose":"any maskable"}
   ]
 }
