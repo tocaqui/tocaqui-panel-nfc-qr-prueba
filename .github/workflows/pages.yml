@@ -36,6 +36,8 @@ jobs:
         run: |
           for attempt in 1 2 3 4 5 6; do
             if gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=$PAGES_ARTIFACT" --jq '.artifacts[] | select(.expired == false) | .id' | grep -q '[0-9]'; then
+              echo 'Pages artifact is visible; allowing metadata propagation before deploy.'
+              sleep 12
               exit 0
             fi
             sleep 5
