@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.24.2355';
+    const TOCAQUI_BUILD = '2026.11.25.0025';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1444,13 +1444,13 @@ const resetTestInventory = async () => {
                             </div>
 
                             <button
-                                onClick={() => setScanSimModal({ open: true, mode:'choose', code: '', reviewGateStep: 'stars', selectedStars: 0 })}
-                                aria-label="Acceder a tarjeta"
-                                title="Buscar o escanear una tarjeta"
+                                onClick={() => setScanSimModal({ open: true, mode:'business', code: '', reviewGateStep: 'stars', selectedStars: 0 })}
+                                aria-label="Asignar tarjeta"
+                                title="Buscar negocio y asignar tarjeta"
                                 className="w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                             >
                                 <i className="fa-solid fa-id-card"></i>
-                                <span className="hidden sm:inline">Tarjeta</span>
+                                <span className="hidden sm:inline">Asignar</span>
                             </button>
                         </div>
                     </div>
@@ -4504,8 +4504,8 @@ const resetTestInventory = async () => {
                 const [draft] = useState(()=>{try{const d=JSON.parse(sessionStorage.getItem(draftKey)||'null');return d && d.expires>Date.now()?d:null;}catch{return null;}});
                 const inferType=()=>{if(qr.functionType!=='custom_url')return qr.functionType||'google_review';try{const h=new URL(qr.dynamicUrl).hostname.toLowerCase();if(h==='wa.me'||h==='api.whatsapp.com')return 'whatsapp';if(h==='instagram.com'||h==='www.instagram.com')return 'instagram';if(['facebook.com','www.facebook.com','m.facebook.com','fb.com','www.fb.com'].includes(h))return 'facebook';if(['tiktok.com','www.tiktok.com','vm.tiktok.com'].includes(h))return 'tiktok';if(['youtube.com','www.youtube.com','m.youtube.com','youtu.be'].includes(h))return 'youtube';}catch{}return 'custom_url';};
                 const [searchQuery, setSearchQuery] = useState('');
-                const [selectedPlace, setSelectedPlace] = useState(draft ? draft.selectedPlace : (qr.businessName && qr.placeId ? { name: qr.businessName, address: qr.businessAddress || '', placeId: qr.placeId } : null));
-                const [destinationType, setDestinationType] = useState(draft?.destinationType || inferType());
+                const [selectedPlace, setSelectedPlace] = useState(activateModal.preselectedPlace || (draft ? draft.selectedPlace : (qr.businessName && qr.placeId ? { name: qr.businessName, address: qr.businessAddress || '', placeId: qr.placeId } : null)));
+                const [destinationType, setDestinationType] = useState(activateModal.preselectedDestinationType || draft?.destinationType || inferType());
                 const presetType = ['google_review','review_gate'].includes(destinationType)?destinationType:'custom_url';
                 const [socialInput, setSocialInput] = useState(draft?.socialInput ?? (qr.functionType==='custom_url'?qr.dynamicUrl:'') ?? '');
                 const [assignedClient, setAssignedClient] = useState(draft?.assignedClient ?? qr.clientId ?? '');
@@ -4517,8 +4517,8 @@ const resetTestInventory = async () => {
                 const [placesLoading, setPlacesLoading] = useState(false);
                 const [placesError, setPlacesError] = useState('');
                 const placesRequestIdRef = useRef(0);
-                const [manualPlaceId,setManualPlaceId]=useState(qr.placeId||'');
-                const [manualBusinessName,setManualBusinessName]=useState(qr.businessName||'');
+                const [manualPlaceId,setManualPlaceId]=useState((activateModal.preselectedPlace?.placeId)||qr.placeId||'');
+                const [manualBusinessName,setManualBusinessName]=useState((activateModal.preselectedPlace?.name)||qr.businessName||'');
 
                 useEffect(() => {
                     const query = searchQuery.trim();
@@ -4706,7 +4706,7 @@ const resetTestInventory = async () => {
                                 </div>
                                 <div className="rounded-xl border border-blue-500/15 bg-blue-500/[0.05] px-3 py-2.5">
                                     <div className="grid grid-cols-4 gap-1 text-center">
-                                        {[['1','Cliente'],['2','Destino'],['3',presetType==='custom_url'?'Revisar':'Negocio'],['4','Confirmar']].map(([n,label])=><div key={n} className="min-w-0"><div className="w-6 h-6 mx-auto rounded-lg bg-slate-800 text-[10px] font-bold text-blue-300 flex items-center justify-center">{n}</div><div className="text-[9px] text-slate-500 mt-1 truncate">{label}</div></div>)}
+                                        {[['1','Negocio'],['2','Tarjeta'],['3','Configurar'],['4','Confirmar']].map(([n,label])=><div key={n} className="min-w-0"><div className="w-6 h-6 mx-auto rounded-lg bg-slate-800 text-[10px] font-bold text-blue-300 flex items-center justify-center">{n}</div><div className="text-[9px] text-slate-500 mt-1 truncate">{label}</div></div>)}
                                     </div>
                                 </div>
                                 <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3">
@@ -4834,6 +4834,13 @@ const resetTestInventory = async () => {
                 const [cameraError,setCameraError]=useState('');
                 const [starting,setStarting]=useState(false);
                 const [manualInput,setManualInput]=useState('');
+                const [businessQuery,setBusinessQuery]=useState('');
+                const [businessSuggestions,setBusinessSuggestions]=useState([]);
+                const [businessLoading,setBusinessLoading]=useState(false);
+                const [businessError,setBusinessError]=useState('');
+                const [selectedBusiness,setSelectedBusiness]=useState(null);
+                const [businessCardSearch,setBusinessCardSearch]=useState('');
+                const businessRequestIdRef=useRef(0);
                 const videoRef=useRef(null),streamRef=useRef(null),frameRef=useRef(null);
                 const mode=scanSimModal.mode||'choose';
 
@@ -4849,6 +4856,11 @@ const resetTestInventory = async () => {
                     stop();
                     setManualInput('');
                     setCameraError('');
+                    setBusinessQuery('');
+                    setBusinessSuggestions([]);
+                    setBusinessError('');
+                    setSelectedBusiness(null);
+                    setBusinessCardSearch('');
                     setScanSimModal({open:false,mode:'choose',code:'',reviewGateStep:'stars',selectedStars:0});
                 };
                 const openMode=next=>{
@@ -4892,6 +4904,68 @@ const resetTestInventory = async () => {
                         return;
                     }
                     openCard(card);
+                };
+
+                useEffect(()=>{
+                    if(!scanSimModal.open||mode!=='business'||selectedBusiness)return;
+                    const query=businessQuery.trim();
+                    if(query.length<2){
+                        setBusinessSuggestions([]);
+                        setBusinessLoading(false);
+                        setBusinessError('');
+                        return;
+                    }
+                    if(!placesBackendStatus.configured){
+                        setBusinessSuggestions([]);
+                        setBusinessLoading(false);
+                        setBusinessError(placesBackendStatus.loading?'':'Google Places aún no está conectado en TOCAQUI.');
+                        return;
+                    }
+                    const requestId=++businessRequestIdRef.current;
+                    const timer=setTimeout(async()=>{
+                        setBusinessLoading(true);
+                        setBusinessError('');
+                        try{
+                            const result=await workshopApi({action:'placesAutocomplete',session:workshopSession,input:query});
+                            if(requestId!==businessRequestIdRef.current)return;
+                            setBusinessSuggestions(Array.isArray(result.suggestions)?result.suggestions:[]);
+                        }catch(e){
+                            if(requestId!==businessRequestIdRef.current)return;
+                            setBusinessSuggestions([]);
+                            setBusinessError(e.message||'No se pudo buscar el negocio.');
+                        }finally{
+                            if(requestId===businessRequestIdRef.current)setBusinessLoading(false);
+                        }
+                    },280);
+                    return()=>clearTimeout(timer);
+                },[scanSimModal.open,mode,businessQuery,selectedBusiness,placesBackendStatus.configured,placesBackendStatus.loading,workshopSession]);
+
+                const chooseBusiness=async prediction=>{
+                    setBusinessLoading(true);
+                    setBusinessError('');
+                    try{
+                        const result=await workshopApi({action:'placesDetails',session:workshopSession,placeId:prediction.placeId});
+                        if(!result.place?.placeId)throw new Error('Google no devolvió el Place ID.');
+                        setSelectedBusiness(result.place);
+                        setBusinessQuery('');
+                        setBusinessSuggestions([]);
+                        setBusinessCardSearch('');
+                    }catch(e){
+                        setBusinessError(e.message||'No se pudo cargar el negocio seleccionado.');
+                    }finally{
+                        setBusinessLoading(false);
+                    }
+                };
+
+                const assignBusinessToCard=card=>{
+                    if(!selectedBusiness||!card)return;
+                    setScanSimModal({open:false,mode:'choose',code:'',reviewGateStep:'stars',selectedStars:0});
+                    setTimeout(()=>setActivateModal({
+                        open:true,
+                        qr:card,
+                        preselectedPlace:selectedBusiness,
+                        preselectedDestinationType:'google_review'
+                    }),0);
                 };
 
                 const start=async()=>{
@@ -4983,6 +5057,12 @@ const resetTestInventory = async () => {
                 const scannedQr=qrs.find(q=>q.trackingCode===scanSimModal.code||q.id===scanSimModal.code);
                 const term=manualInput.trim().toLowerCase();
                 const manualMatches=term.length<1?[]:qrs.filter(card=>cardSearchText(card).includes(term)).slice(0,8);
+                const businessCardTerm=businessCardSearch.trim().toLowerCase();
+                const availableBusinessCards=qrs
+                    .filter(card=>card.status!=='active')
+                    .filter(card=>!businessCardTerm||cardSearchText(card).includes(businessCardTerm))
+                    .sort((a,b)=>String(cardNumber(a)).localeCompare(String(cardNumber(b)),undefined,{numeric:true}))
+                    .slice(0,30);
 
                 if(scannedQr?.status==='active'){
                     const owner=clients.find(c=>c.id===scannedQr.clientId);
@@ -5010,6 +5090,95 @@ const resetTestInventory = async () => {
                     );
                 }
 
+                if(mode==='business'){
+                    return (
+                        <div className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+                            <div className="w-full max-w-2xl max-h-[92dvh] rounded-3xl border border-blue-500/20 bg-slate-950 shadow-2xl overflow-hidden flex flex-col">
+                                <div className="shrink-0 flex items-center justify-between px-4 sm:px-5 py-4 border-b border-slate-800">
+                                    <div>
+                                        <div className="text-[10px] uppercase tracking-[.16em] text-blue-300 font-bold">Asignación rápida</div>
+                                        <h3 className="font-bold text-white text-lg mt-0.5">Negocio → Tarjeta</h3>
+                                        <p className="text-[11px] text-slate-400 mt-1">Primero selecciona el negocio. Después eliges qué tarjeta física le asignarás.</p>
+                                    </div>
+                                    <button type="button" onClick={close} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
+                                </div>
+
+                                <div className="shrink-0 grid grid-cols-3 gap-1.5 px-4 sm:px-5 py-3 border-b border-slate-800/70 bg-slate-950/70">
+                                    {[['1','Negocio'],['2','Tarjeta'],['3','Activar']].map(([n,label],idx)=>{
+                                        const done=idx===0?!!selectedBusiness:false;
+                                        const active=idx===0?!selectedBusiness:idx===1?!!selectedBusiness:false;
+                                        return <div key={n} className="flex items-center gap-2 min-w-0">
+                                            <span className={(done?'bg-emerald-500/15 text-emerald-300 border-emerald-500/25':active?'bg-blue-500/15 text-blue-300 border-blue-500/25':'bg-slate-900 text-slate-500 border-slate-800')+" w-7 h-7 rounded-lg border flex items-center justify-center text-[10px] font-bold shrink-0"}>{done?<i className="fa-solid fa-check"></i>:n}</span>
+                                            <span className={active||done?'text-[10px] font-semibold text-slate-200 truncate':'text-[10px] text-slate-600 truncate'}>{label}</span>
+                                        </div>;
+                                    })}
+                                </div>
+
+                                <div className="p-4 sm:p-5 min-h-0 overflow-y-auto">
+                                    {!selectedBusiness ? (
+                                        <section>
+                                            <label className="block text-xs font-semibold text-slate-300 mb-2">Buscar negocio en Google</label>
+                                            <div className="relative">
+                                                <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
+                                                <input autoFocus value={businessQuery} onChange={e=>{setBusinessQuery(e.target.value);setBusinessError('');}} className="w-full glass-input pl-9 pr-9 py-3 rounded-xl text-sm" placeholder="Ej: Café Aurora, Barbería Central…"/>
+                                                {businessLoading&&<i className="fa-solid fa-spinner fa-spin absolute right-3 top-3.5 text-blue-300 text-xs"></i>}
+                                            </div>
+                                            {businessError&&<div className="mt-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">{businessError}</div>}
+                                            {!businessQuery&&<div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 text-xs text-slate-400"><i className="fa-solid fa-location-dot text-blue-300 mr-2"></i>Busca el local por su nombre. TOCAQUI guardará el Place ID, nombre y dirección.</div>}
+                                            {businessSuggestions.length>0&&<div className="mt-3 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 divide-y divide-slate-800">
+                                                {businessSuggestions.map((prediction,idx)=><button type="button" key={prediction.placeId||idx} onClick={()=>chooseBusiness(prediction)} className="w-full px-3.5 py-3.5 hover:bg-slate-900 text-left flex items-center justify-between gap-3">
+                                                    <span className="min-w-0"><span className="block text-sm font-semibold text-white truncate">{prediction.mainText||prediction.text||'Negocio'}</span><span className="block text-[11px] text-slate-500 truncate mt-0.5">{prediction.secondaryText||''}</span></span>
+                                                    <i className="fa-solid fa-chevron-right text-slate-600 text-xs"></i>
+                                                </button>)}
+                                            </div>}
+                                            <div className="grid grid-cols-2 gap-2 mt-4">
+                                                <button type="button" onClick={()=>openMode('manual')} className="rounded-xl border border-slate-700 bg-slate-900 py-3 text-xs font-semibold text-slate-300"><i className="fa-solid fa-keyboard mr-2"></i>Buscar tarjeta</button>
+                                                <button type="button" onClick={()=>openMode('camera')} className="rounded-xl border border-slate-700 bg-slate-900 py-3 text-xs font-semibold text-slate-300"><i className="fa-solid fa-camera mr-2"></i>Escanear QR</button>
+                                            </div>
+                                        </section>
+                                    ) : (
+                                        <section className="space-y-3">
+                                            <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.07] p-3.5 flex items-center justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <div className="text-[9px] uppercase tracking-wider text-emerald-300 font-bold">Negocio seleccionado</div>
+                                                    <div className="text-sm font-bold text-white mt-1 truncate">{selectedBusiness.name}</div>
+                                                    <div className="text-[11px] text-slate-400 mt-0.5 truncate">{selectedBusiness.address||selectedBusiness.placeId}</div>
+                                                </div>
+                                                <button type="button" onClick={()=>{setSelectedBusiness(null);setBusinessQuery('');setBusinessSuggestions([]);}} className="shrink-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-300">Cambiar</button>
+                                            </div>
+
+                                            <div className="flex items-end justify-between gap-3">
+                                                <div><div className="text-[10px] uppercase tracking-wider text-blue-300 font-bold">Paso 2</div><h4 className="text-sm font-bold text-white mt-0.5">Selecciona la tarjeta</h4><p className="text-[11px] text-slate-500">Solo aparecen tarjetas disponibles por activar.</p></div>
+                                                <span className="rounded-full border border-slate-700 px-2.5 py-1 text-[10px] text-slate-400">{qrs.filter(card=>card.status!=='active').length} disponibles</span>
+                                            </div>
+
+                                            <div className="relative">
+                                                <i className="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-slate-500 text-xs"></i>
+                                                <input value={businessCardSearch} onChange={e=>setBusinessCardSearch(e.target.value)} className="w-full glass-input pl-9 pr-3 py-3 rounded-xl text-sm" placeholder="Filtrar TQ, lote o diseño…"/>
+                                            </div>
+
+                                            {availableBusinessCards.length ? <div className="space-y-2">
+                                                {availableBusinessCards.map(card=>{
+                                                    const tpl=templates.find(t=>t.id===card.designTemplateId);
+                                                    return <button type="button" key={card.id} onClick={()=>assignBusinessToCard(card)} className="w-full rounded-xl border border-slate-800 bg-slate-900/55 hover:border-blue-500/35 hover:bg-slate-900 px-3.5 py-3 text-left transition-colors">
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-bold text-white truncate">{cardNumber(card)}</div>
+                                                                <div className="text-[10px] text-slate-500 mt-0.5 truncate">{card.batchName||card.batchId||'Sin lote'} · {tpl?.name||'Sin diseño asignado'}</div>
+                                                            </div>
+                                                            <span className="shrink-0 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-200 px-2.5 py-1.5 text-[10px] font-semibold">Seleccionar</span>
+                                                        </div>
+                                                    </button>;
+                                                })}
+                                            </div> : <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4 text-xs text-amber-200">No hay tarjetas pendientes que coincidan con el filtro.</div>}
+                                        </section>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+
                 if(mode==='choose'){
                     return (
                         <div className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
@@ -5019,12 +5188,16 @@ const resetTestInventory = async () => {
                                     <button type="button" onClick={close} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300" aria-label="Cerrar"><i className="fa-solid fa-xmark"></i></button>
                                 </div>
                                 <div className="p-4 sm:p-5 grid sm:grid-cols-2 gap-3">
-                                    <button type="button" onClick={()=>openMode('manual')} className="min-h-[132px] rounded-2xl border border-blue-500/25 bg-blue-500/[0.08] hover:bg-blue-500/[0.13] p-4 text-left transition-colors">
-                                        <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-300 flex items-center justify-center"><i className="fa-solid fa-keyboard"></i></div>
-                                        <div className="text-sm font-bold text-white mt-3">Ingresar manualmente</div>
-                                        <div className="text-[11px] text-slate-400 mt-1">Busca por número TQ, TAG, lote, cliente o negocio.</div>
+                                    <button type="button" onClick={()=>openMode('business')} className="sm:col-span-2 min-h-[104px] rounded-2xl border border-blue-500/30 bg-blue-500/[0.09] hover:bg-blue-500/[0.14] p-4 text-left transition-colors flex items-center gap-4">
+                                        <div className="w-11 h-11 rounded-2xl bg-blue-500/15 text-blue-300 flex items-center justify-center shrink-0"><i className="fa-solid fa-location-dot"></i></div>
+                                        <div><div className="text-sm font-bold text-white">Asignar a un negocio</div><div className="text-[11px] text-slate-400 mt-1">Busca el local primero y luego selecciona la tarjeta disponible.</div></div>
                                     </button>
-                                    <button type="button" onClick={()=>openMode('camera')} className="min-h-[132px] rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.11] p-4 text-left transition-colors">
+                                    <button type="button" onClick={()=>openMode('manual')} className="min-h-[118px] rounded-2xl border border-slate-700 bg-slate-900/70 hover:bg-slate-900 p-4 text-left transition-colors">
+                                        <div className="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center"><i className="fa-solid fa-keyboard"></i></div>
+                                        <div className="text-sm font-bold text-white mt-3">Buscar tarjeta</div>
+                                        <div className="text-[11px] text-slate-400 mt-1">Número TQ, TAG, lote, cliente o negocio.</div>
+                                    </button>
+                                    <button type="button" onClick={()=>openMode('camera')} className="min-h-[118px] rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] hover:bg-emerald-500/[0.11] p-4 text-left transition-colors">
                                         <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-300 flex items-center justify-center"><i className="fa-solid fa-camera"></i></div>
                                         <div className="text-sm font-bold text-white mt-3">Escanear QR</div>
                                         <div className="text-[11px] text-slate-400 mt-1">Activa la cámara y lee una tarjeta física.</div>
