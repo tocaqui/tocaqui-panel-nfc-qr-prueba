@@ -1,4 +1,4 @@
-const CACHE='tocaqui-activador-2026.11.26.0410';
+const CACHE='tocaqui-activador-2026.11.26.0420';
 const STATIC=['./','./manifest.webmanifest','../icon-180.png','../icon-192.png','../icon-512.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).catch(()=>{}));
