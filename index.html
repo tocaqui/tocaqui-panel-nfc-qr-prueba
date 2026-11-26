@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.25.1740';
+    const TOCAQUI_BUILD = '2026.11.26.0015';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -633,12 +633,9 @@
         };
         // CUT_GUIDES_END
 
-        const getBaseTagUrl = (code) => {
-            return `https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-admin-qr-test-r/${code}`;
-        };
-
-        // This URL is used only for NFC programming; existing printed QR codes keep working.
-        const getNfcTagUrl = (code) => `https://go.tocaqui.store/nfc/?tag=${encodeURIComponent(code)}`;
+        const getCanonicalTagUrl = (code) => `https://go.tocaqui.store/t/?tag=${encodeURIComponent(code)}`;
+        const getBaseTagUrl = (code) => getCanonicalTagUrl(code);
+        const getNfcTagUrl = (code) => getCanonicalTagUrl(code);
 
         // Use WhatsApp's international HTTPS link; Chilean mobile numbers may be entered locally.
         const makeWhatsAppLink = (value) => {
@@ -1554,7 +1551,7 @@ const resetTestInventory = async () => {
                     if(!workshopSession)throw new Error('Abre una sesión autorizada primero.');
                     const result=await workshopApi({action:'createPairing',session:workshopSession});
                     if(!result?.code)throw new Error('No se pudo preparar el Activador.');
-                    const url='/activar/?vincular='+encodeURIComponent(result.code)+'&v=2026.11.25.1745';
+                    const url='/activar/?vincular='+encodeURIComponent(result.code)+'&v=2026.11.26.0010';
                     const win=window.open(url,'_blank','noopener');
                     if(!win)location.href=url;
                     showToast('Activador preparado. En Safari puedes añadirlo a Inicio una sola vez.','success');
