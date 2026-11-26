@@ -155,7 +155,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.0410';
+var BUILD='2026.11.26.0420';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
@@ -363,7 +363,8 @@ async function startScanner(purpose){
   if(track){
    var caps={};try{caps=typeof track.getCapabilities==='function'?track.getCapabilities():{}}catch(e){}
    var supported={};try{supported=navigator.mediaDevices.getSupportedConstraints?navigator.mediaDevices.getSupportedConstraints():{}}catch(e){}
-   if(caps.torch===true||supported.torch===true)show('torchBtn',true);
+   var canTryTorch=typeof track.applyConstraints==='function'&&(caps.torch===true||supported.torch===true||/iPhone|iPad|iPod/i.test(navigator.userAgent));
+   if(canTryTorch)show('torchBtn',true);
   }
   $('scannerMessage').textContent='Acerca el QR al recuadro.';
   var detector=null;if('BarcodeDetector' in window){try{detector=new BarcodeDetector({formats:['qr_code']})}catch(e){}}
