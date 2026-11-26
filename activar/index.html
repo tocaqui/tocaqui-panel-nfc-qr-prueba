@@ -155,7 +155,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.0400';
+var BUILD='2026.11.26.0410';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
@@ -171,7 +171,20 @@ function toast(msg,type){var old=document.getElementById('toast');if(old)old.rem
 async function call(url,payload){var controller=new AbortController(),timer=setTimeout(function(){controller.abort()},15000);try{var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify(payload),signal:controller.signal});var j=await r.json();if(!r.ok||j.ok===false||j.error)throw new Error(j.error||'Solicitud rechazada');return j}catch(e){if(e&&e.name==='AbortError')throw new Error('La operación tardó demasiado. Revisa la conexión y vuelve a intentar.');throw e}finally{clearTimeout(timer)}}
 async function api(payload){payload.session=state.session;return call(API,payload)}
 async function pair(code){code=String(code||'').trim().toLowerCase();if(!/^[a-f0-9]{64}$/.test(code))throw new Error('Código de vinculación inválido');var out=await call(DEVICE,{action:'pair',code:code,label:'TOCAQUI Activador iPhone'});state.credential=out.credential;localStorage.setItem('tocaqui_activator_credential_v1',out.credential);localStorage.setItem('tocaqui_device_credential_v1',out.credential)}
-async function resume(){if(!state.credential)throw new Error('Activador no autorizado');var out=await call(API,{action:'resume',credential:state.credential});state.session=out.session;sessionStorage.setItem('tocaqui_activator_session_v1',out.session)}
+async function resume(){
+ if(!state.credential)throw new Error('Activador no autorizado');
+ var out=await call(API,{action:'resume',credential:state.credential});
+ state.session=out.session;sessionStorage.setItem('tocaqui_activator_session_v1',out.session);
+ if(out.handoffCard&&out.handoffCard.id){
+  var found=false;
+  state.cards=state.cards.map(function(c){if(c.id===out.handoffCard.id){found=true;return out.handoffCard}return c});
+  if(!found)state.cards.push(out.handoffCard);
+  state.card=out.handoffCard;state.physicalVerified=true;state.physicalMismatch='';
+  if(out.handoffCard.batchId){state.batch=out.handoffCard.batchId;state.batchLocked=true;localStorage.setItem('tocaqui_activator_batch_v2',out.handoffCard.batchId);localStorage.setItem('tocaqui_activator_batch_locked_v2','1')}
+  cacheSet('tocaqui_activator_cards_v1',state.cards);
+ }
+ return out
+}
 function restoreSession(){try{var token=sessionStorage.getItem('tocaqui_activator_session_v1')||'';if(token&&token.length>=32){state.session=token;return true}}catch(e){}return false}
 
 function cachedBoot(){state.cards=cacheGet('tocaqui_activator_cards_v1',[]);state.clients=cacheGet('tocaqui_activator_clients_v1',[]);state.templates=cacheGet('tocaqui_activator_templates_v1',[]);state.recent=cacheGet('tocaqui_activator_recent_v2',[])}
@@ -395,7 +408,7 @@ async function launch(){
  cachedBoot();var hadCachedSession=restoreSession(),selected=applyRequestedCard(),claimed=false;
  try{
   if(hadCachedSession&&!selected)claimed=await claimActivationHandoff();
-  if(!hadCachedSession||(!selected&&!claimed)){await resume();if(!selected&&!claimed)claimed=await claimActivationHandoff()}
+  if(!hadCachedSession||(!selected&&!claimed&&!state.card)){await resume();if(!state.card&&!selected&&!claimed)claimed=await claimActivationHandoff()}
   renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();
   show('loading',false);show('main',true);show('scanFab',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);
   if(state.card&&!state.business){setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},40)}
