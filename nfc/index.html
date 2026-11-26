@@ -1,11 +1,8 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>TOCAQUI · Tarjeta NFC</title><style>body{margin:0;background:#020617;color:#f8fafc;font:16px system-ui;display:grid;place-items:center;min-height:100vh}.card{max-width:360px;padding:28px;border:1px solid #1e3a5f;border-radius:18px;background:#0b1427}p{color:#cbd5e1;line-height:1.5}</style></head><body><main class="card"><strong>TOCAQUI</strong><p id="message">Abriendo el destino de tu tarjeta…</p><noscript>Activa JavaScript en tu navegador para abrir esta tarjeta.</noscript></main><script>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>TOCAQUI · Compatibilidad NFC</title><style>body{margin:0;background:#020617;color:#f8fafc;font:16px system-ui;display:grid;place-items:center;min-height:100vh}.card{max-width:360px;padding:28px;border:1px solid #1e3a5f;border-radius:18px;background:#0b1427}p{color:#cbd5e1;line-height:1.5}</style></head><body><main class="card"><strong>TOCAQUI</strong><p id="message">Actualizando enlace de tarjeta…</p></main><script>
 (function(){
-  var code=new URLSearchParams(window.location.search).get('tag') || '';
-  if(!/^TAG-[A-Z0-9]{5,32}$/.test(code)){
-    document.getElementById('message').textContent='El enlace de esta tarjeta no es válido.';
-    return;
-  }
-  window.location.replace('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-admin-qr-test-r/'+encodeURIComponent(code));
+  var code=(new URLSearchParams(location.search).get('tag')||'').trim().toUpperCase();
+  if(!/^TAG-[A-Z0-9]{5,32}$/.test(code)){document.getElementById('message').textContent='El enlace de esta tarjeta no es válido.';return;}
+  location.replace('https://go.tocaqui.store/t/?tag='+encodeURIComponent(code));
 })();
 </script></body></html>
