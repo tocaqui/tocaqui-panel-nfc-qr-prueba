@@ -155,11 +155,11 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.0310';
+var BUILD='2026.11.26.0320';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
-var state={credential:'',session:'',cards:[],clients:[],templates:[],business:null,card:null,destination:'google_review',clientId:'',batch:localStorage.getItem('tocaqui_activator_batch_v2')||'all',batchLocked:localStorage.getItem('tocaqui_activator_batch_locked_v2')==='1',design:'all',category:'Todos',page:1,pageSize:10,scannerStream:null,scannerTimer:null,recent:[],lastActivatedUrl:'',analytics:{perCard:{},perBusiness:{},totalScans:0},physicalVerified:false,physicalMismatch:'',scanPurpose:'select',requestedCardCode:'',externalHandoff:false};
+var state={credential:'',session:'',cards:[],clients:[],templates:[],business:null,card:null,destination:'google_review',clientId:'',batch:localStorage.getItem('tocaqui_activator_batch_v2')||'all',batchLocked:localStorage.getItem('tocaqui_activator_batch_locked_v2')==='1',design:'all',category:'Todos',page:1,pageSize:10,scannerStream:null,scannerTimer:null,recent:[],lastActivatedUrl:'',analytics:{perCard:{},perBusiness:{},totalScans:0},physicalVerified:false,physicalMismatch:'',scanPurpose:'select',requestedCardCode:'',externalHandoff:false,externalHandoffStatus:''};
 var $=function(id){return document.getElementById(id)};
 function show(id,on){var el=$(id);if(el)el.classList.toggle('hidden',!on)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
@@ -205,10 +205,12 @@ async function claimActivationHandoff(){
 }
 function renderSetupMode(){
  if(state.externalHandoff&&state.requestedCardCode&&!state.credential){
-  $('setupEyebrow').textContent='Tarjeta detectada';
-  $('setupTitle').textContent='La tarjeta ya fue enviada al Activador';
-  $('setupText').textContent='No necesitas volver a escanearla ni autorizar esta ventana.';
-  $('setupNotice').innerHTML='<b>'+esc(state.requestedCardCode)+'</b> quedó registrada para activación. Cierra esta ventana y abre el icono <b>TOCAQUI Activador</b> instalado en tu iPhone. Aparecerá seleccionada automáticamente.';
+  $('setupEyebrow').textContent=state.externalHandoffStatus==='ok'?'Tarjeta detectada':'No se pudo enviar';
+  $('setupTitle').textContent=state.externalHandoffStatus==='ok'?'La tarjeta fue enviada al Activador':'La tarjeta no quedó registrada en el Activador';
+  $('setupText').textContent=state.externalHandoffStatus==='ok'?'No necesitas volver a escanearla ni autorizar esta ventana.':'No cierres esta pantalla pensando que ya quedó lista.';
+  $('setupNotice').innerHTML=state.externalHandoffStatus==='ok'
+    ? '<b>'+esc(state.requestedCardCode)+'</b> quedó registrada para activación. Cierra esta ventana y abre el icono <b>TOCAQUI Activador</b> instalado en tu iPhone.'
+    : 'No se pudo registrar <b>'+esc(state.requestedCardCode)+'</b>. Vuelve a escanear el QR con conexión y confirma que aparezca el mensaje <b>Tarjeta enviada</b>.';
   show('pairCodeWrap',false);
   $('pairBtn').textContent='Cerrar esta ventana';
  }else{
@@ -329,7 +331,7 @@ function stopScanner(){if(state.scannerTimer)clearTimeout(state.scannerTimer);st
 $('quickScanBtn').onclick=function(){startScanner('select')};$('scanFab').onclick=function(){startScanner('select')};$('verifyPhysicalBtn').onclick=function(){if(!state.card){toast('Selecciona primero una tarjeta.');return}startScanner('verify')};$('scannerClose').onclick=stopScanner;$('scannerOverlay').onclick=function(e){if(e.target===this)stopScanner()};
 $('pairBtn').onclick=async function(){if(state.externalHandoff&&!state.credential){try{window.close()}catch(e){};toast('Abre el icono TOCAQUI Activador instalado.');return}this.disabled=true;try{await pair($('pairCode').value);await launch()}catch(e){toast(e.message);this.disabled=false}};
 async function launch(){show('loading',true);show('setup',false);show('main',false);show('bottom',false);show('scanFab',false);try{await resume();cachedBoot();applyRequestedCard();renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();show('loading',false);show('main',true);show('scanFab',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);loadData().then(function(){renderAll();if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},80)}).catch(function(e){console.warn(e);toast('Trabajando con datos guardados mientras se sincroniza.')})}catch(e){show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent='Por autorizar'}}
-async function boot(){cachedBoot();var params=new URLSearchParams(location.search),code=params.get('vincular'),requested=params.get('card'),source=params.get('source');if(requested&&/^(TAG-[A-Z0-9]{5,32}|TQ-\d+)$/i.test(requested))state.requestedCardCode=requested;state.externalHandoff=source==='tag'&&!!state.requestedCardCode;state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD+(state.requestedCardCode?'&card='+encodeURIComponent(state.requestedCardCode):''))}catch(e){console.warn(e)}}if(state.credential)await launch();else{show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent=state.externalHandoff?'Tarjeta enviada':'Por autorizar'}if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js?v='+BUILD).catch(function(){})}}
+async function boot(){cachedBoot();var params=new URLSearchParams(location.search),code=params.get('vincular'),requested=params.get('card'),source=params.get('source'),handoff=params.get('handoff');if(requested&&/^(TAG-[A-Z0-9]{5,32}|TQ-\d+)$/i.test(requested))state.requestedCardCode=requested;state.externalHandoff=source==='tag'&&!!state.requestedCardCode;state.externalHandoffStatus=handoff||'';state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD+(state.requestedCardCode?'&card='+encodeURIComponent(state.requestedCardCode):''))}catch(e){console.warn(e)}}if(state.credential)await launch();else{show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent=state.externalHandoff?'Tarjeta enviada':'Por autorizar'}if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js?v='+BUILD).catch(function(){})}}
 async function refreshActivator(){
  if(!state.session||document.visibilityState==='hidden')return;
  try{await loadData();renderAll();if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'})},60)}catch(e){}
