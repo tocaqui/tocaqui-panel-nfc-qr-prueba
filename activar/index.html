@@ -57,10 +57,10 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <div id="loading" class="loading"><div class="spinner"></div><div>Abriendo Activador…</div></div>
 
 <main id="setup" class="main hidden">
-  <section class="hero"><div class="eyebrow">Vinculación inicial</div><h1>Autoriza este iPhone una sola vez</h1><p>Después el icono TOCAQUI Activador abrirá directo a tu operación, sin panel de diseño.</p></section>
+  <section class="hero"><div id="setupEyebrow" class="eyebrow">Vinculación inicial</div><h1 id="setupTitle">Autoriza este iPhone una sola vez</h1><p id="setupText">Después el icono TOCAQUI Activador abrirá directo a tu operación, sin panel de diseño.</p></section>
   <section class="panel">
-    <div class="notice">Abre esta pantalla desde el botón <b>Activador</b> del TOCAQUI principal. El enlace autoriza este Activador una sola vez.</div>
-    <div style="margin-top:11px"><input id="pairCode" class="input" autocomplete="off" autocapitalize="off" placeholder="Código de vinculación"></div>
+    <div id="setupNotice" class="notice">Abre esta pantalla desde el botón <b>Activador</b> del TOCAQUI principal. El enlace autoriza este Activador una sola vez.</div>
+    <div id="pairCodeWrap" style="margin-top:11px"><input id="pairCode" class="input" autocomplete="off" autocapitalize="off" placeholder="Código de vinculación"></div>
     <button id="pairBtn" class="btn primary wide" style="margin-top:8px">Autorizar Activador</button>
     <div class="restricted-note" style="margin-top:9px"><span>🔒</span><span><b>Acceso restringido.</b> Esta aplicación solo permite activar, verificar y consultar tarjetas autorizadas.</span></div>
   </section>
@@ -151,11 +151,11 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.0120';
+var BUILD='2026.11.26.0205';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
-var state={credential:'',session:'',cards:[],clients:[],templates:[],business:null,card:null,destination:'google_review',clientId:'',batch:localStorage.getItem('tocaqui_activator_batch_v2')||'all',batchLocked:localStorage.getItem('tocaqui_activator_batch_locked_v2')==='1',design:'all',category:'Todos',page:1,pageSize:10,scannerStream:null,scannerTimer:null,recent:[],lastActivatedUrl:'',analytics:{perCard:{},perBusiness:{},totalScans:0},physicalVerified:false,physicalMismatch:'',scanPurpose:'select',requestedCardCode:''};
+var state={credential:'',session:'',cards:[],clients:[],templates:[],business:null,card:null,destination:'google_review',clientId:'',batch:localStorage.getItem('tocaqui_activator_batch_v2')||'all',batchLocked:localStorage.getItem('tocaqui_activator_batch_locked_v2')==='1',design:'all',category:'Todos',page:1,pageSize:10,scannerStream:null,scannerTimer:null,recent:[],lastActivatedUrl:'',analytics:{perCard:{},perBusiness:{},totalScans:0},physicalVerified:false,physicalMismatch:'',scanPurpose:'select',requestedCardCode:'',externalHandoff:false};
 var $=function(id){return document.getElementById(id)};
 function show(id,on){var el=$(id);if(el)el.classList.toggle('hidden',!on)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
@@ -184,8 +184,40 @@ function applyRequestedCard(){
  return true;
 }
 
+async function claimActivationHandoff(){
+ if(!state.session)return false;
+ try{
+  var out=await api({action:'claimActivationHandoff'});
+  if(!out||!out.card)return false;
+  var found=false;
+  state.cards=state.cards.map(function(c){if(c.id===out.card.id){found=true;return out.card}return c});
+  if(!found)state.cards.push(out.card);
+  state.card=out.card;state.physicalVerified=true;state.physicalMismatch='';
+  if(out.card.batchId){state.batch=out.card.batchId;state.batchLocked=true;localStorage.setItem('tocaqui_activator_batch_v2',out.card.batchId);localStorage.setItem('tocaqui_activator_batch_locked_v2','1')}
+  cacheSet('tocaqui_activator_cards_v1',state.cards);
+  return true;
+ }catch(e){return false}
+}
+function renderSetupMode(){
+ if(state.externalHandoff&&state.requestedCardCode&&!state.credential){
+  $('setupEyebrow').textContent='Tarjeta detectada';
+  $('setupTitle').textContent='La tarjeta ya fue enviada al Activador';
+  $('setupText').textContent='No necesitas volver a escanearla ni autorizar esta ventana.';
+  $('setupNotice').innerHTML='<b>'+esc(state.requestedCardCode)+'</b> quedó registrada para activación. Cierra esta ventana y abre el icono <b>TOCAQUI Activador</b> instalado en tu iPhone. Aparecerá seleccionada automáticamente.';
+  show('pairCodeWrap',false);
+  $('pairBtn').textContent='Cerrar esta ventana';
+ }else{
+  $('setupEyebrow').textContent='Vinculación inicial';
+  $('setupTitle').textContent='Autoriza este iPhone una sola vez';
+  $('setupText').textContent='Después el icono TOCAQUI Activador abrirá directo a tu operación, sin panel de diseño.';
+  $('setupNotice').innerHTML='Abre esta pantalla desde el botón <b>Activador</b> del TOCAQUI principal. El enlace autoriza este Activador una sola vez.';
+  show('pairCodeWrap',true);
+  $('pairBtn').textContent='Autorizar Activador';
+ }
+}
+
 async function loadAnalytics(){try{var a=await api({action:'analytics'});state.analytics={perCard:a.perCard||{},perBusiness:a.perBusiness||{},totalScans:Number(a.totalScans||0)}}catch(e){}}
-async function loadData(){var data=await Promise.all([api({action:'listCore'}),api({action:'listTemplates'}),api({action:'googlePlacesStatus'})]);state.cards=data[0].cards||[];state.clients=data[0].clients||[];state.templates=data[1].templates||[];cacheSet('tocaqui_activator_cards_v1',state.cards);cacheSet('tocaqui_activator_clients_v1',state.clients);cacheSet('tocaqui_activator_templates_v1',state.templates);validateLockedBatch();applyRequestedCard();await loadAnalytics()}
+async function loadData(){var data=await Promise.all([api({action:'listCore'}),api({action:'listTemplates'}),api({action:'googlePlacesStatus'})]);state.cards=data[0].cards||[];state.clients=data[0].clients||[];state.templates=data[1].templates||[];cacheSet('tocaqui_activator_cards_v1',state.cards);cacheSet('tocaqui_activator_clients_v1',state.clients);cacheSet('tocaqui_activator_templates_v1',state.templates);validateLockedBatch();var selected=applyRequestedCard();if(!selected)await claimActivationHandoff();await loadAnalytics()}
 function templateFor(c){return state.templates.find(function(t){return t.id===c.designTemplateId})||null}
 function categoryFor(c){var t=templateFor(c),raw=((t&&t.name)||'')+' '+((t&&t.category)||'')+' '+(c.productType||'');raw=raw.toLowerCase();if(/google|reseñ|review/.test(raw))return 'Google';if(/wifi|wi-fi/.test(raw))return 'WiFi';if(/catalog|men[uú]|carta/.test(raw))return 'Catálogo';if(/instagram|facebook|tiktok|social|redes/.test(raw))return 'Redes';return 'Otros'}
 function availableCards(){return state.cards.filter(function(c){return c.status!=='active'})}
@@ -264,12 +296,12 @@ function resolveCard(raw){raw=String(raw||'');var tag=(raw.match(/TAG-[A-Z0-9-]+
 async function startScanner(purpose){state.scanPurpose=purpose||'select';show('scannerOverlay',true);$('scannerMessage').textContent=state.scanPurpose==='verify'?'Escanea el QR de la tarjeta física seleccionada.':'Iniciando cámara…';try{var stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});state.scannerStream=stream;var video=$('scannerVideo');video.srcObject=stream;await video.play();$('scannerMessage').textContent='Acerca el QR al recuadro.';var detector=null;if('BarcodeDetector' in window){try{detector=new BarcodeDetector({formats:['qr_code']})}catch(e){}}var canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});async function tick(){if(!state.scannerStream)return;try{var raw='';if(detector){var codes=await detector.detect(video);raw=codes&&codes[0]&&codes[0].rawValue||''}else if(window.jsQR&&video.videoWidth){var max=640,scale=Math.min(1,max/video.videoWidth);canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);ctx.drawImage(video,0,0,canvas.width,canvas.height);var px=ctx.getImageData(0,0,canvas.width,canvas.height),found=window.jsQR(px.data,px.width,px.height,{inversionAttempts:'attemptBoth'});raw=found&&found.data||''}if(raw){var c=resolveCard(raw);if(c){if(state.scanPurpose==='verify'){stopScanner();if(!state.card){state.card=c;state.physicalVerified=true;state.physicalMismatch='';if(c.batchId)lockBatch(c.batchId);renderAll();return}if(c.id===state.card.id){state.physicalVerified=true;state.physicalMismatch='';renderConfig();toast('QR físico coincide con '+cardNo(c)+'.');return}state.physicalVerified=false;state.physicalMismatch='El QR físico corresponde a '+cardNo(c)+', no a '+cardNo(state.card)+'.';renderConfig();toast(state.physicalMismatch);return}if(c.status!=='active'){stopScanner();state.card=c;state.physicalVerified=true;state.physicalMismatch='';if(c.batchId)lockBatch(c.batchId);renderAll();if(!state.business){$('preselectedCardHint').textContent='Tarjeta '+cardNo(c)+' detectada. Ahora selecciona el negocio.';$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'})}return}$('scannerMessage').textContent='Esta tarjeta ya está activa.'}else $('scannerMessage').textContent='QR leído, pero no corresponde a una tarjeta cargada.'}}catch(e){}state.scannerTimer=setTimeout(tick,110)}tick()}catch(e){$('scannerMessage').textContent='No se pudo abrir la cámara: '+e.message}}
 function stopScanner(){if(state.scannerTimer)clearTimeout(state.scannerTimer);state.scannerTimer=null;if(state.scannerStream){state.scannerStream.getTracks().forEach(function(t){t.stop()});state.scannerStream=null}show('scannerOverlay',false)}
 $('quickScanBtn').onclick=function(){startScanner('select')};$('scanFab').onclick=function(){startScanner('select')};$('verifyPhysicalBtn').onclick=function(){if(!state.card){toast('Selecciona primero una tarjeta.');return}startScanner('verify')};$('scannerClose').onclick=stopScanner;$('scannerOverlay').onclick=function(e){if(e.target===this)stopScanner()};
-$('pairBtn').onclick=async function(){this.disabled=true;try{await pair($('pairCode').value);await launch()}catch(e){toast(e.message);this.disabled=false}};
-async function launch(){show('loading',true);show('setup',false);show('main',false);show('bottom',false);show('scanFab',false);try{await resume();cachedBoot();applyRequestedCard();renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();show('loading',false);show('main',true);show('scanFab',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);loadData().then(function(){renderAll();if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'})},80)}).catch(function(e){console.warn(e);toast('Trabajando con datos guardados mientras se sincroniza.')})}catch(e){show('loading',false);show('setup',true);$('deviceText').textContent='Por autorizar'}}
-async function boot(){cachedBoot();var params=new URLSearchParams(location.search),code=params.get('vincular'),requested=params.get('card');if(requested&&/^(TAG-[A-Z0-9]{5,32}|TQ-\d+)$/i.test(requested))state.requestedCardCode=requested;state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD+(state.requestedCardCode?'&card='+encodeURIComponent(state.requestedCardCode):''))}catch(e){console.warn(e)}}if(state.credential)await launch();else{show('loading',false);show('setup',true);$('deviceText').textContent='Por autorizar'}if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js?v='+BUILD).catch(function(){})}}
+$('pairBtn').onclick=async function(){if(state.externalHandoff&&!state.credential){try{window.close()}catch(e){};toast('Abre el icono TOCAQUI Activador instalado.');return}this.disabled=true;try{await pair($('pairCode').value);await launch()}catch(e){toast(e.message);this.disabled=false}};
+async function launch(){show('loading',true);show('setup',false);show('main',false);show('bottom',false);show('scanFab',false);try{await resume();cachedBoot();applyRequestedCard();renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();show('loading',false);show('main',true);show('scanFab',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);loadData().then(function(){renderAll();if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.')},80)}).catch(function(e){console.warn(e);toast('Trabajando con datos guardados mientras se sincroniza.')})}catch(e){show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent='Por autorizar'}}
+async function boot(){cachedBoot();var params=new URLSearchParams(location.search),code=params.get('vincular'),requested=params.get('card'),source=params.get('source');if(requested&&/^(TAG-[A-Z0-9]{5,32}|TQ-\d+)$/i.test(requested))state.requestedCardCode=requested;state.externalHandoff=source==='tag'&&!!state.requestedCardCode;state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD+(state.requestedCardCode?'&card='+encodeURIComponent(state.requestedCardCode):''))}catch(e){console.warn(e)}}if(state.credential)await launch();else{show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent=state.externalHandoff?'Tarjeta enviada':'Por autorizar'}if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js?v='+BUILD).catch(function(){})}}
 async function refreshActivator(){
  if(!state.session||document.visibilityState==='hidden')return;
- try{await loadData();renderAll()}catch(e){}
+ try{await loadData();renderAll();if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'})},60)}catch(e){}
 }
 window.addEventListener('focus',function(){refreshActivator()});
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')refreshActivator()});
