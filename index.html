@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.26.0015';
+    const TOCAQUI_BUILD = '2026.11.26.0045';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -2489,6 +2489,10 @@ const resetTestInventory = async () => {
                 const [batchPickerOpen, setBatchPickerOpen] = useState(false);
                 const [batchSearch, setBatchSearch] = useState('');
                 const [cardPage, setCardPage] = useState(1);
+                const [nfcProgrammerOpen, setNfcProgrammerOpen] = useState(false);
+                const [nfcProgrammerBatchId, setNfcProgrammerBatchId] = useState('');
+                const [nfcProgrammerIndex, setNfcProgrammerIndex] = useState(0);
+                const [nfcProgrammerBusy, setNfcProgrammerBusy] = useState(false);
                 const pageSize = 20;
 
                 const batchOptions = useMemo(() => [...new Set(qrs.map(q => q.batchId || 'legacy'))], [qrs]);
@@ -2525,6 +2529,65 @@ const resetTestInventory = async () => {
                 const selectedBatch=batchFilter==='all'?null:batchStats.find(batch=>batch.id===batchFilter);
                 const visibleActive=filteredQrs.filter(q=>q.status==='active').length;
                 const visiblePending=filteredQrs.length-visibleActive;
+                const nfcProgrammerCards=useMemo(()=>qrs
+                    .filter(q=>(q.batchId||'legacy')===nfcProgrammerBatchId)
+                    .sort((a,b)=>String(cardNumber(a)).localeCompare(String(cardNumber(b)),undefined,{numeric:true})),[qrs,nfcProgrammerBatchId]);
+                const currentNfcCard=nfcProgrammerCards[Math.min(nfcProgrammerIndex,Math.max(0,nfcProgrammerCards.length-1))]||null;
+                const nfcProgrammedCount=nfcProgrammerCards.filter(q=>['programmed','verified'].includes(q.nfcProgramming?.status)).length;
+                const nfcVerifiedCount=nfcProgrammerCards.filter(q=>q.nfcProgramming?.status==='verified').length;
+
+                useEffect(()=>{
+                    if(!nfcProgrammerCards.length){setNfcProgrammerIndex(0);return;}
+                    setNfcProgrammerIndex(i=>Math.min(i,nfcProgrammerCards.length-1));
+                },[nfcProgrammerBatchId,nfcProgrammerCards.length]);
+
+                const openNfcProgrammer=()=>{
+                    const preferred=batchFilter!=='all'?batchFilter:(batchStats.find(b=>qrs.some(q=>(q.batchId||'legacy')===b.id && q.nfcProgramming?.status!=='verified'))?.id||batchStats[0]?.id||'');
+                    setNfcProgrammerBatchId(preferred);
+                    const cards=qrs.filter(q=>(q.batchId||'legacy')===preferred).sort((a,b)=>String(cardNumber(a)).localeCompare(String(cardNumber(b)),undefined,{numeric:true}));
+                    const firstPending=Math.max(0,cards.findIndex(q=>q.nfcProgramming?.status!=='verified'));
+                    setNfcProgrammerIndex(firstPending<0?0:firstPending);
+                    setNfcProgrammerOpen(true);
+                };
+
+                const saveNfcProgramming=async(card,status)=>{
+                    if(!card||nfcProgrammerBusy)return;
+                    try{
+                        setNfcProgrammerBusy(true);
+                        if(!workshopSession)throw new Error('Se requiere una sesión autorizada.');
+                        const result=await workshopApi({action:'markNfcProgramming',session:workshopSession,cardId:card.id,status});
+                        if(!result?.card)throw new Error('No se recibió la tarjeta actualizada.');
+                        setQrs(prev=>prev.map(q=>q.id===result.card.id?result.card:q));
+                        if(status==='verified'){
+                            showToast(cardNumber(card)+' verificada.','success');
+                            setTimeout(()=>setNfcProgrammerIndex(i=>Math.min(i+1,Math.max(0,nfcProgrammerCards.length-1))),180);
+                        }else if(status==='programmed'){
+                            showToast(cardNumber(card)+' marcada como grabada.','success');
+                        }else{
+                            showToast('Estado NFC reiniciado.','info');
+                        }
+                    }catch(error){
+                        showToast('No se pudo actualizar el NFC: '+(error.message||error),'error');
+                    }finally{setNfcProgrammerBusy(false);}
+                };
+
+                const copyProgrammerUrl=async(card)=>{
+                    if(!card)return;
+                    const url=getNfcTagUrl(card.trackingCode);
+                    try{await navigator.clipboard.writeText(url);showToast('URL NFC copiada para '+cardNumber(card)+'.','success');}
+                    catch{showToast('Mantén pulsado el enlace para copiarlo.','info');}
+                };
+
+                const writeProgrammerWebNfc=async(card)=>{
+                    if(!card)return;
+                    if(!('NDEFReader' in window)){showToast('En iPhone usa NFC Tools. Web NFC no está disponible en Safari.','info');return;}
+                    try{
+                        setNfcProgrammerBusy(true);
+                        const ndef=new NDEFReader();
+                        await ndef.write({records:[{recordType:'url',data:getNfcTagUrl(card.trackingCode)}]});
+                        await saveNfcProgramming(card,'programmed');
+                    }catch(error){showToast('No se pudo grabar el NFC: '+(error.message||error),'warning');setNfcProgrammerBusy(false);}
+                };
 
                 return (
                     <div className="tocaqui-operation-page space-y-5">
@@ -2537,6 +2600,9 @@ const resetTestInventory = async () => {
                                 <p className="text-slate-400 text-sm mt-1">Encuentra un lote o una tarjeta sin recorrer listas largas ni tablas horizontales.</p>
                             </div>
                             <div className="grid grid-cols-2 sm:flex gap-2 w-full lg:w-auto">
+                                <button onClick={openNfcProgrammer} className="col-span-2 sm:col-span-1 min-h-[42px] bg-violet-500/10 hover:bg-violet-500/15 border border-violet-500/30 text-violet-200 px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
+                                    <i className="fa-solid fa-nfc-symbol"></i> Programar NFC
+                                </button>
                                 <button onClick={exportForNFCTools} className="min-h-[42px] bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2">
                                     <i className="fa-solid fa-file-export text-blue-400"></i> Exportar CSV
                                 </button>
@@ -2682,6 +2748,70 @@ const resetTestInventory = async () => {
                                 <button type="button" disabled={safePage<=1} onClick={()=>setCardPage(p=>Math.max(1,p-1))} className="min-h-[38px] px-3 rounded-xl border border-slate-700 text-xs text-slate-300 disabled:opacity-40"><i className="fa-solid fa-chevron-left mr-1"></i>Anterior</button>
                                 <div className="text-xs text-slate-400">Mostrando {(safePage-1)*pageSize+1}–{Math.min(safePage*pageSize,filteredQrs.length)} de {filteredQrs.length}</div>
                                 <button type="button" disabled={safePage>=pageCount} onClick={()=>setCardPage(p=>Math.min(pageCount,p+1))} className="min-h-[38px] px-3 rounded-xl border border-slate-700 text-xs text-slate-300 disabled:opacity-40">Siguiente<i className="fa-solid fa-chevron-right ml-1"></i></button>
+                            </div>
+                        )}
+
+                        {nfcProgrammerOpen && (
+                            <div className="fixed inset-0 z-[95] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-label="Programador NFC por lote">
+                                <div className="w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl">
+                                    <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+                                        <div className="min-w-0">
+                                            <div className="text-[9px] uppercase tracking-[.18em] text-violet-300 font-bold">Fabricación</div>
+                                            <h2 className="text-base font-bold text-white">Programador NFC por lote</h2>
+                                            <p className="text-[10px] text-slate-500">URL maestra: https://go.tocaqui.store/t/</p>
+                                        </div>
+                                        <button type="button" onClick={()=>setNfcProgrammerOpen(false)} className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
+                                    </div>
+
+                                    <div className="p-4 space-y-4">
+                                        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
+                                            <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-2">Lote</div>
+                                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                                {batchStats.map(batch=><button type="button" key={batch.id} onClick={()=>{setNfcProgrammerBatchId(batch.id);const cards=qrs.filter(q=>(q.batchId||'legacy')===batch.id).sort((a,b)=>String(cardNumber(a)).localeCompare(String(cardNumber(b)),undefined,{numeric:true}));const first=cards.findIndex(q=>q.nfcProgramming?.status!=='verified');setNfcProgrammerIndex(first<0?0:first)}} className={'shrink-0 min-h-[40px] rounded-xl border px-3 text-xs font-semibold '+(nfcProgrammerBatchId===batch.id?'border-violet-400 bg-violet-500/15 text-white':'border-slate-700 bg-slate-950 text-slate-400')}>{batch.name} <span className="ml-1 text-[9px] opacity-70">{batch.total}</span></button>)}
+                                            </div>
+                                        </div>
+
+                                        {currentNfcCard ? <>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 text-center"><div className="text-[9px] uppercase text-slate-500">Progreso</div><div className="text-xl font-black text-white mt-1">{Math.min(nfcProgrammerIndex+1,nfcProgrammerCards.length)}/{nfcProgrammerCards.length}</div></div>
+                                                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 text-center"><div className="text-[9px] uppercase text-slate-500">Grabadas</div><div className="text-xl font-black text-violet-300 mt-1">{nfcProgrammedCount}</div></div>
+                                                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 text-center"><div className="text-[9px] uppercase text-slate-500">Verificadas</div><div className="text-xl font-black text-emerald-300 mt-1">{nfcVerifiedCount}</div></div>
+                                            </div>
+                                            <div className="h-2 rounded-full bg-slate-900 overflow-hidden border border-slate-800"><div className="h-full bg-emerald-500 transition-all" style={{width:(nfcProgrammerCards.length?Math.round((nfcVerifiedCount/nfcProgrammerCards.length)*100):0)+'%'}}></div></div>
+
+                                            <div className="rounded-3xl border border-violet-500/25 bg-gradient-to-b from-violet-500/[0.08] to-slate-950 p-4 sm:p-5 text-center">
+                                                <div className="text-[9px] uppercase tracking-[.18em] text-violet-300">Tarjeta actual</div>
+                                                <div className="font-mono text-2xl sm:text-3xl font-black text-white mt-2">{cardNumber(currentNfcCard)}</div>
+                                                <div className="text-[10px] text-slate-500 mt-1 break-all">{currentNfcCard.trackingCode}</div>
+                                                <span className={'inline-flex mt-3 rounded-full border px-3 py-1 text-[10px] font-bold '+(currentNfcCard.nfcProgramming?.status==='verified'?'border-emerald-500/25 bg-emerald-500/10 text-emerald-300':currentNfcCard.nfcProgramming?.status==='programmed'?'border-violet-500/25 bg-violet-500/10 text-violet-300':'border-amber-500/25 bg-amber-500/10 text-amber-300')}>{currentNfcCard.nfcProgramming?.status==='verified'?'NFC VERIFICADO':currentNfcCard.nfcProgramming?.status==='programmed'?'NFC GRABADO':'PENDIENTE'}</span>
+                                            </div>
+
+                                            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 space-y-2">
+                                                <div className="text-[9px] uppercase tracking-wider text-slate-500">URL canónica a grabar</div>
+                                                <input readOnly value={getNfcTagUrl(currentNfcCard.trackingCode)} onFocus={e=>e.target.select()} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-xs font-mono text-cyan-200 outline-none"/>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button type="button" onClick={()=>copyProgrammerUrl(currentNfcCard)} className="min-h-[44px] rounded-xl bg-blue-600 text-white text-xs font-bold"><i className="fa-solid fa-copy mr-2"></i>Copiar URL</button>
+                                                    <button type="button" onClick={()=>writeProgrammerWebNfc(currentNfcCard)} className="min-h-[44px] rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-200 text-xs font-bold"><i className="fa-solid fa-nfc-symbol mr-2"></i>Grabar NFC</button>
+                                                </div>
+                                            </div>
+
+                                            <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.05] p-3 text-[11px] text-slate-300 leading-relaxed">
+                                                <b className="text-cyan-200">iPhone:</b> Copiar URL → NFC Tools → Escribir → URL/URI → pegar → Escribir → acercar esta tarjeta. Luego vuelve aquí y marca <b>Grabada</b>. Después prueba físicamente el NFC y marca <b>Verificada</b>.
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button type="button" disabled={nfcProgrammerBusy} onClick={()=>saveNfcProgramming(currentNfcCard,'programmed')} className="min-h-[46px] rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-200 text-xs font-bold disabled:opacity-50"><i className="fa-solid fa-pen-to-square mr-2"></i>Marcar grabada</button>
+                                                <button type="button" disabled={nfcProgrammerBusy} onClick={()=>saveNfcProgramming(currentNfcCard,'verified')} className="min-h-[46px] rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50"><i className="fa-solid fa-circle-check mr-2"></i>Verificada · Siguiente</button>
+                                            </div>
+
+                                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                                                <button type="button" disabled={nfcProgrammerIndex<=0} onClick={()=>setNfcProgrammerIndex(i=>Math.max(0,i-1))} className="min-h-[42px] rounded-xl border border-slate-700 text-slate-300 text-xs disabled:opacity-30"><i className="fa-solid fa-chevron-left mr-1"></i>Anterior</button>
+                                                <button type="button" disabled={nfcProgrammerBusy} onClick={()=>saveNfcProgramming(currentNfcCard,'pending')} className="min-h-[42px] px-3 rounded-xl text-[10px] text-slate-500 hover:text-white disabled:opacity-30">Reiniciar estado</button>
+                                                <button type="button" disabled={nfcProgrammerIndex>=nfcProgrammerCards.length-1} onClick={()=>setNfcProgrammerIndex(i=>Math.min(nfcProgrammerCards.length-1,i+1))} className="min-h-[42px] rounded-xl border border-slate-700 text-slate-300 text-xs disabled:opacity-30">Siguiente<i className="fa-solid fa-chevron-right ml-1"></i></button>
+                                            </div>
+                                        </> : <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-sm text-slate-500">Selecciona un lote con tarjetas para comenzar.</div>}
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -5658,7 +5788,7 @@ const resetTestInventory = async () => {
                                             </>}
                                         </div>:null}
                                         {templatesReady && adminTab === 'batch' && <StableBatchView />}
-                                        {templatesReady && adminTab === 'qrs' && <QRManagementView />}
+                                        {templatesReady && adminTab === 'qrs' && <StableQRManagementView />}
                                         {templatesReady && adminTab === 'clients' && <ClientView />}
                                         {templatesReady && adminTab === 'client-detail' && <ClientView />}
                                         {templatesReady && adminTab === 'templates' && TemplatesView()}
