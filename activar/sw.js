@@ -1,4 +1,4 @@
-const CACHE='tocaqui-activador-2026.11.26.1050';
+const CACHE='tocaqui-activador-2026.11.26.1050-iosfix1';
 const STATIC=['./','./manifest.webmanifest','../icon-180.png','../icon-192.png','../icon-512.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).catch(()=>{}));
@@ -14,7 +14,7 @@ self.addEventListener('fetch',event=>{
   const url=new URL(req.url);
   if(url.origin!==location.origin)return;
   if(url.pathname.startsWith('/activar/')){
-    event.respondWith(fetch(req).then(res=>{
+    event.respondWith(fetch(req,{cache:'no-store'}).then(res=>{
       if(res&&res.ok){const copy=res.clone();caches.open(CACHE).then(cache=>cache.put(req,copy)).catch(()=>{});}
       return res;
     }).catch(()=>caches.match(req).then(hit=>hit||caches.match('./'))));
