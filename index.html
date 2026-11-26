@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.26.0115';
+    const TOCAQUI_BUILD = '2026.11.26.0125';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -2600,6 +2600,7 @@ const resetTestInventory = async () => {
                         setNfcProgrammerBusy(true);
                         const ndef=new NDEFReader();
                         await ndef.write({records:[{recordType:'url',data:getNfcTagUrl(card.trackingCode)}]});
+                        setNfcProgrammerBusy(false);
                         await saveNfcProgramming(card,'programmed');
                     }catch(error){showToast('No se pudo grabar el NFC: '+(error.message||error),'warning');setNfcProgrammerBusy(false);}
                 };
@@ -2819,7 +2820,7 @@ const resetTestInventory = async () => {
                                                 <button type="button" disabled={nfcProgrammerBusy} onClick={()=>saveNfcProgramming(currentNfcCard,'verified')} className="min-h-[46px] rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-50"><i className="fa-solid fa-circle-check mr-2"></i>Verificada · Siguiente</button>
                                             </div>
 
-                                            {currentNfcCard.nfcProgramming?.status && currentNfcCard.nfcProgramming.status!=='pending' && <button type="button" disabled={nfcProgrammerBusy} onClick={()=>saveNfcProgramming(currentNfcCard,'pending')} className="w-full min-h-[44px] rounded-xl border border-amber-500/30 bg-amber-500/[0.08] text-amber-200 text-xs font-bold disabled:opacity-40"><i className="fa-solid fa-arrow-rotate-left mr-2"></i>Reiniciar estado NFC</button>}
+                                            <button type="button" disabled={nfcProgrammerBusy || !currentNfcCard.nfcProgramming?.status || currentNfcCard.nfcProgramming.status==='pending'} onClick={()=>saveNfcProgramming(currentNfcCard,'pending')} className="w-full min-h-[44px] rounded-xl border border-amber-500/30 bg-amber-500/[0.08] text-amber-200 text-xs font-bold disabled:opacity-40 disabled:text-slate-500 disabled:border-slate-700 disabled:bg-slate-900"><i className="fa-solid fa-arrow-rotate-left mr-2"></i>{currentNfcCard.nfcProgramming?.status && currentNfcCard.nfcProgramming.status!=='pending'?'Reiniciar estado NFC':'Estado NFC · Pendiente'}</button>
                                             <div className="grid grid-cols-2 items-center gap-2">
                                                 <button type="button" disabled={nfcProgrammerIndex<=0} onClick={()=>setNfcProgrammerIndex(i=>Math.max(0,i-1))} className="min-h-[42px] rounded-xl border border-slate-700 text-slate-300 text-xs disabled:opacity-30"><i className="fa-solid fa-chevron-left mr-1"></i>Anterior</button>
                                                 <button type="button" disabled={nfcProgrammerIndex>=nfcProgrammerCards.length-1} onClick={()=>setNfcProgrammerIndex(i=>Math.min(nfcProgrammerCards.length-1,i+1))} className="min-h-[42px] rounded-xl border border-slate-700 text-slate-300 text-xs disabled:opacity-30">Siguiente<i className="fa-solid fa-chevron-right ml-1"></i></button>
