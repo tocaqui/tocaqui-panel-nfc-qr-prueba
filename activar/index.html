@@ -156,7 +156,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.0515';
+var BUILD='2026.11.26.1050';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
@@ -174,6 +174,29 @@ function clearPendingHandoff(){try{localStorage.removeItem('tocaqui_pending_hand
 function toast(msg,type){var old=document.getElementById('toast');if(old)old.remove();var d=document.createElement('div');d.id='toast';d.textContent=msg;var tone=type==='ok'?'#14532d':type==='error'?'#4c0519':'#0f172a';var border=type==='ok'?'#22c55e88':type==='error'?'#fb718588':'#475569';d.style.cssText='position:fixed;left:50%;bottom:112px;transform:translateX(-50%);z-index:140;background:'+tone+';border:1px solid '+border+';color:#fff;padding:14px 16px;border-radius:16px;font-size:13px;font-weight:700;line-height:1.35;width:min(92vw,430px);text-align:center;box-shadow:0 16px 42px #000a';document.body.appendChild(d);setTimeout(function(){d.remove()},3600)}
 async function call(url,payload){var controller=new AbortController(),timer=setTimeout(function(){controller.abort()},15000);try{var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify(payload),signal:controller.signal});var j=await r.json();if(!r.ok||j.ok===false||j.error)throw new Error(j.error||'Solicitud rechazada');return j}catch(e){if(e&&e.name==='AbortError')throw new Error('La operación tardó demasiado. Revisa la conexión y vuelve a intentar.');throw e}finally{clearTimeout(timer)}}
 async function api(payload){payload.session=state.session;return call(API,payload)}
+var resumeInFlight=null;
+async function ensureSession(force){
+ if(!force&&state.session)return state.session;
+ if(resumeInFlight)return resumeInFlight;
+ resumeInFlight=(async function(){
+  await resume();
+  return state.session;
+ })();
+ try{return await resumeInFlight}finally{resumeInFlight=null}
+}
+async function placesApi(payload){
+ await ensureSession(false);
+ try{return await api(payload)}
+ catch(e){
+  var msg=String(e&&e.message||e||'');
+  if(/sesión|session|acceso requerido|revocado|autorizado|401|403/i.test(msg)){
+   state.session='';
+   await ensureSession(true);
+   return api(payload);
+  }
+  throw e;
+ }
+}
 async function pair(code){code=String(code||'').trim().toLowerCase();if(!/^[a-f0-9]{64}$/.test(code))throw new Error('Código de vinculación inválido');var out=await call(DEVICE,{action:'pair',code:code,label:'TOCAQUI Activador iPhone'});state.credential=out.credential;localStorage.setItem('tocaqui_activator_credential_v1',out.credential);localStorage.setItem('tocaqui_device_credential_v1',out.credential)}
 async function resume(){
  if(!state.credential)throw new Error('Activador no autorizado');
@@ -246,7 +269,7 @@ function renderSetupMode(){
 }
 
 async function loadAnalytics(){try{var a=await api({action:'analytics'});state.analytics={perCard:a.perCard||{},perBusiness:a.perBusiness||{},totalScans:Number(a.totalScans||0)}}catch(e){}}
-async function loadData(){var cachedTemplates=state.templates||[];var data=await Promise.all([api({action:'listCore'}),api({action:'listTemplatesLite'}),api({action:'googlePlacesStatus'})]);state.cards=data[0].cards||[];state.clients=data[0].clients||[];state.templates=(data[1].templates||[]).map(function(t){var old=cachedTemplates.find(function(x){return x.id===t.id});return Object.assign({},t,{frontBg:t.frontBg||(old&&old.frontBg)||''})});cacheSet('tocaqui_activator_cards_v1',state.cards);cacheSet('tocaqui_activator_clients_v1',state.clients);cacheSet('tocaqui_activator_templates_v1',state.templates);validateLockedBatch();var selected=applyRequestedCard();if(!selected&&!state.card)await claimActivationHandoff();loadAnalytics()}
+async function loadData(){var cachedTemplates=state.templates||[];await ensureSession(false);var data=await Promise.all([api({action:'listCore'}),api({action:'listTemplatesLite'})]);state.cards=data[0].cards||[];state.clients=data[0].clients||[];state.templates=(data[1].templates||[]).map(function(t){var old=cachedTemplates.find(function(x){return x.id===t.id});return Object.assign({},t,{frontBg:t.frontBg||(old&&old.frontBg)||''})});cacheSet('tocaqui_activator_cards_v1',state.cards);cacheSet('tocaqui_activator_clients_v1',state.clients);cacheSet('tocaqui_activator_templates_v1',state.templates);validateLockedBatch();var selected=applyRequestedCard();if(!selected&&!state.card)await claimActivationHandoff();loadAnalytics()}
 function templateFor(c){return state.templates.find(function(t){return t.id===c.designTemplateId})||null}
 function categoryFor(c){var t=templateFor(c),raw=((t&&t.name)||'')+' '+((t&&t.category)||'')+' '+(c.productType||'');raw=raw.toLowerCase();if(/google|reseñ|review/.test(raw))return 'Google';if(/wifi|wi-fi/.test(raw))return 'WiFi';if(/catalog|men[uú]|carta/.test(raw))return 'Catálogo';if(/instagram|facebook|tiktok|social|redes/.test(raw))return 'Redes';return 'Otros'}
 function availableCards(){return state.cards.filter(function(c){return c.status!=='active'})}
@@ -285,8 +308,43 @@ function renderConfig(){if(!state.card||!state.business)return;var t=templateFor
 function renderRecent(){state.recent=state.recent.slice(0,5);$('recentCount').textContent=String(state.recent.length);$('recentList').innerHTML=state.recent.length?state.recent.map(function(r){var d=new Date(r.at);return '<div class="recent-item"><div><strong>'+esc(r.business)+' · '+esc(r.card)+'</strong><small>'+esc(r.destination)+'</small></div><time>'+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})+'</time></div>'}).join(''):'<div class="recent-item"><small>Aún no hay activaciones en esta sesión.</small></div>'}
 function renderAll(){renderBusiness();if(state.business)renderCards();renderConfig();renderRecent();renderProgress()}
 function picker(title,items,current,onPick){$('pickerTitle').textContent=title;$('pickerBody').innerHTML=items.map(function(x){var img=x.thumb?'<span class="thumb-sm"><img loading="lazy" decoding="async" src="'+esc(x.thumb)+'" alt=""></span>':'';return '<button class="choice '+(String(x.id)===String(current)?'active':'')+'" data-choice="'+esc(x.id)+'">'+img+'<span class="copy"><strong>'+esc(x.label)+'</strong><small>'+esc(x.sub||'')+'</small></span><em>'+esc(x.count==null?'':x.count)+'</em></button>'}).join('');Array.from($('pickerBody').querySelectorAll('[data-choice]')).forEach(function(b){b.onclick=function(){onPick(b.getAttribute('data-choice'));show('pickerOverlay',false)}});show('pickerOverlay',true)}
-var businessTimer=null;
-$('businessSearch').addEventListener('input',function(){clearTimeout(businessTimer);var q=this.value.trim();if(q.length<2){show('businessSuggestions',false);return}businessTimer=setTimeout(async function(){try{var out=await api({action:'placesAutocomplete',input:q}),arr=out.suggestions||[];$('businessSuggestions').innerHTML=arr.map(function(p,i){return '<button data-place="'+i+'"><strong>'+esc(p.mainText||p.text||'Negocio')+'</strong><span>'+esc(p.secondaryText||'')+'</span></button>'}).join('');Array.from($('businessSuggestions').querySelectorAll('[data-place]')).forEach(function(b){b.onclick=async function(){var p=arr[Number(b.getAttribute('data-place'))];try{var d=await api({action:'placesDetails',placeId:p.placeId});state.business=d.place;$('businessSearch').value='';show('businessSuggestions',false);renderAll();setTimeout(function(){$('cardPanel').scrollIntoView({behavior:'smooth',block:'start'})},60)}catch(e){toast(e.message)}}});show('businessSuggestions',arr.length>0)}catch(e){$('businessSuggestions').innerHTML='<button><strong>No se pudo buscar</strong><span>'+esc(e.message)+'</span></button>';show('businessSuggestions',true)}},250)});
+var businessTimer=null,businessSearchSeq=0;
+$('businessSearch').addEventListener('input',function(){
+ clearTimeout(businessTimer);
+ var q=this.value.trim(),seq=++businessSearchSeq;
+ if(q.length<2){show('businessSuggestions',false);$('businessSuggestions').innerHTML='';return}
+ $('businessSuggestions').innerHTML='<button disabled><strong>Buscando…</strong><span>Consultando Google Places</span></button>';
+ show('businessSuggestions',true);
+ businessTimer=setTimeout(async function(){
+  try{
+   var out=await placesApi({action:'placesAutocomplete',input:q});
+   if(seq!==businessSearchSeq)return;
+   var arr=out.suggestions||[];
+   if(!arr.length){
+    $('businessSuggestions').innerHTML='<button disabled><strong>Sin resultados</strong><span>Prueba con otro nombre o comuna.</span></button>';
+    show('businessSuggestions',true);return;
+   }
+   $('businessSuggestions').innerHTML=arr.map(function(p,i){return '<button data-place="'+i+'"><strong>'+esc(p.mainText||p.text||'Negocio')+'</strong><span>'+esc(p.secondaryText||'')+'</span></button>'}).join('');
+   Array.from($('businessSuggestions').querySelectorAll('[data-place]')).forEach(function(b){
+    b.onclick=async function(){
+     var p=arr[Number(b.getAttribute('data-place'))];
+     $('businessSuggestions').innerHTML='<button disabled><strong>Cargando negocio…</strong><span>'+esc(p.mainText||p.text||'')+'</span></button>';
+     try{
+      var d=await placesApi({action:'placesDetails',placeId:p.placeId});
+      state.business=d.place;$('businessSearch').value='';show('businessSuggestions',false);renderAll();
+      setTimeout(function(){$('cardPanel').scrollIntoView({behavior:'smooth',block:'start'})},60)
+     }catch(e){toast('No se pudo cargar el negocio: '+e.message,'error')}
+    }
+   });
+   show('businessSuggestions',true)
+  }catch(e){
+   if(seq!==businessSearchSeq)return;
+   $('businessSuggestions').innerHTML='<button disabled><strong>No se pudo buscar</strong><span>'+esc(e.message||'Revisa la conexión e intenta de nuevo.')+'</span></button>';
+   show('businessSuggestions',true);
+   toast('Búsqueda de negocios: '+(e.message||'error de conexión'),'error')
+  }
+ },220)
+});
 $('focusBusinessBtn').onclick=function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});setTimeout(function(){$('businessSearch').focus()},250)};
 $('changeBusiness').onclick=function(){state.business=null;state.card=null;renderAll();setTimeout(function(){$('businessSearch').focus()},80)};
 $('cardSearch').addEventListener('input',function(){state.page=1;renderCards()});$('prevPage').onclick=function(){state.page=Math.max(1,state.page-1);renderCards()};$('nextPage').onclick=function(){state.page++;renderCards()};
