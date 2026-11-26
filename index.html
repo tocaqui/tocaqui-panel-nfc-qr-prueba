@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.26.0045';
+    const TOCAQUI_BUILD = '2026.11.26.0050';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -2817,6 +2817,10 @@ const resetTestInventory = async () => {
                     </div>
                 );
             };
+
+            const qrManagementLatest=useRef(QRManagementView);
+            qrManagementLatest.current=QRManagementView;
+            const StableQRManagementView=useMemo(()=>function StableQRManagementView(){return qrManagementLatest.current();},[]);
 
             // 4. CLIENT DIRECTORY & DETAILED expediente VIEW
             const ClientView = () => {
