@@ -40,7 +40,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 .notice{border:1px solid #854d0e55;background:#42200642;color:#fde68a;border-radius:14px;padding:10px;font-size:9.5px;line-height:1.45}.notice.ok{border-color:#065f4655;background:#064e3b30;color:#a7f3d0}.notice.error{border-color:#be123c55;background:#8813372f;color:#fecdd3}
 .loading{padding:76px 18px;text-align:center;color:#91a0b7}.spinner{width:32px;height:32px;border:3px solid #1e293b;border-top-color:#38bdf8;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 14px}@keyframes spin{to{transform:rotate(360deg)}}.hidden{display:none!important}
 .overlay{position:fixed;inset:0;z-index:90;background:rgba(2,6,23,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px}.sheet{width:min(100%,640px);max-height:80dvh;border:1px solid #293950;background:#050b16;border-radius:25px;overflow:hidden}.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px;border-bottom:1px solid #162238}.sheet-head strong{font-size:13px}.sheet-body{max-height:67dvh;overflow:auto;padding:9px}.choice{width:100%;min-height:48px;border:1px solid transparent;background:transparent;color:white;border-radius:12px;padding:9px 10px;text-align:left;display:flex;align-items:center;gap:9px}.choice.active,.choice:hover{border-color:#2a3b55;background:#101a2b}.choice .thumb-sm{width:48px;height:34px;border-radius:8px;border:1px solid #1e293b;background:#081120;overflow:hidden;flex:0 0 auto}.choice .thumb-sm img{width:100%;height:100%;object-fit:contain}.choice .copy{min-width:0;flex:1}.choice strong,.choice small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.choice strong{font-size:10px}.choice small{font-size:8px;color:#718096;margin-top:2px}.choice em{font-style:normal;font-size:8px;color:#7c8da3}
-.scanbox{position:relative;background:black;border-radius:18px;overflow:hidden;aspect-ratio:4/3}.scanbox video{width:100%;height:100%;object-fit:cover}.finder{position:absolute;inset:12%;border:2px solid #22d3ee;border-radius:22px;box-shadow:0 0 0 999px rgba(0,0,0,.3)}.scanner-copy{text-align:center;margin-top:9px;color:#9fb1c6;font-size:9px}
+.scanbox{position:relative;background:black;border-radius:18px;overflow:hidden;aspect-ratio:4/3}.scanbox video{width:100%;height:100%;object-fit:cover}.finder{position:absolute;inset:12%;border:2px solid #22d3ee;border-radius:22px;box-shadow:0 0 0 999px rgba(0,0,0,.3)}.scanner-copy{text-align:center;margin-top:9px;color:#9fb1c6;font-size:9px}.scanner-actions{display:flex;justify-content:center;gap:8px;margin-top:10px}.torch-btn{min-width:120px;border:1px solid #f59e0b55;background:#451a0328;color:#fde68a;border-radius:13px;padding:10px 14px;font-size:10px;font-weight:800}.torch-btn.on{background:#78350f;border-color:#f59e0b;color:#fff7ed;box-shadow:0 0 24px #f59e0b22}
 .success-wrap{text-align:center;padding:26px 18px}.success-icon{width:72px;height:72px;margin:0 auto 14px;border-radius:50%;background:transparent;border:3px solid #34d399;color:#6ee7b7;display:grid;place-items:center;font-size:34px;box-shadow:0 0 0 8px rgba(52,211,153,.06)}.success-wrap h2{font-size:20px;margin:0}.success-wrap p{font-size:10px;color:#91a0b7;line-height:1.45}.success-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
 .restricted-note{display:flex;align-items:center;gap:8px;border:1px solid #334155;background:#0b1220;color:#94a3b8;border-radius:14px;padding:9px 11px;font-size:9px;line-height:1.35;margin-bottom:10px}.restricted-note b{color:#cbd5e1}.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.metric{border:1px solid #1f2d42;background:#07101f;border-radius:14px;padding:10px;text-align:center}.metric strong{display:block;font-size:20px;color:#f8fafc}.metric span{display:block;font-size:8px;color:#7f91aa;text-transform:uppercase;letter-spacing:.12em;margin-top:3px}.install{border:1px solid #0e749055;background:#164e6322;color:#a5f3fc;border-radius:14px;padding:10px;font-size:9px;line-height:1.45;margin-bottom:10px}.handoff-banner{display:flex;align-items:center;gap:12px;border:1px solid #22c55e66;background:linear-gradient(135deg,#052e16cc,#0b1427);border-radius:18px;padding:14px;margin:0 0 12px;box-shadow:0 14px 38px #0005}.handoff-banner .ico{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:#22c55e1f;color:#86efac;font-size:18px;flex:0 0 auto}.handoff-banner .copy{min-width:0;flex:1}.handoff-banner .ey{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#86efac;font-weight:900}.handoff-banner strong{display:block;color:#fff;font-size:17px;margin-top:2px}.handoff-banner small{display:block;color:#94a3b8;font-size:9px;line-height:1.4;margin-top:2px}
 @media(min-width:640px){.app{padding-left:20px;padding-right:20px}.topbar{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}.cards{grid-template-columns:repeat(3,1fr)}.quick-actions{grid-template-columns:1.5fr .75fr}}
@@ -149,17 +149,17 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 </footer>
 
 <div id="pickerOverlay" class="overlay hidden"><div class="sheet"><div class="sheet-head"><strong id="pickerTitle">Seleccionar</strong><button id="pickerClose" class="btn ghost">Cerrar</button></div><div id="pickerBody" class="sheet-body"></div></div></div>
-<div id="scannerOverlay" class="overlay hidden"><div class="sheet"><div class="sheet-head"><strong>Escanear tarjeta TOCAQUI</strong><button id="scannerClose" class="btn ghost">Cerrar</button></div><div class="sheet-body"><div class="scanbox"><video id="scannerVideo" playsinline muted autoplay></video><div class="finder"></div></div><div id="scannerMessage" class="scanner-copy">Acerca el QR al recuadro.</div></div></div></div>
+<div id="scannerOverlay" class="overlay hidden"><div class="sheet"><div class="sheet-head"><strong>Escanear tarjeta TOCAQUI</strong><button id="scannerClose" class="btn ghost">Cerrar</button></div><div class="sheet-body"><div class="scanbox"><video id="scannerVideo" playsinline muted autoplay></video><div class="finder"></div></div><div class="scanner-actions"><button id="torchBtn" class="torch-btn hidden">🔦 Encender linterna</button></div><div id="scannerMessage" class="scanner-copy">Acerca el QR al recuadro.</div></div></div></div>
 <div id="successOverlay" class="overlay hidden"><div class="sheet"><div class="success-wrap"><div class="success-icon">✓</div><h2>Tarjeta activada</h2><p id="successCopy">La tarjeta quedó lista.</p><div class="metric-grid"><div class="metric"><strong id="successCardScans">0</strong><span>Escaneos tarjeta</span></div><div class="metric"><strong id="successBusinessScans">0</strong><span>Escaneos negocio</span></div></div><button id="viewOnlineBtn" class="mini-btn" style="margin-top:12px">Probar tarjeta en línea ↗</button><div class="success-actions"><button id="finishBtn" class="btn ghost">Terminar</button><button id="nextCardBtn" class="btn green">Siguiente tarjeta</button></div></div></div></div>
 
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.0320';
+var BUILD='2026.11.26.0400';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
-var state={credential:'',session:'',cards:[],clients:[],templates:[],business:null,card:null,destination:'google_review',clientId:'',batch:localStorage.getItem('tocaqui_activator_batch_v2')||'all',batchLocked:localStorage.getItem('tocaqui_activator_batch_locked_v2')==='1',design:'all',category:'Todos',page:1,pageSize:10,scannerStream:null,scannerTimer:null,recent:[],lastActivatedUrl:'',analytics:{perCard:{},perBusiness:{},totalScans:0},physicalVerified:false,physicalMismatch:'',scanPurpose:'select',requestedCardCode:'',externalHandoff:false,externalHandoffStatus:''};
+var state={credential:'',session:'',cards:[],clients:[],templates:[],business:null,card:null,destination:'google_review',clientId:'',batch:localStorage.getItem('tocaqui_activator_batch_v2')||'all',batchLocked:localStorage.getItem('tocaqui_activator_batch_locked_v2')==='1',design:'all',category:'Todos',page:1,pageSize:10,scannerStream:null,scannerTimer:null,torchTrack:null,torchOn:false,recent:[],lastActivatedUrl:'',analytics:{perCard:{},perBusiness:{},totalScans:0},physicalVerified:false,physicalMismatch:'',scanPurpose:'select',requestedCardCode:'',externalHandoff:false,externalHandoffStatus:''};
 var $=function(id){return document.getElementById(id)};
 function show(id,on){var el=$(id);if(el)el.classList.toggle('hidden',!on)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
@@ -172,6 +172,8 @@ async function call(url,payload){var controller=new AbortController(),timer=setT
 async function api(payload){payload.session=state.session;return call(API,payload)}
 async function pair(code){code=String(code||'').trim().toLowerCase();if(!/^[a-f0-9]{64}$/.test(code))throw new Error('Código de vinculación inválido');var out=await call(DEVICE,{action:'pair',code:code,label:'TOCAQUI Activador iPhone'});state.credential=out.credential;localStorage.setItem('tocaqui_activator_credential_v1',out.credential);localStorage.setItem('tocaqui_device_credential_v1',out.credential)}
 async function resume(){if(!state.credential)throw new Error('Activador no autorizado');var out=await call(API,{action:'resume',credential:state.credential});state.session=out.session;sessionStorage.setItem('tocaqui_activator_session_v1',out.session)}
+function restoreSession(){try{var token=sessionStorage.getItem('tocaqui_activator_session_v1')||'';if(token&&token.length>=32){state.session=token;return true}}catch(e){}return false}
+
 function cachedBoot(){state.cards=cacheGet('tocaqui_activator_cards_v1',[]);state.clients=cacheGet('tocaqui_activator_clients_v1',[]);state.templates=cacheGet('tocaqui_activator_templates_v1',[]);state.recent=cacheGet('tocaqui_activator_recent_v2',[])}
 function notifyCoreChange(card){
  try{localStorage.setItem('tocaqui_core_signal_v1',JSON.stringify({at:Date.now(),cardId:card&&card.id||''}))}catch(e){}
@@ -326,11 +328,83 @@ $('finishBtn').onclick=function(){show('successOverlay',false);resetFlow(false);
 $('nextCardBtn').onclick=function(){var next=nextPendingSameBatch();if(!next){show('successOverlay',false);toast('No quedan tarjetas pendientes en este lote.');return}show('successOverlay',false);state.card=next;state.clientId='';state.destination='google_review';state.physicalVerified=false;state.physicalMismatch='';$('customUrl').value='';renderAll();setTimeout(function(){$('configPanel').scrollIntoView({behavior:'smooth',block:'start'})},60)};
 $('recentToggle').onclick=function(){var el=$('recentList');el.style.display=el.style.display==='block'?'none':'block'};
 function resolveCard(raw){raw=String(raw||'');var tag=(raw.match(/TAG-[A-Z0-9-]+/i)||[])[0],serial=(raw.match(/TQ-\d+/i)||[])[0];return state.cards.find(function(c){return (tag&&[c.id,c.trackingCode].some(function(v){return String(v||'').toUpperCase()===tag.toUpperCase()}))||(serial&&String(c.serialNumber||'').toUpperCase()===serial.toUpperCase())})}
-async function startScanner(purpose){state.scanPurpose=purpose||'select';show('scannerOverlay',true);$('scannerMessage').textContent=state.scanPurpose==='verify'?'Escanea el QR de la tarjeta física seleccionada.':'Iniciando cámara…';try{var stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});state.scannerStream=stream;var video=$('scannerVideo');video.srcObject=stream;await video.play();$('scannerMessage').textContent='Acerca el QR al recuadro.';var detector=null;if('BarcodeDetector' in window){try{detector=new BarcodeDetector({formats:['qr_code']})}catch(e){}}var canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});async function tick(){if(!state.scannerStream)return;try{var raw='';if(detector){var codes=await detector.detect(video);raw=codes&&codes[0]&&codes[0].rawValue||''}else if(window.jsQR&&video.videoWidth){var max=640,scale=Math.min(1,max/video.videoWidth);canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);ctx.drawImage(video,0,0,canvas.width,canvas.height);var px=ctx.getImageData(0,0,canvas.width,canvas.height),found=window.jsQR(px.data,px.width,px.height,{inversionAttempts:'attemptBoth'});raw=found&&found.data||''}if(raw){var c=resolveCard(raw);if(c){if(state.scanPurpose==='verify'){stopScanner();if(!state.card){state.card=c;state.physicalVerified=true;state.physicalMismatch='';if(c.batchId)lockBatch(c.batchId);renderAll();return}if(c.id===state.card.id){state.physicalVerified=true;state.physicalMismatch='';renderConfig();toast('QR verificado · '+cardNo(c)+' coincide con esta tarjeta.','ok');return}state.physicalVerified=false;state.physicalMismatch='El QR físico corresponde a '+cardNo(c)+', no a '+cardNo(state.card)+'.';renderConfig();toast(state.physicalMismatch,'error');return}if(c.status!=='active'){stopScanner();state.card=c;state.physicalVerified=true;state.physicalMismatch='';if(c.batchId)lockBatch(c.batchId);renderAll();if(!state.business){$('preselectedCardHint').textContent='Tarjeta '+cardNo(c)+' detectada. Ahora selecciona el negocio.';$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'})}return}$('scannerMessage').textContent='Esta tarjeta ya está activa.'}else $('scannerMessage').textContent='QR leído, pero no corresponde a una tarjeta cargada.'}}catch(e){}state.scannerTimer=setTimeout(tick,110)}tick()}catch(e){$('scannerMessage').textContent='No se pudo abrir la cámara: '+e.message}}
-function stopScanner(){if(state.scannerTimer)clearTimeout(state.scannerTimer);state.scannerTimer=null;if(state.scannerStream){state.scannerStream.getTracks().forEach(function(t){t.stop()});state.scannerStream=null}show('scannerOverlay',false)}
+async function toggleTorch(){
+ var track=state.torchTrack;if(!track)return;
+ var next=!state.torchOn;
+ try{
+  await track.applyConstraints({advanced:[{torch:next}]});
+  state.torchOn=next;
+  $('torchBtn').textContent=next?'🔦 Apagar linterna':'🔦 Encender linterna';
+  $('torchBtn').classList.toggle('on',next);
+ }catch(e){toast('La linterna no está disponible con esta cámara.','error');show('torchBtn',false)}
+}
+async function startScanner(purpose){
+ state.scanPurpose=purpose||'select';state.torchOn=false;state.torchTrack=null;
+ show('scannerOverlay',true);show('torchBtn',false);$('torchBtn').classList.remove('on');$('torchBtn').textContent='🔦 Encender linterna';
+ $('scannerMessage').textContent=state.scanPurpose==='verify'?'Escanea el QR de la tarjeta física seleccionada.':'Iniciando cámara…';
+ try{
+  var stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+  state.scannerStream=stream;
+  var video=$('scannerVideo');video.srcObject=stream;await video.play();
+  var track=stream.getVideoTracks()[0]||null;state.torchTrack=track;
+  if(track){
+   var caps={};try{caps=typeof track.getCapabilities==='function'?track.getCapabilities():{}}catch(e){}
+   var supported={};try{supported=navigator.mediaDevices.getSupportedConstraints?navigator.mediaDevices.getSupportedConstraints():{}}catch(e){}
+   if(caps.torch===true||supported.torch===true)show('torchBtn',true);
+  }
+  $('scannerMessage').textContent='Acerca el QR al recuadro.';
+  var detector=null;if('BarcodeDetector' in window){try{detector=new BarcodeDetector({formats:['qr_code']})}catch(e){}}
+  var canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
+  async function tick(){
+   if(!state.scannerStream)return;
+   try{
+    var raw='';
+    if(detector){var codes=await detector.detect(video);raw=codes&&codes[0]&&codes[0].rawValue||''}
+    else if(window.jsQR&&video.videoWidth){var max=640,scale=Math.min(1,max/video.videoWidth);canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);ctx.drawImage(video,0,0,canvas.width,canvas.height);var px=ctx.getImageData(0,0,canvas.width,canvas.height),found=window.jsQR(px.data,px.width,px.height,{inversionAttempts:'attemptBoth'});raw=found&&found.data||''}
+    if(raw){
+     var c=resolveCard(raw);
+     if(c){
+      if(state.scanPurpose==='verify'){
+       stopScanner();
+       if(!state.card){state.card=c;state.physicalVerified=true;state.physicalMismatch='';if(c.batchId)lockBatch(c.batchId);renderAll();return}
+       if(c.id===state.card.id){state.physicalVerified=true;state.physicalMismatch='';renderConfig();toast('QR verificado · '+cardNo(c)+' coincide con esta tarjeta.','ok');return}
+       state.physicalVerified=false;state.physicalMismatch='El QR físico corresponde a '+cardNo(c)+', no a '+cardNo(state.card)+'.';renderConfig();toast(state.physicalMismatch,'error');return
+      }
+      if(c.status!=='active'){stopScanner();state.card=c;state.physicalVerified=true;state.physicalMismatch='';if(c.batchId)lockBatch(c.batchId);renderAll();if(!state.business){$('preselectedCardHint').textContent='Tarjeta '+cardNo(c)+' detectada. Ahora selecciona el negocio.';$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'})}return}
+      $('scannerMessage').textContent='Esta tarjeta ya está activa.'
+     }else $('scannerMessage').textContent='QR leído, pero no corresponde a una tarjeta cargada.'
+    }
+   }catch(e){}
+   state.scannerTimer=setTimeout(tick,110)
+  }
+  tick()
+ }catch(e){$('scannerMessage').textContent='No se pudo abrir la cámara: '+e.message}
+}
+async function stopScanner(){
+ if(state.scannerTimer)clearTimeout(state.scannerTimer);state.scannerTimer=null;
+ if(state.torchTrack&&state.torchOn){try{await state.torchTrack.applyConstraints({advanced:[{torch:false}]})}catch(e){}}
+ state.torchOn=false;state.torchTrack=null;show('torchBtn',false);
+ if(state.scannerStream){state.scannerStream.getTracks().forEach(function(t){t.stop()});state.scannerStream=null}
+ show('scannerOverlay',false)
+}
+$('torchBtn').onclick=toggleTorch;
 $('quickScanBtn').onclick=function(){startScanner('select')};$('scanFab').onclick=function(){startScanner('select')};$('verifyPhysicalBtn').onclick=function(){if(!state.card){toast('Selecciona primero una tarjeta.');return}startScanner('verify')};$('scannerClose').onclick=stopScanner;$('scannerOverlay').onclick=function(e){if(e.target===this)stopScanner()};
 $('pairBtn').onclick=async function(){if(state.externalHandoff&&!state.credential){try{window.close()}catch(e){};toast('Abre el icono TOCAQUI Activador instalado.');return}this.disabled=true;try{await pair($('pairCode').value);await launch()}catch(e){toast(e.message);this.disabled=false}};
-async function launch(){show('loading',true);show('setup',false);show('main',false);show('bottom',false);show('scanFab',false);try{await resume();cachedBoot();applyRequestedCard();renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();show('loading',false);show('main',true);show('scanFab',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);loadData().then(function(){renderAll();if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},80)}).catch(function(e){console.warn(e);toast('Trabajando con datos guardados mientras se sincroniza.')})}catch(e){show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent='Por autorizar'}}
+async function launch(){
+ show('loading',true);show('setup',false);show('main',false);show('bottom',false);show('scanFab',false);
+ cachedBoot();var hadCachedSession=restoreSession(),selected=applyRequestedCard(),claimed=false;
+ try{
+  if(hadCachedSession&&!selected)claimed=await claimActivationHandoff();
+  if(!hadCachedSession||(!selected&&!claimed)){await resume();if(!selected&&!claimed)claimed=await claimActivationHandoff()}
+  renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();
+  show('loading',false);show('main',true);show('scanFab',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);
+  if(state.card&&!state.business){setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},40)}
+  loadData().then(function(){renderAll()}).catch(function(e){console.warn(e);toast('Sincronización secundaria pendiente; puedes seguir trabajando.')})
+ }catch(e){
+  try{await resume();if(!state.card)await claimActivationHandoff();renderOnline();renderAll();show('loading',false);show('main',true);show('scanFab',true);loadData().then(function(){renderAll()}).catch(function(){})}
+  catch(finalError){show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent='Por autorizar'}
+ }
+}
 async function boot(){cachedBoot();var params=new URLSearchParams(location.search),code=params.get('vincular'),requested=params.get('card'),source=params.get('source'),handoff=params.get('handoff');if(requested&&/^(TAG-[A-Z0-9]{5,32}|TQ-\d+)$/i.test(requested))state.requestedCardCode=requested;state.externalHandoff=source==='tag'&&!!state.requestedCardCode;state.externalHandoffStatus=handoff||'';state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD+(state.requestedCardCode?'&card='+encodeURIComponent(state.requestedCardCode):''))}catch(e){console.warn(e)}}if(state.credential)await launch();else{show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent=state.externalHandoff?'Tarjeta enviada':'Por autorizar'}if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js?v='+BUILD).catch(function(){})}}
 async function refreshActivator(){
  if(!state.session||document.visibilityState==='hidden')return;
