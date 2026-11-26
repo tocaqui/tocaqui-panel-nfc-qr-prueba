@@ -151,7 +151,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.25.1745';
+var BUILD='2026.11.26.0010';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
@@ -160,7 +160,7 @@ var $=function(id){return document.getElementById(id)};
 function show(id,on){var el=$(id);if(el)el.classList.toggle('hidden',!on)}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function cardNo(c){return c.serialNumber||c.trackingCode||c.id}
-function baseTagUrl(c,preview){var code=typeof c==='string'?c:(c&&c.trackingCode)||'';return code?'https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-admin-qr-test-r/'+encodeURIComponent(code)+(preview?'?preview=1':''):''}
+function baseTagUrl(c,preview){var code=typeof c==='string'?c:(c&&c.trackingCode)||'';return code?'https://go.tocaqui.store/t/?tag='+encodeURIComponent(code)+(preview?'&preview=1':''):''}
 function cacheSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function cacheGet(k,f){try{var v=JSON.parse(localStorage.getItem(k)||'null');return v==null?f:v}catch(e){return f}}
 function toast(msg){var old=document.getElementById('toast');if(old)old.remove();var d=document.createElement('div');d.id='toast';d.textContent=msg;d.style.cssText='position:fixed;left:50%;bottom:150px;transform:translateX(-50%);z-index:120;background:#0f172a;border:1px solid #334155;color:#fff;padding:10px 14px;border-radius:13px;font-size:10px;max-width:88vw;box-shadow:0 12px 30px #0008';document.body.appendChild(d);setTimeout(function(){d.remove()},2200)}
