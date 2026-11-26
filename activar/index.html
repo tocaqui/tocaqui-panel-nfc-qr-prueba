@@ -44,7 +44,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 .success-wrap{text-align:center;padding:26px 18px}.success-icon{width:72px;height:72px;margin:0 auto 14px;border-radius:50%;background:transparent;border:3px solid #34d399;color:#6ee7b7;display:grid;place-items:center;font-size:34px;box-shadow:0 0 0 8px rgba(52,211,153,.06)}.success-wrap h2{font-size:20px;margin:0}.success-wrap p{font-size:10px;color:#91a0b7;line-height:1.45}.success-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
 .restricted-note{display:flex;align-items:center;gap:8px;border:1px solid #334155;background:#0b1220;color:#94a3b8;border-radius:14px;padding:9px 11px;font-size:9px;line-height:1.35;margin-bottom:10px}.handoff-searching{display:flex;align-items:center;gap:11px;border:1px solid #1e40af55;background:linear-gradient(135deg,#0b1730,#07101f);border-radius:16px;padding:12px;margin:0 0 10px;color:#bfdbfe}.handoff-searching .spin{width:28px;height:28px;border:2px solid #1e3a8a;border-top-color:#60a5fa;border-radius:50%;animation:spin .75s linear infinite;flex:0 0 auto}.handoff-searching strong{display:block;font-size:11px}.handoff-searching small{display:block;color:#7f91aa;font-size:8.5px;margin-top:2px}.restricted-note.compact{padding:7px 9px;font-size:8px;margin-bottom:8px;opacity:.85}.restricted-note b{color:#cbd5e1}.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.metric{border:1px solid #1f2d42;background:#07101f;border-radius:14px;padding:10px;text-align:center}.metric strong{display:block;font-size:20px;color:#f8fafc}.metric span{display:block;font-size:8px;color:#7f91aa;text-transform:uppercase;letter-spacing:.12em;margin-top:3px}.install{border:1px solid #0e749055;background:#164e6322;color:#a5f3fc;border-radius:14px;padding:10px;font-size:9px;line-height:1.45;margin-bottom:10px}.handoff-banner{display:flex;align-items:center;gap:12px;border:1px solid #22c55e66;background:linear-gradient(135deg,#052e16cc,#0b1427);border-radius:18px;padding:14px;margin:0 0 12px;box-shadow:0 14px 38px #0005}.handoff-banner .ico{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:#22c55e1f;color:#86efac;font-size:18px;flex:0 0 auto}.handoff-banner .copy{min-width:0;flex:1}.handoff-banner .ey{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:#86efac;font-weight:900}.handoff-banner strong{display:block;color:#fff;font-size:17px;margin-top:2px}.handoff-banner small{display:block;color:#94a3b8;font-size:9px;line-height:1.4;margin-top:2px}
 @media(min-width:640px){.app{padding-left:20px;padding-right:20px}.topbar{margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}.cards{grid-template-columns:repeat(3,1fr)}.quick-actions{grid-template-columns:1.5fr .75fr}}
-</style>
+#scannerOverlay:not(.hidden){padding:0;background:#000;z-index:150;backdrop-filter:none}#scannerOverlay .sheet{width:100%;height:100%;height:100dvh;max-height:none;border:0;border-radius:0;position:relative;background:#000}#scannerOverlay .sheet-head{position:absolute;top:0;left:0;right:0;z-index:3;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:linear-gradient(#000c,transparent);border:0}#scannerOverlay .sheet-body{padding:0;max-height:none;height:100%;overflow:hidden}#scannerOverlay .scanbox{height:100%;aspect-ratio:auto;border-radius:0}#scannerOverlay .finder{inset:auto;top:50%;left:50%;transform:translate(-50%,-50%);width:min(72vw,320px,55dvh);aspect-ratio:1;border:2px solid #22d3ee;box-shadow:0 0 0 150vmax #0008;pointer-events:none}#scannerOverlay .finder:after{content:"";position:absolute;left:8%;right:8%;top:10%;height:2px;background:#22d3ee;box-shadow:0 0 12px #22d3ee;animation:scanSweep 2s ease-in-out infinite alternate} @keyframes scanSweep{to{top:90%}}#scannerOverlay .scanner-actions{position:absolute;right:16px;top:calc(70px + env(safe-area-inset-top));z-index:3;margin:0}#scannerOverlay .torch-btn{min-width:48px;min-height:48px;background:#111c;border-color:#ffffff55;font-size:12px}#scannerOverlay .torch-btn.on{background:#78350f}#scannerOverlay .scanner-copy{position:absolute;bottom:calc(32px + env(safe-area-inset-bottom));left:16px;right:16px;padding:14px;background:#000b;border-radius:14px;color:white;font-size:14px;z-index:2}#scannerOverlay.detected .finder{border-color:#4ade80}#scannerOverlay.detected .finder:after{background:#4ade80;animation:none;top:50%}@media(prefers-reduced-motion:reduce){#scannerOverlay .finder:after{animation:none;top:50%}}</style>
 </head>
 <body>
 <div class="app">
@@ -156,7 +156,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.1050-iosfix1';
+var BUILD='2026.11.26.scan-v2';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
@@ -415,16 +415,16 @@ async function toggleTorch(){
   state.torchOn=next;
   $('torchBtn').textContent=next?'💡 Linterna encendida · apagar':'🔦 Encender linterna';
   $('torchBtn').classList.toggle('on',next);
- }catch(e){toast('La linterna no está disponible con esta cámara.','error');show('torchBtn',false)}
+ }catch(e){toast('La linterna no está disponible con esta cámara.','error');$('scannerMessage').textContent='Linterna no disponible en esta cámara. Puedes seguir escaneando.'}
 }
 async function startScanner(purpose){
- state.scanPurpose=purpose||'select';state.torchOn=false;state.torchTrack=null;
+ if(state.scannerStream||state.scannerOpening)return;var generation=(state.scanGeneration||0)+1;state.scanGeneration=generation;state.scannerOpening=true;$('scannerOverlay').classList.remove('detected');state.scanPurpose=purpose||'select';state.torchOn=false;state.torchTrack=null;
  show('scannerOverlay',true);show('torchBtn',false);$('torchBtn').classList.remove('on');$('torchBtn').textContent='🔦 Encender linterna';
  $('scannerMessage').textContent=state.scanPurpose==='verify'?'Escanea el QR de la tarjeta física seleccionada.':'Iniciando cámara…';
  try{
   var stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
-  state.scannerStream=stream;
-  var video=$('scannerVideo');video.srcObject=stream;await video.play();
+  if(state.scanGeneration!==generation){stream.getTracks().forEach(function(t){t.stop()});return}state.scannerOpening=false;state.scannerStream=stream;
+  var video=$('scannerVideo');video.srcObject=stream;await video.play();if(state.scanGeneration!==generation)return;
   var track=stream.getVideoTracks()[0]||null;state.torchTrack=track;
   if(track){
    var caps={};try{caps=typeof track.getCapabilities==='function'?track.getCapabilities():{}}catch(e){}
@@ -436,14 +436,16 @@ async function startScanner(purpose){
   var detector=null;if('BarcodeDetector' in window){try{detector=new BarcodeDetector({formats:['qr_code']})}catch(e){}}
   var canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
   async function tick(){
-   if(!state.scannerStream)return;
+   if(!state.scannerStream||state.scanGeneration!==generation)return;
    try{
     var raw='';
-    if(detector){var codes=await detector.detect(video);raw=codes&&codes[0]&&codes[0].rawValue||''}
-    else if(window.jsQR&&video.videoWidth){var max=640,scale=Math.min(1,max/video.videoWidth);canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);ctx.drawImage(video,0,0,canvas.width,canvas.height);var px=ctx.getImageData(0,0,canvas.width,canvas.height),found=window.jsQR(px.data,px.width,px.height,{inversionAttempts:'attemptBoth'});raw=found&&found.data||''}
+    if(detector){try{var codes=await detector.detect(video);raw=codes&&codes[0]&&codes[0].rawValue||''}catch(e){detector=null}}
+    if(!raw&&window.jsQR&&video.videoWidth){var max=640,scale=Math.min(1,max/video.videoWidth);canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);ctx.drawImage(video,0,0,canvas.width,canvas.height);var px=ctx.getImageData(0,0,canvas.width,canvas.height),found=window.jsQR(px.data,px.width,px.height,{inversionAttempts:'attemptBoth'});raw=found&&found.data||''}
+    if(state.scanGeneration!==generation)return;
     if(raw){
      var c=resolveCard(raw);
      if(c){
+      if(state.scanPurpose==='verify'||c.status!=='active'){$('scannerOverlay').classList.add('detected');$('scannerMessage').textContent='QR detectado';await new Promise(function(resolve){setTimeout(resolve,250)});if(state.scanGeneration!==generation)return;}
       if(state.scanPurpose==='verify'){
        stopScanner();
        if(!state.card){state.card=c;state.physicalVerified=true;state.physicalMismatch='';if(c.batchId)lockBatch(c.batchId);renderAll();return}
@@ -455,17 +457,18 @@ async function startScanner(purpose){
      }else $('scannerMessage').textContent='QR leído, pero no corresponde a una tarjeta cargada.'
     }
    }catch(e){}
-   state.scannerTimer=setTimeout(tick,110)
+   if(state.scanGeneration===generation&&state.scannerStream)state.scannerTimer=setTimeout(tick,110)
   }
   tick()
- }catch(e){$('scannerMessage').textContent='No se pudo abrir la cámara: '+e.message}
+ }catch(e){if(state.scanGeneration===generation){state.scannerOpening=false;if(state.scannerStream){state.scannerStream.getTracks().forEach(function(t){t.stop()});state.scannerStream=null}$('scannerVideo').srcObject=null;$('scannerMessage').textContent='No se pudo abrir la cámara: '+e.message}}
 }
 async function stopScanner(){
+ state.scanGeneration=(state.scanGeneration||0)+1;state.scannerOpening=false;
  if(state.scannerTimer)clearTimeout(state.scannerTimer);state.scannerTimer=null;
- if(state.torchTrack&&state.torchOn){try{await state.torchTrack.applyConstraints({advanced:[{torch:false}]})}catch(e){}}
+ 
  state.torchOn=false;state.torchTrack=null;show('torchBtn',false);
  if(state.scannerStream){state.scannerStream.getTracks().forEach(function(t){t.stop()});state.scannerStream=null}
- show('scannerOverlay',false)
+ $('scannerVideo').srcObject=null;$('scannerOverlay').classList.remove('detected');show('scannerOverlay',false)
 }
 $('torchBtn').onclick=toggleTorch;
 $('quickScanBtn').onclick=function(){startScanner('select')};$('verifyPhysicalBtn').onclick=function(){if(!state.card){toast('Selecciona primero una tarjeta.');return}startScanner('verify')};$('scannerClose').onclick=stopScanner;$('scannerOverlay').onclick=function(e){if(e.target===this)stopScanner()};
