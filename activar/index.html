@@ -156,7 +156,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.1050';
+var BUILD='2026.11.26.1050-iosfix1';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
@@ -174,9 +174,9 @@ function clearPendingHandoff(){try{localStorage.removeItem('tocaqui_pending_hand
 function toast(msg,type){var old=document.getElementById('toast');if(old)old.remove();var d=document.createElement('div');d.id='toast';d.textContent=msg;var tone=type==='ok'?'#14532d':type==='error'?'#4c0519':'#0f172a';var border=type==='ok'?'#22c55e88':type==='error'?'#fb718588':'#475569';d.style.cssText='position:fixed;left:50%;bottom:112px;transform:translateX(-50%);z-index:140;background:'+tone+';border:1px solid '+border+';color:#fff;padding:14px 16px;border-radius:16px;font-size:13px;font-weight:700;line-height:1.35;width:min(92vw,430px);text-align:center;box-shadow:0 16px 42px #000a';document.body.appendChild(d);setTimeout(function(){d.remove()},3600)}
 async function call(url,payload){var controller=new AbortController(),timer=setTimeout(function(){controller.abort()},15000);try{var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify(payload),signal:controller.signal});var j=await r.json();if(!r.ok||j.ok===false||j.error)throw new Error(j.error||'Solicitud rechazada');return j}catch(e){if(e&&e.name==='AbortError')throw new Error('La operación tardó demasiado. Revisa la conexión y vuelve a intentar.');throw e}finally{clearTimeout(timer)}}
 async function api(payload){payload.session=state.session;return call(API,payload)}
-var resumeInFlight=null;
+var resumeInFlight=null, sessionValidatedAt=0;
 async function ensureSession(force){
- if(!force&&state.session)return state.session;
+ if(!force&&state.session&&Date.now()-sessionValidatedAt<60000)return state.session;
  if(resumeInFlight)return resumeInFlight;
  resumeInFlight=(async function(){
   await resume();
@@ -190,7 +190,8 @@ async function placesApi(payload){
  catch(e){
   var msg=String(e&&e.message||e||'');
   if(/sesión|session|acceso requerido|revocado|autorizado|401|403/i.test(msg)){
-   state.session='';
+   state.session='';sessionValidatedAt=0;
+   try{sessionStorage.removeItem('tocaqui_activator_session_v1');localStorage.removeItem('tocaqui_activator_fast_session_v1')}catch(ignore){}
    await ensureSession(true);
    return api(payload);
   }
@@ -201,7 +202,7 @@ async function pair(code){code=String(code||'').trim().toLowerCase();if(!/^[a-f0
 async function resume(){
  if(!state.credential)throw new Error('Activador no autorizado');
  var out=await call(API,{action:'resume',credential:state.credential});
- state.session=out.session;
+ state.session=out.session;sessionValidatedAt=Date.now();
  try{sessionStorage.setItem('tocaqui_activator_session_v1',out.session);localStorage.setItem('tocaqui_activator_fast_session_v1',JSON.stringify({token:out.session,expiresAt:Date.now()+7.5*60*60*1000}))}catch(e){}
  if(out.handoffCard&&out.handoffCard.id){
   var found=false;
@@ -474,20 +475,20 @@ async function launch(){
  cachedBoot();
  var hadCachedSession=restoreSession(),selected=applyRequestedCard();
  state.handoffChecking=!!hadCachedSession&&!state.card&&!selected;
- renderOnline();$('deviceText').textContent=hadCachedSession?(navigator.onLine?'Autorizado · Online':'Autorizado · Offline'):'Conectando…';
+ renderOnline();$('deviceText').textContent='Validando sesión…';
  renderAll();
  show('loading',false);show('main',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);
  if(state.card&&!state.business){setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},20)}
  (async function(){
   try{
-   if(!hadCachedSession)await resume();
-   else if(!state.card&&!selected)await claimActivationHandoff();
+   await ensureSession(false);
+   if(hadCachedSession&&!state.card&&!selected)await claimActivationHandoff();
    if(!state.card&&!selected)await claimActivationHandoff();
    renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();
    if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},20);
    loadData().then(function(){renderAll()}).catch(function(e){console.warn(e);toast('Sincronización secundaria pendiente; puedes seguir trabajando.')});
   }catch(e){
-   try{await resume();if(!state.card)await claimActivationHandoff();renderOnline();renderAll();loadData().then(function(){renderAll()}).catch(function(){})}
+   try{await ensureSession(true);if(!state.card)await claimActivationHandoff();renderOnline();renderAll();loadData().then(function(){renderAll()}).catch(function(){})}
    catch(finalError){show('main',false);show('setup',true);renderSetupMode();$('deviceText').textContent='Por autorizar'}
   }
  })();
@@ -495,7 +496,7 @@ async function launch(){
 async function boot(){cachedBoot();var params=new URLSearchParams(location.search),code=params.get('vincular'),requested=params.get('card'),source=params.get('source'),handoff=params.get('handoff');if(requested&&/^(TAG-[A-Z0-9]{5,32}|TQ-\d+)$/i.test(requested))state.requestedCardCode=requested;state.externalHandoff=source==='tag'&&!!state.requestedCardCode;state.externalHandoffStatus=handoff||'';if(state.externalHandoff&&state.externalHandoffStatus==='ok')rememberPendingHandoff(state.requestedCardCode);state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD+(state.requestedCardCode?'&card='+encodeURIComponent(state.requestedCardCode):''))}catch(e){console.warn(e)}}if(state.credential)await launch();else{show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent=state.externalHandoff?'Tarjeta enviada':'Por autorizar'}if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js?v='+BUILD).catch(function(){})}}
 async function refreshActivator(){
  if(!state.session||document.visibilityState==='hidden')return;
- try{await loadData();renderAll();if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'})},60)}catch(e){}
+ try{await ensureSession(false);await loadData();renderAll();if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'})},60)}catch(e){}
 }
 window.addEventListener('focus',function(){refreshActivator()});
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')refreshActivator()});
