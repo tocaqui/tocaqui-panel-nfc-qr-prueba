@@ -155,7 +155,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.0420';
+var BUILD='2026.11.26.0445';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
@@ -167,6 +167,9 @@ function cardNo(c){return c.serialNumber||c.trackingCode||c.id}
 function baseTagUrl(c,preview){var code=typeof c==='string'?c:(c&&c.trackingCode)||'';return code?'https://go.tocaqui.store/t/?tag='+encodeURIComponent(code)+(preview?'&preview=1':''):''}
 function cacheSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 function cacheGet(k,f){try{var v=JSON.parse(localStorage.getItem(k)||'null');return v==null?f:v}catch(e){return f}}
+function rememberPendingHandoff(code){try{if(code)localStorage.setItem('tocaqui_pending_handoff_v1',JSON.stringify({card:String(code).toUpperCase(),at:Date.now()}))}catch(e){}}
+function readPendingHandoff(){try{var p=JSON.parse(localStorage.getItem('tocaqui_pending_handoff_v1')||'null');if(p&&p.card&&Date.now()-Number(p.at||0)<10*60*1000)return String(p.card).toUpperCase();localStorage.removeItem('tocaqui_pending_handoff_v1')}catch(e){}return ''}
+function clearPendingHandoff(){try{localStorage.removeItem('tocaqui_pending_handoff_v1')}catch(e){}}
 function toast(msg,type){var old=document.getElementById('toast');if(old)old.remove();var d=document.createElement('div');d.id='toast';d.textContent=msg;var tone=type==='ok'?'#14532d':type==='error'?'#4c0519':'#0f172a';var border=type==='ok'?'#22c55e88':type==='error'?'#fb718588':'#475569';d.style.cssText='position:fixed;left:50%;bottom:112px;transform:translateX(-50%);z-index:140;background:'+tone+';border:1px solid '+border+';color:#fff;padding:14px 16px;border-radius:16px;font-size:13px;font-weight:700;line-height:1.35;width:min(92vw,430px);text-align:center;box-shadow:0 16px 42px #000a';document.body.appendChild(d);setTimeout(function(){d.remove()},3600)}
 async function call(url,payload){var controller=new AbortController(),timer=setTimeout(function(){controller.abort()},15000);try{var r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify(payload),signal:controller.signal});var j=await r.json();if(!r.ok||j.ok===false||j.error)throw new Error(j.error||'Solicitud rechazada');return j}catch(e){if(e&&e.name==='AbortError')throw new Error('La operación tardó demasiado. Revisa la conexión y vuelve a intentar.');throw e}finally{clearTimeout(timer)}}
 async function api(payload){payload.session=state.session;return call(API,payload)}
@@ -187,7 +190,7 @@ async function resume(){
 }
 function restoreSession(){try{var token=sessionStorage.getItem('tocaqui_activator_session_v1')||'';if(token&&token.length>=32){state.session=token;return true}}catch(e){}return false}
 
-function cachedBoot(){state.cards=cacheGet('tocaqui_activator_cards_v1',[]);state.clients=cacheGet('tocaqui_activator_clients_v1',[]);state.templates=cacheGet('tocaqui_activator_templates_v1',[]);state.recent=cacheGet('tocaqui_activator_recent_v2',[])}
+function cachedBoot(){state.cards=cacheGet('tocaqui_activator_cards_v1',[]);state.clients=cacheGet('tocaqui_activator_clients_v1',[]);state.templates=cacheGet('tocaqui_activator_templates_v1',[]);state.recent=cacheGet('tocaqui_activator_recent_v2',[]);if(!state.requestedCardCode){var pending=readPendingHandoff();if(pending)state.requestedCardCode=pending}}
 function notifyCoreChange(card){
  try{localStorage.setItem('tocaqui_core_signal_v1',JSON.stringify({at:Date.now(),cardId:card&&card.id||''}))}catch(e){}
  try{var bc=new BroadcastChannel('tocaqui-sync-v1');bc.postMessage({type:'card',id:card&&card.id||''});bc.close()}catch(e){}
@@ -196,7 +199,7 @@ function applyRequestedCard(){
  var code=String(state.requestedCardCode||'').trim().toUpperCase();if(!code)return false;
  var c=state.cards.find(function(x){return [x.id,x.trackingCode,x.serialNumber].some(function(v){return String(v||'').toUpperCase()===code})});
  if(!c)return false;
- if(c.status==='active'){toast(cardNo(c)+' ya está activa.');state.requestedCardCode='';return true}
+ if(c.status==='active'){toast(cardNo(c)+' ya está activa.');state.requestedCardCode='';clearPendingHandoff();return true}
  state.card=c;state.physicalVerified=true;state.physicalMismatch='';
  if(c.batchId){state.batch=c.batchId;state.batchLocked=true;localStorage.setItem('tocaqui_activator_batch_v2',c.batchId);localStorage.setItem('tocaqui_activator_batch_locked_v2','1')}
  state.requestedCardCode='';
@@ -239,7 +242,7 @@ function renderSetupMode(){
 }
 
 async function loadAnalytics(){try{var a=await api({action:'analytics'});state.analytics={perCard:a.perCard||{},perBusiness:a.perBusiness||{},totalScans:Number(a.totalScans||0)}}catch(e){}}
-async function loadData(){var cachedTemplates=state.templates||[];var data=await Promise.all([api({action:'listCore'}),api({action:'listTemplatesLite'}),api({action:'googlePlacesStatus'})]);state.cards=data[0].cards||[];state.clients=data[0].clients||[];state.templates=(data[1].templates||[]).map(function(t){var old=cachedTemplates.find(function(x){return x.id===t.id});return Object.assign({},t,{frontBg:t.frontBg||(old&&old.frontBg)||''})});cacheSet('tocaqui_activator_cards_v1',state.cards);cacheSet('tocaqui_activator_clients_v1',state.clients);cacheSet('tocaqui_activator_templates_v1',state.templates);validateLockedBatch();var selected=applyRequestedCard();if(!selected)await claimActivationHandoff();loadAnalytics()}
+async function loadData(){var cachedTemplates=state.templates||[];var data=await Promise.all([api({action:'listCore'}),api({action:'listTemplatesLite'}),api({action:'googlePlacesStatus'})]);state.cards=data[0].cards||[];state.clients=data[0].clients||[];state.templates=(data[1].templates||[]).map(function(t){var old=cachedTemplates.find(function(x){return x.id===t.id});return Object.assign({},t,{frontBg:t.frontBg||(old&&old.frontBg)||''})});cacheSet('tocaqui_activator_cards_v1',state.cards);cacheSet('tocaqui_activator_clients_v1',state.clients);cacheSet('tocaqui_activator_templates_v1',state.templates);validateLockedBatch();var selected=applyRequestedCard();if(!selected&&!state.card)await claimActivationHandoff();loadAnalytics()}
 function templateFor(c){return state.templates.find(function(t){return t.id===c.designTemplateId})||null}
 function categoryFor(c){var t=templateFor(c),raw=((t&&t.name)||'')+' '+((t&&t.category)||'')+' '+(c.productType||'');raw=raw.toLowerCase();if(/google|reseñ|review/.test(raw))return 'Google';if(/wifi|wi-fi/.test(raw))return 'WiFi';if(/catalog|men[uú]|carta/.test(raw))return 'Catálogo';if(/instagram|facebook|tiktok|social|redes/.test(raw))return 'Redes';return 'Otros'}
 function availableCards(){return state.cards.filter(function(c){return c.status!=='active'})}
@@ -300,7 +303,7 @@ $('activateBtn').onclick=async function(){
   var original=state.card,now=Date.now(),businessName=state.business.name,destName=destinationLabel();
   var card=Object.assign({},original,{status:'active',clientId:state.clientId||null,businessName:businessName,businessAddress:state.business.address||'',placeId:state.business.placeId||null,functionType:(state.destination==='google_review'||state.destination==='review_gate')?state.destination:'custom_url',destinationType:state.destination,dynamicUrl:url,updatedAt:now});
   var out=await api({action:'activateCard',card:card});
-  state.cards=state.cards.map(function(c){return c.id===out.card.id?out.card:c});state.card=out.card;
+  state.cards=state.cards.map(function(c){return c.id===out.card.id?out.card:c});state.card=out.card;clearPendingHandoff();
   cacheSet('tocaqui_activator_cards_v1',state.cards);notifyCoreChange(out.card);renderAll();
   state.recent.unshift({card:cardNo(out.card),business:businessName,destination:destName,at:Date.now(),batch:out.card.batchId||''});state.recent=state.recent.slice(0,5);cacheSet('tocaqui_activator_recent_v2',state.recent);
   state.lastActivatedUrl=baseTagUrl(out.card,true);
@@ -405,21 +408,28 @@ $('torchBtn').onclick=toggleTorch;
 $('quickScanBtn').onclick=function(){startScanner('select')};$('scanFab').onclick=function(){startScanner('select')};$('verifyPhysicalBtn').onclick=function(){if(!state.card){toast('Selecciona primero una tarjeta.');return}startScanner('verify')};$('scannerClose').onclick=stopScanner;$('scannerOverlay').onclick=function(e){if(e.target===this)stopScanner()};
 $('pairBtn').onclick=async function(){if(state.externalHandoff&&!state.credential){try{window.close()}catch(e){};toast('Abre el icono TOCAQUI Activador instalado.');return}this.disabled=true;try{await pair($('pairCode').value);await launch()}catch(e){toast(e.message);this.disabled=false}};
 async function launch(){
- show('loading',true);show('setup',false);show('main',false);show('bottom',false);show('scanFab',false);
- cachedBoot();var hadCachedSession=restoreSession(),selected=applyRequestedCard(),claimed=false;
- try{
-  if(hadCachedSession&&!selected)claimed=await claimActivationHandoff();
-  if(!hadCachedSession||(!selected&&!claimed&&!state.card)){await resume();if(!state.card&&!selected&&!claimed)claimed=await claimActivationHandoff()}
-  renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();
-  show('loading',false);show('main',true);show('scanFab',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);
-  if(state.card&&!state.business){setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},40)}
-  loadData().then(function(){renderAll()}).catch(function(e){console.warn(e);toast('Sincronización secundaria pendiente; puedes seguir trabajando.')})
- }catch(e){
-  try{await resume();if(!state.card)await claimActivationHandoff();renderOnline();renderAll();show('loading',false);show('main',true);show('scanFab',true);loadData().then(function(){renderAll()}).catch(function(){})}
-  catch(finalError){show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent='Por autorizar'}
- }
+ show('setup',false);
+ cachedBoot();
+ var hadCachedSession=restoreSession(),selected=applyRequestedCard();
+ renderOnline();$('deviceText').textContent=hadCachedSession?(navigator.onLine?'Autorizado · Online':'Autorizado · Offline'):'Conectando…';
+ renderAll();
+ show('loading',false);show('main',true);show('scanFab',true);show('installHint',!window.matchMedia('(display-mode: standalone)').matches&&!window.navigator.standalone);
+ if(state.card&&!state.business){setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},20)}
+ (async function(){
+  try{
+   if(!hadCachedSession)await resume();
+   else if(!state.card&&!selected)await claimActivationHandoff();
+   if(!state.card&&!selected)await claimActivationHandoff();
+   renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();
+   if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},20);
+   loadData().then(function(){renderAll()}).catch(function(e){console.warn(e);toast('Sincronización secundaria pendiente; puedes seguir trabajando.')});
+  }catch(e){
+   try{await resume();if(!state.card)await claimActivationHandoff();renderOnline();renderAll();loadData().then(function(){renderAll()}).catch(function(){})}
+   catch(finalError){show('main',false);show('scanFab',false);show('setup',true);renderSetupMode();$('deviceText').textContent='Por autorizar'}
+  }
+ })();
 }
-async function boot(){cachedBoot();var params=new URLSearchParams(location.search),code=params.get('vincular'),requested=params.get('card'),source=params.get('source'),handoff=params.get('handoff');if(requested&&/^(TAG-[A-Z0-9]{5,32}|TQ-\d+)$/i.test(requested))state.requestedCardCode=requested;state.externalHandoff=source==='tag'&&!!state.requestedCardCode;state.externalHandoffStatus=handoff||'';state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD+(state.requestedCardCode?'&card='+encodeURIComponent(state.requestedCardCode):''))}catch(e){console.warn(e)}}if(state.credential)await launch();else{show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent=state.externalHandoff?'Tarjeta enviada':'Por autorizar'}if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js?v='+BUILD).catch(function(){})}}
+async function boot(){cachedBoot();var params=new URLSearchParams(location.search),code=params.get('vincular'),requested=params.get('card'),source=params.get('source'),handoff=params.get('handoff');if(requested&&/^(TAG-[A-Z0-9]{5,32}|TQ-\d+)$/i.test(requested))state.requestedCardCode=requested;state.externalHandoff=source==='tag'&&!!state.requestedCardCode;state.externalHandoffStatus=handoff||'';if(state.externalHandoff&&state.externalHandoffStatus==='ok')rememberPendingHandoff(state.requestedCardCode);state.credential=localStorage.getItem('tocaqui_activator_credential_v1')||localStorage.getItem('tocaqui_device_credential_v1')||'';if(code&&/^[a-f0-9]{64}$/i.test(code)){try{await pair(code);history.replaceState(null,'',location.pathname+'?v='+BUILD+(state.requestedCardCode?'&card='+encodeURIComponent(state.requestedCardCode):''))}catch(e){console.warn(e)}}if(state.credential)await launch();else{show('loading',false);show('setup',true);renderSetupMode();$('deviceText').textContent=state.externalHandoff?'Tarjeta enviada':'Por autorizar'}if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js?v='+BUILD).catch(function(){})}}
 async function refreshActivator(){
  if(!state.session||document.visibilityState==='hidden')return;
  try{await loadData();renderAll();if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'})},60)}catch(e){}
