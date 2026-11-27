@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.26.1055-iosfix1';
+    const TOCAQUI_BUILD = '2026.11.27.premium-interactive-1';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -29,16 +29,9 @@
     <link rel="preconnect" href="https://nasdgjalsfxnwymqicio.supabase.co" crossorigin>
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- React & ReactDOM (UMD) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<!-- Babel Standalone for JSX -->
+    <script src="./vendor.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- QRCode JS Library -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <!-- Fast QR decoder fallback for browsers without BarcodeDetector -->
     <script id="tocaqui-jsqr" src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     <!-- Google Identity Services: OAuth transient token for Google Cloud administration -->
@@ -505,6 +498,7 @@
         }
     </style>
     <link rel="stylesheet" href="./hallmark-screen.css">
+    <link rel="stylesheet" href="./premium-interactive.css">
 </head>
 <body class="min-h-screen">
     <div id="root"></div>
@@ -987,6 +981,15 @@
             // Navigation
             const [roleMode, setRoleMode] = useState('admin');
             const [adminTab, setAdminTab] = useState('dashboard');
+            const [inventoryRoute, setInventoryRoute] = useState({ status:'all', activity:'all', search:'' });
+            const [templateSearch, setTemplateSearch] = useState('');
+            const [templateCategory, setTemplateCategory] = useState('all');
+            const [clientSaveBusy, setClientSaveBusy] = useState(false);
+            const clientSaveLock = useRef(false);
+            const openInventory = (status='all', activity='all', search='') => {
+                setInventoryRoute({status,activity,search});
+                setAdminTab('qrs');
+            };
             const [selectedClientDetailId, setSelectedClientDetailId] = useState(null);
             const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -1492,29 +1495,32 @@ const resetTestInventory = async () => {
                 });
             };
 
-            const deleteQR = (id) => {
-                setConfirmModal({
-                    open: true,
-                    title: 'Eliminar Tarjeta QR',
-                    message: '¿Deseas eliminar este código de la base de datos?',
-                    onConfirm: () => {
-                        setQrs(prev => prev.filter(item => item.id !== id));
-                        setSelectedQrIdsForSheet(prev => prev.filter(i => i !== id));
-                        showToast('Tarjeta eliminada.', 'warning');
-                        setConfirmModal({ open: false, title: '', message: '', onConfirm: null });
-                    }
-                });
-            };
-
-            const addClient = (clientData) => {
-                const newClient = {
-                    id: 'CLI-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
-                    ...clientData,
-                    createdAt: Date.now()
-                };
-                setClients(prev => [...prev, newClient]);
-                showToast(`Cliente ${newClient.name} registrado.`, 'success');
-                return newClient.id;
+            const addClient = async (clientData) => {
+                if (!cloudReady || !initialized.current || !workshopSession || clientSaveLock.current) return false;
+                clientSaveLock.current = true;
+                setClientSaveBusy(true);
+                try {
+                    const newClient = {
+                        ...clientData,
+                        id:'CLI-' + crypto.randomUUID().toUpperCase(),
+                        createdAt:Date.now()
+                    };
+                    await workshopApi({action:'save',session:workshopSession,kind:'clients',items:[newClient]});
+                    const verified = await workshopApi({action:'listCore',session:workshopSession});
+                    const saved = verified.clients?.find(item=>item.id===newClient.id);
+                    if (!saved) throw new Error('El servidor no devolvió el registro.');
+                    const confirmed = [...last.current.clients.filter(item=>item.id!==saved.id), saved];
+                    last.current = {...last.current,clients:confirmed};
+                    setClients(confirmed);
+                    showToast('Cliente registrado: '+saved.name,'success');
+                    return true;
+                } catch (error) {
+                    showToast('No se confirmó el registro: '+error.message,'error');
+                    return false;
+                } finally {
+                    clientSaveLock.current=false;
+                    setClientSaveBusy(false);
+                }
             };
 
             const exportForNFCTools = () => {
@@ -1703,6 +1709,10 @@ const resetTestInventory = async () => {
                 const totalQRs = qrs.length;
                 const activeQRs = qrs.filter(q => q.status === 'active').length;
                 const totalScans = serverAnalytics.scans;
+                const recentCardActivity = qrs.flatMap(card=>(Array.isArray(card.history)?card.history:[])
+                    .map((event,index)=>({card,event,index})))
+                    .filter(({event})=>event && Number.isFinite(event.timestamp))
+                    .sort((a,b)=>b.event.timestamp-a.event.timestamp).slice(0,6);
 
                 return (
                     <div className="tocaqui-dashboard space-y-4">
@@ -1721,67 +1731,38 @@ const resetTestInventory = async () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
-                            <button type="button" onClick={() => setAdminTab('qrs')} aria-label="Ver todas las tarjetas" className="glass-panel metric-card p-4 sm:p-5 rounded-2xl relative overflow-hidden text-left w-full cursor-pointer hover:border-blue-400/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 transition-colors">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs font-medium text-slate-400 uppercase">Total Tarjetas</p>
-                                        <h3 className="text-3xl font-extrabold text-white mt-1 font-mono">{totalQRs}</h3>
-                                    </div>
-                                    <div className="w-12 h-12 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center text-xl">
-                                        <i className="fa-solid fa-qrcode"></i>
-                                    </div>
-                                </div>
-                                <div className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
-                                    <i className="fa-solid fa-file-invoice text-blue-400"></i> Inventario registrado
-                                </div>
-                            </button>
-
-                            <button type="button" onClick={() => setAdminTab('qrs')} aria-label="Ver tarjetas activas" className="glass-panel metric-card p-4 sm:p-5 rounded-2xl relative overflow-hidden text-left w-full cursor-pointer hover:border-emerald-400/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 transition-colors">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs font-medium text-slate-400 uppercase">Tarjetas Activas</p>
-                                        <h3 className="text-3xl font-extrabold text-emerald-400 mt-1 font-mono">{activeQRs}</h3>
-                                    </div>
-                                    <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center text-xl">
-                                        <i className="fa-solid fa-circle-check"></i>
-                                    </div>
-                                </div>
-                                <div className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
-                                    <i className="fa-solid fa-chart-line text-emerald-400"></i> {totalQRs > 0 ? Math.round((activeQRs / totalQRs) * 100) : 0}% configuradas
-                                </div>
-                            </button>
-
-                            <button type="button" onClick={() => setAdminTab('clients')} aria-label="Abrir directorio de clientes" className="glass-panel metric-card p-4 sm:p-5 rounded-2xl relative overflow-hidden text-left w-full cursor-pointer hover:border-indigo-400/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 transition-colors">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs font-medium text-slate-400 uppercase">Clientes</p>
-                                        <h3 className="text-3xl font-extrabold text-indigo-400 mt-1 font-mono">{clients.length}</h3>
-                                    </div>
-                                    <div className="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl flex items-center justify-center text-xl">
-                                        <i className="fa-solid fa-users"></i>
-                                    </div>
-                                </div>
-                                <div className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
-                                    <i className="fa-solid fa-store text-indigo-400"></i> Negocios registrados
-                                </div>
-                            </button>
-
-                            <button type="button" onClick={() => setAdminTab('settings')} aria-label="Abrir configuración de analítica" className="glass-panel metric-card p-4 sm:p-5 rounded-2xl relative overflow-hidden text-left w-full cursor-pointer hover:border-amber-400/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400 transition-colors">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs font-medium text-slate-400 uppercase">Lecturas registradas</p>
-                                        <h3 className="text-3xl font-extrabold text-amber-400 mt-1 font-mono">{totalScans === null ? '—' : totalScans}</h3>
-                                    </div>
-                                    <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl flex items-center justify-center text-xl">
-                                        <i className="fa-solid fa-bolt"></i>
-                                    </div>
-                                </div>
-                                <div className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
-                                    <i className="fa-solid fa-mobile text-amber-400"></i> {totalScans === null ? 'Conecta Supabase para ver lecturas' : 'Escaneos reales registrados en servidor'}
-                                </div>
-                            </button>
+                        <div className="premium-kpis">
+                            {[
+                                ['Total de tarjetas',totalQRs,'fa-qrcode',()=>openInventory()],
+                                ['Tarjetas activas',activeQRs,'fa-circle-check',()=>openInventory('active')],
+                                ['Por activar',qrs.filter(q=>q.status==='pending').length,'fa-box-open',()=>openInventory('pending')],
+                                ['Lotes',new Set(qrs.map(q=>q.batchId).filter(Boolean)).size,'fa-layer-group',()=>setAdminTab('batch')],
+                                ['Clientes',clients.length,'fa-users',()=>setAdminTab('clients')],
+                                ['Plantillas',templatesReady?templates.length:'—','fa-swatchbook',()=>setAdminTab('templates')],
+                                ['Escaneos',totalScans??'—','fa-chart-line',()=>openInventory('all','scanned')],
+                                ['Activaciones registradas',serverAnalytics.activations??'—','fa-bolt',()=>openInventory('all','activated')],
+                                ['Dispositivos autorizados','Ver equipos','fa-mobile-screen',()=>setAdminTab('settings')]
+                            ].map(([label,value,icon,go])=>
+                                <button key={label} type="button" onClick={go} className="premium-kpi">
+                                    <i className={'fa-solid '+icon} aria-hidden="true"></i>
+                                    <span>{label}</span><strong>{value}</strong>
+                                </button>
+                            )}
                         </div>
+                        <section className="premium-panel">
+                            <h2 className="font-bold text-white">Actividad reciente de tarjetas</h2>
+                            {recentCardActivity.length ? <ul className="mt-2 divide-y divide-slate-800">
+                                {recentCardActivity.map(({card,event,index})=>
+                                    <li key={card.id+':'+index}>
+                                        <button type="button" className="premium-activity" onClick={()=>{openInventory('all','all',card.id);setIndividualQr(card);}}>
+                                            <strong>{cardNumber(card)}</strong>
+                                            <span>{event.description||event.type}</span>
+                                            <time>{new Date(event.timestamp).toLocaleDateString('es-CL')}</time>
+                                        </button>
+                                    </li>
+                                )}
+                            </ul> : <p className="text-sm text-slate-400 mt-2">Todavía no hay actividad en el historial de tarjetas.</p>}
+                        </section>
 
                         <div className="dashboard-actions grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                             <button
@@ -1879,6 +1860,9 @@ const resetTestInventory = async () => {
                 const [batchName, setBatchName] = useState('Lote nuevo');
                 const [productType, setProductType] = useState('pvc-horizontal');
                 const [selectedBatchId, setSelectedBatchId] = useState('');
+                const [batchQuery,setBatchQuery] = useState('');
+                const [batchProgress,setBatchProgress] = useState('all');
+                const [batchLayout,setBatchLayout] = useState('list');
                 const [creatingBatch, setCreatingBatch] = useState(false);
                 const [selectedBatchTab, setSelectedBatchTab] = useState('summary');
                 const [distributionTemplateId, setDistributionTemplateId] = useState('');
@@ -1925,6 +1909,21 @@ const resetTestInventory = async () => {
                     });
                     return [...map.values()].sort((x,y)=>(y.createdAt||0)-(x.createdAt||0));
                 }, [qrs]);
+
+                const visibleBatches = batchGroups.filter(batch=>{
+                    const query=batchQuery.trim().toLowerCase();
+                    const active=batch.cards.filter(card=>card.status==='active').length;
+                    const progress=active===0?'pending':active===batch.cards.length?'active':'partial';
+                    return (batchProgress==='all'||batchProgress===progress)
+                        && (!query||[batch.name,batch.id].some(value=>String(value).toLowerCase().includes(query)));
+                });
+
+                useEffect(()=>{
+                    if(!selectedBatchId)return;
+                    const close=event=>{if(event.key==='Escape')setSelectedBatchId('');};
+                    window.addEventListener('keydown',close);
+                    return ()=>window.removeEventListener('keydown',close);
+                },[selectedBatchId]);
 
                 const selectedBatch = batchGroups.find(batch=>batch.id===selectedBatchId) || null;
                 const selectedBatchTemplates = selectedBatch ? templates.filter(t=>t.category===selectedBatch.productType) : [];
@@ -2213,9 +2212,16 @@ const resetTestInventory = async () => {
                                         </div>
                                     </div>
 
-                                    {batchGroups.length ? (
-                                        <div className="divide-y divide-slate-800">
-                                            {batchGroups.map(batch=>{
+                                    <div className="premium-toolbar">
+                                        <input aria-label="Buscar lotes" placeholder="Buscar por nombre o ID" value={batchQuery} onChange={event=>setBatchQuery(event.target.value)} className="glass-input"/>
+                                        <select aria-label="Estado del lote" value={batchProgress} onChange={event=>setBatchProgress(event.target.value)} className="glass-input">
+                                            <option value="all">Todos los estados</option><option value="pending">Sin activaciones</option><option value="partial">En progreso</option><option value="active">Completos</option>
+                                        </select>
+                                        <button type="button" className="premium-toggle" aria-pressed={batchLayout==='grid'} onClick={()=>setBatchLayout(value=>value==='grid'?'list':'grid')}>Vista de tarjetas</button>
+                                    </div>
+                                    {visibleBatches.length ? (
+                                        <div className={batchLayout==='grid'?'premium-batch-grid':'divide-y divide-slate-800'}>
+                                            {visibleBatches.map(batch=>{
                                                 const meta=formatMeta[batch.productType]||formatMeta['pvc-vertical'];
                                                 const active=batch.cards.filter(card=>card.status==='active').length;
                                                 const pending=batch.cards.length-active;
@@ -2242,7 +2248,7 @@ const resetTestInventory = async () => {
                                             })}
                                         </div>
                                     ) : (
-                                        <div className="p-8 text-center text-sm text-slate-500">Aún no hay lotes creados.</div>
+                                        <div className="p-8 text-center text-sm text-slate-500">{batchGroups.length?"No hay lotes con estos filtros.":"Aún no hay lotes creados."}</div>
                                     )}
                                 </section>
                             </div>
@@ -2252,7 +2258,7 @@ const resetTestInventory = async () => {
 
                         {selectedBatch && (
                             <div className="fixed inset-0 z-[90] bg-black/65 backdrop-blur-sm no-print" onClick={()=>setSelectedBatchId('')}>
-                                <aside className="absolute right-0 top-0 h-full w-full sm:max-w-2xl bg-slate-950 border-l border-slate-800 shadow-2xl overflow-y-auto" onClick={e=>e.stopPropagation()}>
+                                <aside role="dialog" aria-modal="true" aria-label="Detalle del lote" className="absolute right-0 top-0 h-full w-full sm:max-w-2xl bg-slate-950 border-l border-slate-800 shadow-2xl overflow-y-auto" onClick={e=>e.stopPropagation()}>
                                     <div className="sticky top-0 z-20 bg-slate-950/95 backdrop-blur border-b border-slate-800">
                                         <div className="px-4 sm:px-5 py-4 flex items-center justify-between gap-3">
                                             <div className="min-w-0">
@@ -2260,7 +2266,7 @@ const resetTestInventory = async () => {
                                                 <h3 className="text-lg font-bold text-white truncate mt-0.5">{selectedBatch.name}</h3>
                                                 <div className="text-[10px] font-mono text-slate-500 truncate mt-0.5">{selectedBatch.id}</div>
                                             </div>
-                                            <button type="button" onClick={()=>setSelectedBatchId('')} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
+                                            <button type="button" autoFocus aria-label="Cerrar detalle del lote" onClick={()=>setSelectedBatchId('')} className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300"><i className="fa-solid fa-xmark"></i></button>
                                         </div>
                                         <div className="px-3 sm:px-5 overflow-x-auto">
                                             <div className="flex min-w-max gap-1 pb-2">
@@ -2498,8 +2504,9 @@ const resetTestInventory = async () => {
 
             // 3. QR MANAGEMENT VIEW
             const QRManagementView = () => {
-                const [search, setSearch] = useState('');
-                const [statusFilter, setStatusFilter] = useState('all');
+                const [search, setSearch] = useState(inventoryRoute.search);
+                const [statusFilter, setStatusFilter] = useState(inventoryRoute.status);
+                const [activityFilter,setActivityFilter] = useState(inventoryRoute.activity);
                 const [batchFilter, setBatchFilter] = useState('all');
                 const [batchPickerOpen, setBatchPickerOpen] = useState(false);
                 const [batchSearch, setBatchSearch] = useState('');
@@ -2528,16 +2535,18 @@ const resetTestInventory = async () => {
                 const filteredQrs = useMemo(() => {
                     const term=search.trim().toLowerCase();
                     return qrs.filter(q => {
+                        if(activityFilter==='scanned'&&getCardScans(q)===0)return false;
+                        if(activityFilter==='activated'&&!(Array.isArray(q.history)&&q.history.some(event=>event?.type==='activation')))return false;
                         const client=clients.find(c=>c.id===q.clientId);
-                        const matchCode = !term || [q.trackingCode,q.businessName,q.batchName,q.batchId,client?.name]
+                        const matchCode = !term || [q.id,q.serialNumber,q.trackingCode,q.businessName,q.batchName,q.batchId,client?.name]
                             .some(value=>String(value||'').toLowerCase().includes(term));
                         const matchStatus = statusFilter === 'all' || q.status === statusFilter;
                         const matchBatch = batchFilter === 'all' || (q.batchId || 'legacy') === batchFilter;
                         return matchCode && matchStatus && matchBatch;
                     });
-                }, [qrs, clients, search, statusFilter, batchFilter]);
+                }, [qrs, clients, search, statusFilter, batchFilter, activityFilter, serverAnalytics.perCard]);
 
-                useEffect(()=>{setCardPage(1)},[search,statusFilter,batchFilter]);
+                useEffect(()=>{setCardPage(1)},[search,statusFilter,batchFilter,activityFilter]);
                 const pageCount=Math.max(1,Math.ceil(filteredQrs.length/pageSize));
                 const safePage=Math.min(cardPage,pageCount);
                 const pagedQrs=filteredQrs.slice((safePage-1)*pageSize,safePage*pageSize);
@@ -2690,13 +2699,14 @@ const resetTestInventory = async () => {
                                     <button
                                         key={st}
                                         type="button"
-                                        onClick={()=>setStatusFilter(st)}
+                                        aria-pressed={statusFilter===st} onClick={()=>setStatusFilter(st)}
                                         className={'min-h-[36px] px-3 rounded-xl text-xs font-semibold border '+(statusFilter===st?'bg-blue-600/25 text-blue-200 border-blue-500/60':'bg-slate-900/50 text-slate-400 border-slate-700/70')}
                                     >
                                         {st==='all'?'Todos':st==='pending'?'Por activar':'Activos'}
                                     </button>
                                 ))}
-                                {(search||statusFilter!=='all'||batchFilter!=='all') && <button type="button" onClick={()=>{setSearch('');setStatusFilter('all');setBatchFilter('all')}} className="min-h-[36px] px-3 rounded-xl text-[11px] text-slate-400 hover:text-white">Limpiar filtros</button>}
+                                {activityFilter!=='all' && <span className="text-xs text-blue-200">{activityFilter==='scanned'?'Con escaneos':'Con activación en el historial'}</span>}
+                                {(search||statusFilter!=='all'||batchFilter!=='all'||activityFilter!=='all') && <button type="button" onClick={()=>{setSearch('');setStatusFilter('all');setBatchFilter('all');setActivityFilter('all')}} className="min-h-[36px] px-3 rounded-xl text-[11px] text-slate-400 hover:text-white">Limpiar filtros</button>}
                             </div>
                         </section>
 
@@ -2715,7 +2725,7 @@ const resetTestInventory = async () => {
                                         <div className="grid grid-cols-1 xl:grid-cols-[minmax(180px,1fr)_minmax(240px,1.35fr)_minmax(150px,.7fr)_auto] gap-3 xl:items-center">
                                             <div className="min-w-0">
                                                 <div className="text-[9px] uppercase tracking-wider text-slate-500">Código de seguridad</div>
-                                                <div className="font-mono font-bold text-white text-sm sm:text-base break-all mt-1">{cardNumber(qr)}</div>
+                                                <button type="button" onClick={()=>setIndividualQr(qr)} className="premium-record-link font-mono font-bold text-white text-sm sm:text-base break-all mt-1">{cardNumber(qr)}</button>
                                                 <div className="text-[10px] text-blue-300 truncate mt-1">{qr.batchName||'Tarjetas anteriores'} · {qr.batchId||'Sin lote'}</div>
                                             </div>
 
@@ -2750,7 +2760,6 @@ const resetTestInventory = async () => {
                                                 <button onClick={()=>writeWebNFC(qr.trackingCode)} className="min-h-[38px] rounded-xl bg-violet-500/10 border border-violet-500/25 text-violet-200 px-2 text-[10px] font-semibold"><i className="fa-solid fa-nfc-symbol mr-1"></i>NFC</button>
                                                 {qr.status==='active'&&<button type="button" onClick={()=>requestReleaseCard(qr)} className="min-h-[38px] rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 px-2 text-[10px] font-semibold"><i className="fa-solid fa-arrow-rotate-left mr-1"></i>Liberar</button>}
                                                 {getCardScans(qr)>0&&<button type="button" onClick={()=>requestResetCardScans(qr)} className="min-h-[38px] rounded-xl bg-slate-500/10 border border-slate-500/25 text-slate-300 px-2 text-[10px] font-semibold"><i className="fa-solid fa-chart-simple mr-1"></i>Reiniciar scans</button>}
-                                                <button onClick={()=>deleteQR(qr.id)} className="min-h-[38px] rounded-xl bg-rose-500/5 border border-rose-500/20 text-rose-300 px-2 text-[10px] font-semibold"><i className="fa-regular fa-trash-can mr-1"></i>Eliminar</button>
                                             </div>
                                         </div>
                                     </article>
@@ -2975,12 +2984,12 @@ const resetTestInventory = async () => {
                                         <div><h3 className="font-bold text-white">Nuevo Cliente</h3><p className="text-[10px] text-slate-500 mt-0.5">Datos para vincular tarjetas y mantener el expediente.</p></div>
                                         <button onClick={() => setShowAddModal(false)} className="w-9 h-9 rounded-lg bg-slate-800 text-slate-400"><i className="fa-solid fa-xmark"></i></button>
                                     </div>
-                                    <form onSubmit={(e) => { e.preventDefault(); addClient(form); setShowAddModal(false); }} className="space-y-3">
+                                    <form onSubmit={async (e) => { e.preventDefault(); if(await addClient(form))setShowAddModal(false); }} className="space-y-3">
                                         <input type="text" placeholder="Nombre completo" required value={form.name} onChange={e => setForm(prev=>({...prev, name:e.target.value}))} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" />
                                         <input type="text" placeholder="Empresa / Local" required value={form.company} onChange={e => setForm({...form, company: e.target.value})} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" />
                                         <input type="email" placeholder="Correo electrónico" required value={form.email} onChange={e => setForm({...form, email:e.target.value})} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" />
                                         <input type="tel" placeholder="Teléfono" value={form.phone} onChange={e => setForm({...form, phone:e.target.value})} className="w-full glass-input px-3 py-2.5 rounded-xl text-sm" />
-                                        <button type="submit" className="w-full min-h-[44px] bg-blue-600 text-white font-bold rounded-xl">Guardar cliente</button>
+                                        <button type="submit" disabled={clientSaveBusy} className="w-full min-h-[44px] bg-blue-600 text-white font-bold rounded-xl">Guardar cliente</button>
                                     </form>
                                 </div>
                             </div>
@@ -2988,6 +2997,10 @@ const resetTestInventory = async () => {
                     </div>
                 );
             };
+
+            const clientViewLatest = useRef(ClientView);
+            clientViewLatest.current = ClientView;
+            const StableClientView = useMemo(()=>function StableClientView(){return clientViewLatest.current();},[]);
 
             // 5. TEMPLATES LIBRARY VIEW (DUPLEX ANVERSO / REVERSO)
             const TemplatesView = () => {
@@ -3058,31 +3071,18 @@ const resetTestInventory = async () => {
 
                 const deleteTemplate = (tpl) => {
                     const affected=qrs.filter(card=>card.designTemplateId===tpl.id);
+                    if(affected.length){
+                        showToast('La plantilla está asignada a '+affected.length+' tarjeta(s). Retira sus asignaciones antes de eliminarla.','warning');
+                        return;
+                    }
                     setConfirmModal({
                         open:true,
                         title:'Eliminar plantilla',
-                        message:affected.length
-                            ? 'Esta plantilla está asignada a '+affected.length+' tarjeta(s). Se eliminará la plantilla y se quitará solo esa referencia visual. Los TAG, QR, NFC y destinos no cambiarán.'
-                            : '¿Deseas eliminar permanentemente la plantilla “'+tpl.name+'” de la biblioteca?',
+                        message:'¿Deseas eliminar permanentemente la plantilla “'+tpl.name+'” de la biblioteca?',
                         onConfirm:async()=>{
                             try{
                                 if(workshopSession){
                                     await workshopApi({action:'delete',session:workshopSession,kind:'templates',ids:[tpl.id]});
-                                }
-                                let updatedQrs=qrs;
-                                if(affected.length){
-                                    const cleared=affected.map(card=>{
-                                        const next={...card};
-                                        delete next.designTemplateId;
-                                        delete next.designTemplateName;
-                                        delete next.designAssignedAt;
-                                        return next;
-                                    });
-                                    if(workshopSession) await workshopApi({action:'save',session:workshopSession,kind:'cards',items:cleared});
-                                    const clearedMap=new Map(cleared.map(card=>[card.id,card]));
-                                    updatedQrs=qrs.map(card=>clearedMap.get(card.id)||card);
-                                    last.current={...last.current,qrs:updatedQrs};
-                                    setQrs(updatedQrs);
                                 }
                                 if(workshopSession){
                                     const verify=await workshopApi({action:'list',session:workshopSession});
@@ -3118,8 +3118,15 @@ const resetTestInventory = async () => {
                             </button>
                         </div>
 
+                        <div className="premium-toolbar">
+                            <input className="glass-input" aria-label="Buscar plantillas" placeholder="Buscar plantillas" value={templateSearch} onChange={event=>setTemplateSearch(event.target.value)}/>
+                            <select className="glass-input" aria-label="Categoría de plantilla" value={templateCategory} onChange={event=>setTemplateCategory(event.target.value)}>
+                                <option value="all">Todas las categorías</option>
+                                {[...new Set(templates.map(tpl=>tpl.category).filter(Boolean))].sort().map(category=><option key={category} value={category}>{category}</option>)}
+                            </select>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {templates.map(tpl => (
+                            {templates.filter(tpl=>(templateCategory==='all'||tpl.category===templateCategory)&&String(tpl.name||'').toLowerCase().includes(templateSearch.trim().toLowerCase())).map(tpl => (
                                 <div key={tpl.id} className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
                                     <div className="flex justify-between items-start">
                                         <h3 className="font-bold text-white text-base">{tpl.name}</h3>
@@ -5824,8 +5831,7 @@ const resetTestInventory = async () => {
                                         </div>:null}
                                         {templatesReady && adminTab === 'batch' && <StableBatchView />}
                                         {templatesReady && adminTab === 'qrs' && <StableQRManagementView />}
-                                        {templatesReady && adminTab === 'clients' && <ClientView />}
-                                        {templatesReady && adminTab === 'client-detail' && <ClientView />}
+                                        {templatesReady && (adminTab === 'clients' || adminTab === 'client-detail') && <StableClientView />}
                                         {templatesReady && adminTab === 'templates' && TemplatesView()}
                                         {templatesReady && adminTab === 'print' && <StablePrintView />}
                                         {templatesReady && adminTab === 'settings' && <StableSettingsView />}
@@ -5856,6 +5862,23 @@ const resetTestInventory = async () => {
                                     <span className={individualQr.status === 'active' ? 'text-emerald-400' : 'text-amber-400'}>{individualQr.status === 'active' ? 'Tarjeta activa' : 'Pendiente de activación'}</span>
                                     <span className="font-mono text-slate-400">{individualQr.trackingCode}</span>
                                 </div>
+                                <dl className="grid grid-cols-2 gap-2 premium-panel text-xs break-words">
+                                    {[
+                                        ['Número de serie',cardNumber(individualQr)],
+                                        ['Lote',individualQr.batchName||individualQr.batchId||'Sin lote'],
+                                        ['Cliente',clients.find(client=>client.id===individualQr.clientId)?.name||'Sin asignar'],
+                                        ['Plantilla',templates.find(tpl=>tpl.id===individualQr.designTemplateId)?.name||individualQr.designTemplateName||'Sin asignar'],
+                                        ['Escaneos',serverAnalytics.scans===null?'—':getCardScans(individualQr)],
+                                        ['Destino',individualQr.dynamicUrl||'Sin configurar']
+                                    ].map(([label,value])=><div key={label} className="min-w-0"><dt className="text-slate-400">{label}</dt><dd>{value}</dd></div>)}
+                                </dl>
+                                <details className="premium-panel text-xs">
+                                    <summary className="cursor-pointer font-semibold">Historial de la tarjeta</summary>
+                                    {Array.isArray(individualQr.history)&&individualQr.history.length ?
+                                        <ul className="mt-2 space-y-1 text-slate-300">
+                                            {individualQr.history.slice(-10).reverse().map((event,index)=><li key={index}>{event?.description||event?.type||'Evento'}</li>)}
+                                        </ul> : <p className="mt-2 text-slate-400">Sin eventos en el historial.</p>}
+                                </details>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button type="button" onClick={downloadIndividualQr} disabled={!individualQrImage} className="rounded-xl bg-blue-600 text-white font-semibold text-sm py-3 disabled:opacity-50"><i className="fa-solid fa-download mr-2"></i>Descargar PNG</button>
                                     <button type="button" onClick={shareIndividualQr} disabled={!individualQrImage} className="rounded-xl bg-slate-700 text-white font-semibold text-sm py-3 disabled:opacity-50"><i className="fa-solid fa-share-nodes mr-2"></i>Compartir</button>

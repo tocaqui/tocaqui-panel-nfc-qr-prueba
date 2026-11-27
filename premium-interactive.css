@@ -1,0 +1,73 @@
+@media screen {
+    :root {
+        --tq-premium-bg: #080e1b;
+        --tq-premium-surface: #111c30;
+        --tq-premium-secondary: #142238;
+        --tq-premium-border: #243248;
+        --tq-premium-blue: #60a5fa;
+        --tq-premium-text: #f8fafc;
+        --tq-premium-muted: #94a3b8;
+    }
+
+    .premium-kpis,
+    .premium-batch-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+        gap: .65rem;
+    }
+
+    .premium-panel,
+    .premium-kpi {
+        padding: .9rem;
+        border: 1px solid var(--tq-premium-border);
+        border-radius: .9rem;
+        background: var(--tq-premium-surface);
+    }
+
+    .premium-kpi {
+        min-width: 0;
+        display: grid;
+        gap: .35rem;
+        text-align: start;
+        color: var(--tq-premium-muted);
+        font-size: .78rem;
+        transition: background-color 150ms, border-color 150ms;
+    }
+
+    .premium-kpi i { color: var(--tq-premium-blue); }
+    .premium-kpi strong { color: var(--tq-premium-text); font-size: 1.12rem; overflow-wrap: anywhere; }
+
+    .premium-kpi:hover, .premium-toggle:hover, .premium-activity:hover {
+        background: var(--tq-premium-secondary);
+        border-color: var(--tq-premium-blue);
+    }
+
+    :is(.premium-kpi, .premium-record-link, .premium-toggle, .premium-activity):focus-visible {
+        outline: 2px solid var(--tq-premium-blue);
+        outline-offset: 3px;
+    }
+
+    .premium-activity {
+        display: flex;
+        width: 100%;
+        flex-wrap: wrap;
+        gap: .35rem .65rem;
+        padding: .55rem;
+        border-radius: .4rem;
+        text-align: start;
+        color: var(--tq-premium-muted);
+        font-size: .75rem;
+        overflow-wrap: anywhere;
+    }
+
+    .premium-activity strong { color: var(--tq-premium-blue); }
+    .premium-activity time { margin-inline-start: auto; }
+    .premium-toolbar { display: flex; flex-wrap: wrap; gap: .45rem; padding: .75rem; }
+    .premium-toolbar > * { min-width: 0; max-width: 100%; border-radius: .5rem; padding: .45rem .6rem; font-size: .78rem; }
+    .premium-toolbar input { flex: 1 1 9rem; }
+    .premium-toggle { border: 1px solid var(--tq-premium-border); color: var(--tq-premium-text); }
+    .premium-toggle[aria-pressed="true"] { border-color: var(--tq-premium-blue); }
+    .premium-batch-grid { padding: .75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); }
+    .premium-batch-grid button { border: 1px solid var(--tq-premium-border); border-radius: .65rem; }
+    .premium-record-link:hover { color: var(--tq-premium-blue); text-decoration: underline; }
+}
