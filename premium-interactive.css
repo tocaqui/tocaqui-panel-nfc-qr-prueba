@@ -71,3 +71,18 @@
     .premium-batch-grid button { border: 1px solid var(--tq-premium-border); border-radius: .65rem; }
     .premium-record-link:hover { color: var(--tq-premium-blue); text-decoration: underline; }
 }
+
+@media screen {
+    .premium-preview {
+        width: min(42rem, calc(100% - 1.5rem));
+        max-height: calc(100dvh - 1.5rem);
+        padding: 1rem;
+        border: 1px solid var(--tq-premium-border);
+        border-radius: .9rem;
+        background: var(--tq-premium-surface);
+        color: var(--tq-premium-text);
+        overflow: auto;
+    }
+    .premium-preview::backdrop { background: rgb(0 0 0 / .7); }
+    .premium-preview img { width: 100%; max-height: 65dvh; object-fit: contain; }
+}
