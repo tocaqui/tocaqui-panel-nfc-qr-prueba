@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.28.industrial-premium-1';
+    const TOCAQUI_BUILD = '2026.11.28.dynamic-premium-1';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -537,6 +537,19 @@ body,.tocaqui-app-main{background:#080e19!important}
 [aria-label="Detalle del lote"]>div:first-child{background:#0c1422!important}
 button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
 @media(max-width:639px){.premium-kpi{padding:9px}.premium-kpi strong{font-size:1.2rem}.tocaqui-operation-page .glass-panel{border-radius:10px!important}.tq-library-row>div:nth-child(3) button{min-height:36px;font-size:10px}}
+}
+</style><style id="tq-dynamic">
+@media screen{
+.tocaqui-dashboard .tq-dynamic-hero{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px!important;min-height:172px;background:linear-gradient(115deg,#142b65,#351a65)!important;border:1px solid #5363a5!important;border-radius:16px!important}
+.tq-hero-copy{position:relative;z-index:1;max-width:70%}.tq-hero-copy h1{font-size:clamp(23px,3vw,36px);font-weight:800;line-height:1.15;margin:8px 0}.tq-hero-copy p{font-size:13px;color:#dbeafe;max-width:420px}.tq-hero-action{margin-top:14px;background:#2563eb;color:white;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700}
+.tq-hero-art{position:relative;flex:0 0 120px;height:120px;display:grid;place-items:center;color:#a5b4fc;font-size:64px;transform:rotate(-12deg)}.tq-hero-art:before{content:'';position:absolute;inset:-24px;border-radius:50%;border:1px solid #a5b4fc40;box-shadow:0 0 0 18px #a5b4fc12,0 0 0 36px #a5b4fc0b}.tq-hero-art i:last-child{position:absolute;font-size:25px;right:4px;top:5px}
+.tocaqui-dashboard .premium-kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.tocaqui-dashboard .premium-kpi{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:#111a2e!important;border-color:#25334c!important;padding:13px!important}.tq-kpi-icon{display:grid;place-items:center;width:34px;height:34px;background:#2563eb22;border-radius:9px;color:#60a5fa}.premium-kpi:nth-child(2) .tq-kpi-icon,.premium-kpi:nth-child(2) i{color:#34d399;background:#10b98112}.premium-kpi:nth-child(3n) .tq-kpi-icon,.premium-kpi:nth-child(3n) i{color:#a78bfa;background:#7c3aed12}.premium-kpi:nth-child(7) i{color:#22d3ee}.tocaqui-dashboard .premium-kpi strong{font-size:clamp(18px,2.5vw,27px);line-height:1.1}.tocaqui-dashboard .premium-kpi:hover{border-color:#60a5fa!important;transform:translateY(-1px)}
+.tq-progress-value{font-size:28px;font-weight:800;margin:10px 0;color:#a5b4fc}.tq-progress-value span{font-size:12px;color:#94a3b8;font-weight:500}.tq-progress-track{height:9px;border-radius:99px;background:#26334a;overflow:hidden}.tq-progress-track>div{height:100%;background:linear-gradient(90deg,#2563eb,#10b981);border-radius:99px}
+.tocaqui-dashboard .dashboard-actions>button{position:relative;background:#111a2e!important;border-color:#25334c!important;padding:15px!important}.dashboard-actions>button:after{content:'↗';position:absolute;right:12px;top:12px;color:#94a3b8}.dashboard-actions>button:hover{border-color:#818cf8!important}
+.tocaqui-app-main{min-width:0}.tocaqui-dashboard>*{min-width:0}
+@media(min-width:1200px){.tocaqui-dashboard .premium-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(max-width:639px){.tocaqui-dashboard .premium-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tocaqui-dashboard .tq-dynamic-hero{padding:16px!important;min-height:155px}.tq-hero-copy{max-width:76%}.tq-hero-art{flex-basis:52px;font-size:38px;height:75px}.tq-hero-art i:last-child{font-size:17px}.tq-hero-copy p{font-size:11px}.tocaqui-dashboard .dashboard-actions>button{padding:11px!important}.tocaqui-dashboard .dashboard-actions h3{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.tocaqui-dashboard *{transition:none!important;animation:none!important}}
 }
 </style></head>
 <body class="min-h-screen">
@@ -1774,16 +1787,11 @@ const resetTestInventory = async () => {
 
                 return (
                     <div className="tocaqui-dashboard space-y-4">
-                        <div className="dashboard-hero">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div><div className="text-[10px] tracking-[.18em] font-bold uppercase text-blue-300 mb-1">TOCAQUI · Centro operativo</div>
-                                <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-tight">Resumen general</h1>
-                                <p className="text-slate-400 text-xs mt-1.5">Fabricación, activación y gestión de tarjetas NFC / QR</p></div>
-                                <span className="rounded-full border border-blue-400/25 bg-blue-500/10 text-blue-200 text-[10px] font-semibold px-3 py-1.5"><i className="fa-solid fa-layer-group mr-1"></i> Panel de administración</span>
-                            </div>
-                        </div>
-
-                        <div className="premium-kpis">
+                        <div className="dashboard-hero tq-dynamic-hero">
+<div className="tq-hero-copy"><div className="text-[10px] tracking-[.18em] font-bold uppercase text-blue-200">TOCAQUI · Centro operativo</div><h1>Tu taller digital</h1><p>Diseña, fabrica y conecta. Gestiona tus tarjetas NFC y QR desde un solo lugar.</p><button type="button" onClick={()=>setAdminTab('batch')} className="tq-hero-action"><i className="fa-solid fa-plus" aria-hidden="true"></i> Crear lote</button></div>
+<div className="tq-hero-art" aria-hidden="true"><i className="fa-solid fa-credit-card"></i><i className="fa-solid fa-wifi"></i></div>
+</div>
+<div className="premium-kpis">
                             {[
                                 ['Total de tarjetas',totalQRs,'fa-qrcode',()=>openInventory()],
                                 ['Tarjetas activas',activeQRs,'fa-circle-check',()=>openInventory('active')],
@@ -1796,12 +1804,12 @@ const resetTestInventory = async () => {
                                 ['Dispositivos autorizados','Ver equipos','fa-mobile-screen',()=>setAdminTab('settings')]
                             ].map(([label,value,icon,go])=>
                                 <button key={label} type="button" onClick={go} className="premium-kpi">
-                                    <i className={'fa-solid '+icon} aria-hidden="true"></i>
-                                    <span>{label}</span><strong>{value}</strong>
+                                    <span className="tq-kpi-icon"><i className={'fa-solid '+icon} aria-hidden="true"></i></span><strong>{value}</strong><span>{label}</span>
                                 </button>
                             )}
                         </div>
-                        <section className="premium-panel">
+                        <section className="premium-panel tq-production-summary"><div className="flex items-center justify-between gap-2"><h2 className="font-bold text-white">Estado de producción</h2><span className="text-xs text-slate-400">Inventario actual</span></div><div className="tq-progress-value">{totalQRs?Math.round(activeQRs/totalQRs*100):0}% <span>activado</span></div><div className="tq-progress-track" role="progressbar" aria-label="Tarjetas activadas" aria-valuemin={0} aria-valuemax={100} aria-valuenow={totalQRs?Math.round(activeQRs/totalQRs*100):0}><div style={{width:(totalQRs?activeQRs/totalQRs*100:0)+'%'}} /></div><div className="flex justify-between text-xs text-slate-400 mt-2"><span>{activeQRs} activas</span><span>{totalQRs} fabricadas</span></div></section>
+<section className="premium-panel">
                             <h2 className="font-bold text-white">Actividad reciente de tarjetas</h2>
                             {recentCardActivity.length ? <ul className="mt-2 divide-y divide-slate-800">
                                 {recentCardActivity.map(({card,event,index})=>
@@ -1816,7 +1824,7 @@ const resetTestInventory = async () => {
                             </ul> : <p className="text-sm text-slate-400 mt-2">Todavía no hay actividad en el historial de tarjetas.</p>}
                         </section>
 
-                        <div className="dashboard-actions grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                        <h2 className="font-bold text-white">Estaciones de trabajo</h2><div className="dashboard-actions grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                             <button
                                 onClick={() => setAdminTab('batch')}
                                 className="glass-panel p-5 rounded-2xl text-left border border-blue-500/20 hover:border-blue-500/50 transition-all group"
@@ -1851,14 +1859,14 @@ const resetTestInventory = async () => {
                             </button>
 
                             <button
-                                onClick={() => setAdminTab('clients')}
+                                onClick={openActivatorApp}
                                 className="glass-panel p-5 rounded-2xl text-left border border-emerald-500/20 hover:border-emerald-500/50 transition-all group"
                             >
                                 <div className="w-10 h-10 bg-emerald-600/20 text-emerald-400 rounded-xl flex items-center justify-center mb-3 text-lg group-hover:scale-110 transition-transform">
-                                    <i className="fa-solid fa-users"></i>
+                                    <i className="fa-solid fa-bolt"></i>
                                 </div>
-                                <h3 className="font-bold text-white text-base">Expediente Clientes</h3>
-                                <p className="text-xs text-slate-400 mt-1">Audita inventario por cliente, bitácora y Ficha de Entrega.</p>
+                                <h3 className="font-bold text-white text-base">Activador</h3>
+                                <p className="text-xs text-slate-400 mt-1">Asigna y activa tarjetas NFC / QR.</p>
                             </button>
                         </div>
 
@@ -6046,7 +6054,7 @@ const resetTestInventory = async () => {
                         {roleMode === 'admin' ? (
                             <>
                                 <AdminSidebar />
-                                <main className="tocaqui-app-main flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 no-print">
+                                <main className="tocaqui-app-main flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8 no-print">
                                     <div className="max-w-7xl mx-auto">
                                         {adminTab === 'dashboard' && <StableDashboardView />}
                                         {templatesRefreshing&&templatesReady&&adminTab!=='dashboard'&&<div role="status" className="mb-3 rounded-xl border border-cyan-500/15 bg-cyan-500/[0.05] px-3 py-2 text-[10px] text-cyan-200 flex items-center gap-2"><i className="fa-solid fa-arrows-rotate fa-spin"></i>Sincronizando plantillas en segundo plano…</div>}
