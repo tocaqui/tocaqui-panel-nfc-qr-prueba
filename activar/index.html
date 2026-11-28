@@ -110,7 +110,21 @@ html[data-tq-theme=light] :is(.quick,.tq-table-head){background:#e8eef7!importan
 html[data-tq-theme=light] :is(.brand-copy small,.panel-head p,.quick small,.card small,.eyebrow){color:#475569!important}
 html[data-tq-theme=light] :is(.tq-dynamic-hero,.tq-dynamic-activator){background:linear-gradient(115deg,#142b65,#351a65)!important;color:white!important}
 html[data-tq-theme=light] :is(.tq-dynamic-hero,.tq-dynamic-activator) :is(h1,p,.eyebrow){color:#fff!important}
-html[data-tq-theme=light]{--bg:#f1f5f9;--surface:#fff;--surface2:#e8eef7;--line:#cbd5e1;--line2:#b6c4d5;--muted:#475569;--text:#172033;--cyan:#0e7490;--green:#047857;--amber:#92400e;--red:#b91c1c;--violet:#6d28d9}html[data-tq-theme=light] #cards button.card{background:#fff!important}html[data-tq-theme=light] #cards button.card.selected{background:#dbeafe!important}html[data-tq-theme=light] .quick .ico{color:#1d4ed8!important}}</style></head>
+html[data-tq-theme=light]{--bg:#f1f5f9;--surface:#fff;--surface2:#e8eef7;--line:#cbd5e1;--line2:#b6c4d5;--muted:#475569;--text:#172033;--cyan:#0e7490;--green:#047857;--amber:#92400e;--red:#b91c1c;--violet:#6d28d9}html[data-tq-theme=light] #cards button.card{background:#fff!important}html[data-tq-theme=light] #cards button.card.selected{background:#dbeafe!important}html[data-tq-theme=light] .quick .ico{color:#1d4ed8!important}}</style><style>@media screen{
+:root[data-tq-theme=light]{--tq-bg:#e8edf4;--tq-surface:#f7f9fc;--tq-raised:#e1e8f1;--tq-line:#bdcadb;--tq-text:#18263a;--tq-muted:#52647b}
+html[data-tq-theme=light] :is(.app-shell-header,.topbar){background:#18263a!important;color:#f8fafc!important;border-color:#34465e!important}
+html[data-tq-theme=light] :is(.app-shell-header,.topbar) :is(.brand-copy strong,.brand-copy small){color:#e2e8f0!important}
+html[data-tq-theme=light] .app-shell-header img{object-fit:contain;max-width:100%;flex-shrink:0}
+html[data-tq-theme=light] :is(.glass-input,.input){background:#f7f9fc!important}
+html[data-tq-theme=light] :is(.tq-mobile-nav,.tocaqui-sidebar){background:#dce5ef!important}
+html[data-tq-theme=light] :is(.tq-progress-track,.progress-track){background:#cbd5e1!important}
+html[data-tq-theme=light] :is(.tq-select-dialog,.tq-appearance-dialog){box-shadow:0 16px 48px #33415530!important}
+html[data-tq-theme=light] .tq-appearance-trigger{background:#26384e!important;color:#bfdbfe!important;border-color:#52647b!important}
+html[data-tq-theme=light] :is(.tq-action-danger,[data-tq-action=danger]){color:#b91c1c!important;background:#fee2e2!important;border-color:#fca5a5!important}
+html[data-tq-theme=light] :is(.tq-action-positive,[data-tq-action=positive]){color:#047857!important;background:#d1fae5!important;border-color:#6ee7b7!important}
+html[data-tq-theme=light] :is(.tq-action-edit,[data-tq-action=edit]){color:#92400e!important;background:#fef3c7!important;border-color:#fcd34d!important}
+[data-tq-action=danger]{color:var(--tq-danger)!important;border-color:#dc2626!important}[data-tq-action=positive]{color:var(--tq-positive)!important;border-color:#059669!important}[data-tq-action=edit]{color:var(--tq-edit)!important;border-color:#d97706!important}
+}</style><script>(function(){function paint(){document.querySelectorAll('button').forEach(function(b){var s=(b.getAttribute('aria-label')||b.textContent||'').trim();var v=/^(eliminar|borrar|liberar|reiniciar)\b/i.test(s)?'danger':/^(guardar|verificar|confirmar|activar|marcar grabada)\b/i.test(s)?'positive':/^editar\b/i.test(s)?'edit':'';if(v)b.dataset.tqAction=v;else if(b.dataset.tqAction)delete b.dataset.tqAction})}document.addEventListener('DOMContentLoaded',function(){paint();var queued=false;new MutationObserver(function(){if(!queued){queued=true;requestAnimationFrame(function(){queued=false;paint()})}}).observe(document.body,{childList:true,subtree:true,characterData:true})})})();</script></head>
 <body>
 <div class="app">
 <header class="topbar">
@@ -221,7 +235,7 @@ html[data-tq-theme=light]{--bg:#f1f5f9;--surface:#fff;--surface2:#e8eef7;--line:
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.28.appearance-activator-1';
+var BUILD='2026.11.28.soft-light-fast-1';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
@@ -335,7 +349,9 @@ function renderSetupMode(){
 }
 
 async function loadAnalytics(){try{var a=await api({action:'analytics'});state.analytics={perCard:a.perCard||{},perBusiness:a.perBusiness||{},totalScans:Number(a.totalScans||0)}}catch(e){}}
-async function loadData(){var cachedTemplates=state.templates||[];await ensureSession(false);var data=await Promise.all([api({action:'listCore'}),api({action:'listTemplatesLite'})]);state.cards=data[0].cards||[];state.clients=data[0].clients||[];state.templates=(data[1].templates||[]).map(function(t){var old=cachedTemplates.find(function(x){return x.id===t.id});return Object.assign({},t,{frontBg:t.frontBg||(old&&old.frontBg)||''})});cacheSet('tocaqui_activator_cards_v1',state.cards);cacheSet('tocaqui_activator_clients_v1',state.clients);cacheSet('tocaqui_activator_templates_v1',state.templates);validateLockedBatch();var selected=applyRequestedCard();if(!selected&&!state.card)await claimActivationHandoff();loadAnalytics()}
+var dataInFlight=null,templatesInFlight=null,templatesLoadedAt=0;
+function refreshTemplates(){if(templatesInFlight)return templatesInFlight;if(templatesLoadedAt&&Date.now()-templatesLoadedAt<60000)return Promise.resolve();templatesInFlight=api({action:'listTemplatesLite'}).then(function(data){var old=new Map(state.templates.map(function(t){return [t.id,t]}));state.templates=(data.templates||[]).map(function(t){return Object.assign({},t,{frontBg:t.frontBg||(old.get(t.id)||{}).frontBg||''})});templatesLoadedAt=Date.now();cacheSet('tocaqui_activator_templates_v1',state.templates);renderAll()}).finally(function(){templatesInFlight=null});return templatesInFlight}
+function loadData(){if(dataInFlight)return dataInFlight;dataInFlight=(async function(){await ensureSession(false);refreshTemplates().catch(function(e){console.warn('Plantillas pendientes',e)});var data=await api({action:'listCore'});state.cards=data.cards||[];state.clients=data.clients||[];cacheSet('tocaqui_activator_cards_v1',state.cards);cacheSet('tocaqui_activator_clients_v1',state.clients);validateLockedBatch();applyRequestedCard();renderAll();loadAnalytics()})().finally(function(){dataInFlight=null});return dataInFlight}
 function templateFor(c){return state.templates.find(function(t){return t.id===c.designTemplateId})||null}
 function categoryFor(c){var t=templateFor(c),raw=((t&&t.name)||'')+' '+((t&&t.category)||'')+' '+(c.productType||'');raw=raw.toLowerCase();if(/google|reseñ|review/.test(raw))return 'Google';if(/wifi|wi-fi/.test(raw))return 'WiFi';if(/catalog|men[uú]|carta/.test(raw))return 'Catálogo';if(/instagram|facebook|tiktok|social|redes/.test(raw))return 'Redes';return 'Otros'}
 function availableCards(){return state.cards.filter(function(c){return c.status!=='active'})}
@@ -550,11 +566,11 @@ async function launch(){
  (async function(){
   try{
    await ensureSession(false);
-   if(hadCachedSession&&!state.card&&!selected)await claimActivationHandoff();
-   if(!state.card&&!selected)await claimActivationHandoff();
+   var sync=loadData();
+   if(!state.card&&!selected)claimActivationHandoff().then(function(){renderAll()}).catch(function(){});
    renderOnline();$('deviceText').textContent=navigator.onLine?'Autorizado · Online':'Autorizado · Offline';renderAll();
    if(state.card&&!state.business)setTimeout(function(){$('businessPanel').scrollIntoView({behavior:'smooth',block:'start'});toast(cardNo(state.card)+' detectada · selecciona el negocio.','ok')},20);
-   loadData().then(function(){renderAll()}).catch(function(e){console.warn(e);toast('Sincronización secundaria pendiente; puedes seguir trabajando.')});
+   sync.catch(function(e){console.warn(e);toast('Sincronización secundaria pendiente; puedes seguir trabajando.')});
   }catch(e){
    try{await ensureSession(true);if(!state.card)await claimActivationHandoff();renderOnline();renderAll();loadData().then(function(){renderAll()}).catch(function(){})}
    catch(finalError){show('main',false);show('setup',true);renderSetupMode();$('deviceText').textContent='Por autorizar'}
