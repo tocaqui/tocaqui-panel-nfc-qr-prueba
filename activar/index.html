@@ -93,13 +93,30 @@ button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
 .quick.primary{background:#193c6d!important}.quick.scan{background:#202448!important}.quick.scan .ico{color:#a78bfa!important}.panel{background:#111a2e!important}.progress-fill{background:linear-gradient(90deg,#6366f1,#10b981)!important}
 @media(max-width:360px){.tq-activator-art{font-size:32px;right:9px}.quick{padding:7px!important}.quick .ico{width:24px!important}.tq-table-head{grid-template-columns:40px minmax(0,1fr) 70px}}
 @media(prefers-reduced-motion:reduce){.quick,.card,.dest{transition:none!important}}
-</style></head>
+</style><script id="tq-theme-controller">
+(function(){var key='tocaqui.appearance',media=matchMedia('(prefers-color-scheme: dark)'),mode='dark';try{mode=localStorage.getItem(key)||'dark'}catch(e){}function apply(){var dark=mode==='dark'||(mode==='auto'&&media.matches);document.documentElement.dataset.tqTheme=dark?'dark':'light';document.documentElement.dataset.tqMode=mode;var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=dark?'#080e19':'#f1f5f9';document.querySelectorAll('[data-tq-mode-choice]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.tqModeChoice===mode))})}window.tqSetAppearance=function(v){if(!['light','dark','auto'].includes(v))return;mode=v;try{localStorage.setItem(key,v)}catch(e){}apply()};window.tqOpenAppearance=function(){var d=document.getElementById('tq-appearance-dialog');if(!d){d=document.createElement('dialog');d.id='tq-appearance-dialog';d.className='tq-appearance-dialog';d.innerHTML='<header><strong>Apariencia</strong><button type="button" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></header><div class="tq-appearance-options"><button type="button" data-tq-mode-choice="light"><i class="fa-solid fa-sun"></i> Claro</button><button type="button" data-tq-mode-choice="dark"><i class="fa-solid fa-moon"></i> Oscuro</button><button type="button" data-tq-mode-choice="auto"><i class="fa-solid fa-desktop"></i> Automático</button></div>';document.body.appendChild(d);d.querySelector('header button').onclick=function(){d.close()};d.querySelectorAll('[data-tq-mode-choice]').forEach(function(b){b.onclick=function(){window.tqSetAppearance(b.dataset.tqModeChoice);d.close()}})}apply();if(!d.open)d.showModal()};if(media.addEventListener)media.addEventListener('change',apply);else media.addListener(apply);window.addEventListener('storage',function(e){if(e.key===key){mode=e.newValue||'dark';apply()}});apply();document.addEventListener('DOMContentLoaded',apply)})();
+</script><style id="tq-theme-system">@media screen{
+:root{--tq-bg:#080e19;--tq-surface:#111a2e;--tq-raised:#172235;--tq-line:#334155;--tq-text:#f8fafc;--tq-muted:#94a3b8;--tq-edit:#fbbf24;--tq-danger:#fb7185;--tq-positive:#34d399;--tq-primary:#60a5fa}
+:root[data-tq-theme=light]{color-scheme:light;--tq-bg:#f1f5f9;--tq-surface:#fff;--tq-raised:#e8eef7;--tq-line:#cbd5e1;--tq-text:#172033;--tq-muted:#475569;--tq-edit:#92400e;--tq-danger:#b91c1c;--tq-positive:#047857;--tq-primary:#1d4ed8}
+.tq-appearance-trigger{flex-shrink:0;width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--tq-line);border-radius:9px;color:var(--tq-primary);background:var(--tq-surface)}
+.tq-appearance-dialog{position:fixed;inset:0;margin:auto;width:min(360px,calc(100% - 32px));padding:0;border:1px solid var(--tq-line);border-radius:14px;background:var(--tq-surface);color:var(--tq-text)}.tq-appearance-dialog::backdrop{background:#02061799}.tq-appearance-dialog header{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--tq-line)}.tq-appearance-dialog header button{padding:8px}.tq-appearance-options{padding:8px;display:grid;gap:4px}.tq-appearance-options button{display:flex;align-items:center;gap:12px;padding:13px;border-radius:8px;text-align:left;color:var(--tq-text);background:var(--tq-raised)}.tq-appearance-options button[aria-pressed=true]{outline:2px solid var(--tq-primary);color:var(--tq-primary)}
+.tq-action-edit{color:var(--tq-edit)!important;border-color:#d97706!important;background:#d9770615!important}.tq-action-danger{color:var(--tq-danger)!important;border-color:#dc2626!important;background:#dc262615!important}.tq-action-positive{color:var(--tq-positive)!important;border-color:#059669!important;background:#05966915!important}
+html[data-tq-theme=light],html[data-tq-theme=light] body,html[data-tq-theme=light] .tocaqui-app-main{background:var(--tq-bg)!important;color:var(--tq-text)!important}
+html[data-tq-theme=light] :is(.app-shell-header,.tocaqui-sidebar,.tq-mobile-nav,.glass-panel,.premium-panel,.premium-kpi,.tq-library-row,.tq-choice-table,.tq-select-dialog,.tq-nfc-workspace,.panel,.topbar,.bottom,.sheet,.progress-card,.step,.card,.dest,.choice,.notice,.restricted-note,.suggestions,.device-pill){background:var(--tq-surface)!important;border-color:var(--tq-line)!important;color:var(--tq-text)!important;box-shadow:none!important}
+html[data-tq-theme=light] :is(.glass-input,.input,input:not([type=checkbox]):not([type=radio]):not([type=range]),textarea){background:#fff!important;color:#172033!important;border-color:var(--tq-line)!important}
+html[data-tq-theme=light] :is(.tq-choice-table>button,.tq-select-options button,.tq-library-row,.tq-recent-lot){border-color:var(--tq-line)!important;color:var(--tq-text)!important}
+html[data-tq-theme=light] :is(.tq-choice-table>button[aria-pressed=true],.tq-select-options button[aria-pressed=true],.tq-mobile-nav button[aria-current=page],#cards button.card.selected,.dest.active,.choice.active){background:#dbeafe!important;color:#1e40af!important}
+html[data-tq-theme=light] :is(.quick,.tq-table-head){background:#e8eef7!important;color:#172033!important}
+html[data-tq-theme=light] :is(.brand-copy small,.panel-head p,.quick small,.card small,.eyebrow){color:#475569!important}
+html[data-tq-theme=light] :is(.tq-dynamic-hero,.tq-dynamic-activator){background:linear-gradient(115deg,#142b65,#351a65)!important;color:white!important}
+html[data-tq-theme=light] :is(.tq-dynamic-hero,.tq-dynamic-activator) :is(h1,p,.eyebrow){color:#fff!important}
+html[data-tq-theme=light]{--bg:#f1f5f9;--surface:#fff;--surface2:#e8eef7;--line:#cbd5e1;--line2:#b6c4d5;--muted:#475569;--text:#172033;--cyan:#0e7490;--green:#047857;--amber:#92400e;--red:#b91c1c;--violet:#6d28d9}html[data-tq-theme=light] #cards button.card{background:#fff!important}html[data-tq-theme=light] #cards button.card.selected{background:#dbeafe!important}html[data-tq-theme=light] .quick .ico{color:#1d4ed8!important}}</style></head>
 <body>
 <div class="app">
 <header class="topbar">
   <button id="backBtn" class="back-btn" aria-label="Volver"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
   <div class="brand"><img src="../icon-180.png" alt="TOCAQUI"><div class="brand-copy"><strong>TOCAQUI Activador</strong><small>Trabajo rápido en terreno</small></div></div>
-  <div id="devicePill" class="device-pill"><span class="dot"></span><span id="deviceText">Conectando…</span></div>
+  <button type="button" class="tq-appearance-trigger" aria-label="Apariencia" onclick="window.tqOpenAppearance()"><i class="fa-solid fa-circle-half-stroke"></i></button><div id="devicePill" class="device-pill"><span class="dot"></span><span id="deviceText">Conectando…</span></div>
 </header>
 
 <div id="loading" class="loading"><div class="spinner"></div><div>Abriendo Activador…</div></div>
@@ -204,7 +221,7 @@ button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.28.dynamic-activator-2';
+var BUILD='2026.11.28.appearance-activator-1';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
