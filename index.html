@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.28.fast-operations-1';
+    const TOCAQUI_BUILD = '2026.11.28.industrial-premium-1';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -38,7 +38,7 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <!-- FontAwesome 6 Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 
     <!-- Google Fonts: Inter & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -516,6 +516,28 @@
 .tq-tag-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.tq-tag-grid button{min-height:36px;padding:5px;font-size:10px}.tq-tag-grid button:nth-last-child(-n+2){grid-column:auto}.tq-tag-grid button[aria-pressed=true]{box-shadow:inset 0 0 0 1px #60a5fa}
 .tq-library-table{display:flex;flex-direction:column;gap:6px}.tq-library-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(100px,180px) minmax(150px,220px);align-items:center;gap:10px;padding:10px;border:1px solid #334155;border-radius:12px}.tq-library-row>div:nth-child(2)>div{height:64px}.tq-library-row>div:first-child{flex-wrap:wrap}.tq-library-row>button{grid-column:3}.tq-library-row>div:nth-child(3) button{padding:5px;font-size:10px}
 @media(max-width:640px){.tq-library-row{grid-template-columns:minmax(0,1fr) 110px;gap:7px}.tq-library-row>div:nth-child(3){grid-column:1/-1;grid-template-columns:repeat(4,minmax(0,1fr))}.tq-library-row>button{grid-column:1/-1}.tq-library-row>div:nth-child(2)>div{height:56px}}
+</style><style id="tq-industrial-system">
+@media screen {
+:root{--tq-premium-bg:#080e19;--tq-premium-surface:#111c2d;--tq-premium-border:#263449;--tq-premium-blue:#60a5fa}
+body,.tocaqui-app-main{background:#080e19!important}
+.app-shell-header,.tocaqui-sidebar{background:#0c1422!important;box-shadow:none!important;border-color:#263449!important}
+.tocaqui-sidebar nav button{min-height:40px;border-radius:8px!important;box-shadow:none!important}
+.tocaqui-sidebar nav button[aria-current="page"]{background:#19355b!important;border-color:#31517b!important;color:#dbeafe!important}
+.tocaqui-operation-page .glass-panel,.tocaqui-dashboard .glass-panel,.premium-panel,.premium-kpi{background:#111c2d!important;border:1px solid #263449!important;box-shadow:none!important;border-radius:10px!important}
+.tocaqui-dashboard .dashboard-hero{background:#111c2d!important;box-shadow:none!important;border-radius:12px!important}
+.premium-kpis{gap:8px}.premium-kpi{padding:12px;gap:5px}.premium-kpi strong{font-size:1.4rem;font-variant-numeric:tabular-nums}
+.premium-toolbar{padding:8px;gap:6px}.premium-toolbar>*{min-height:36px}
+.tocaqui-operation-page .glass-input{background:#0b1423!important;border-color:#334155!important;border-radius:8px!important}
+.tq-choice-table{border-radius:9px;background:#0c1524}.tq-choice-table>button{min-height:44px;padding-block:8px!important}
+.tq-library-table{gap:0;border:1px solid #263449;border-radius:10px;overflow:hidden}
+.tq-library-row{border:0!important;border-bottom:1px solid #263449!important;border-radius:0!important;background:#111c2d!important}
+.tq-library-row:last-child{border-bottom:0!important}
+.tq-library-row:hover{background:#15243a!important}
+.tq-tag-grid{gap:4px}.tq-tag-grid button{min-height:34px!important}
+[aria-label="Detalle del lote"]>div:first-child{background:#0c1422!important}
+button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
+@media(max-width:639px){.premium-kpi{padding:9px}.premium-kpi strong{font-size:1.2rem}.tocaqui-operation-page .glass-panel{border-radius:10px!important}.tq-library-row>div:nth-child(3) button{min-height:36px;font-size:10px}}
+}
 </style></head>
 <body class="min-h-screen">
     <div id="root"></div>
