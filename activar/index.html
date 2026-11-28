@@ -87,11 +87,17 @@ html,body{background:#080e19!important}.app{max-width:780px}.topbar,.bottom{back
 .bottom-summary{font-size:10px}.bottom .btn{min-height:46px}
 #pickerOverlay .sheet{background:#111c2d;border-radius:11px}.sheet-head{background:#0c1422}
 button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
+</style><style>
+.tq-dynamic-activator{position:relative;overflow:hidden;background:linear-gradient(115deg,#142b65,#351a65)!important;border:1px solid #5363a5;border-radius:14px;padding:16px!important;margin:10px 0 12px!important}
+.tq-dynamic-activator h1,.tq-dynamic-activator p,.tq-dynamic-activator .eyebrow{position:relative;z-index:1;max-width:78%}.tq-dynamic-activator h1{font-size:clamp(22px,4vw,32px);color:#fff}.tq-dynamic-activator p{color:#dbeafe;font-size:12px}.tq-activator-art{position:absolute;right:15px;top:35%;font-size:48px;color:#a5b4fc;transform:rotate(-12deg);opacity:.7}
+.quick.primary{background:#193c6d!important}.quick.scan{background:#202448!important}.quick.scan .ico{color:#a78bfa!important}.panel{background:#111a2e!important}.progress-fill{background:linear-gradient(90deg,#6366f1,#10b981)!important}
+@media(max-width:360px){.tq-activator-art{font-size:32px;right:9px}.quick{padding:7px!important}.quick .ico{width:24px!important}.tq-table-head{grid-template-columns:40px minmax(0,1fr) 70px}}
+@media(prefers-reduced-motion:reduce){.quick,.card,.dest{transition:none!important}}
 </style></head>
 <body>
 <div class="app">
 <header class="topbar">
-  <button id="backBtn" class="back-btn" aria-label="Volver">‹</button>
+  <button id="backBtn" class="back-btn" aria-label="Volver"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
   <div class="brand"><img src="../icon-180.png" alt="TOCAQUI"><div class="brand-copy"><strong>TOCAQUI Activador</strong><small>Trabajo rápido en terreno</small></div></div>
   <div id="devicePill" class="device-pill"><span class="dot"></span><span id="deviceText">Conectando…</span></div>
 </header>
@@ -104,21 +110,21 @@ button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
     <div id="setupNotice" class="notice">Abre esta pantalla desde el botón <b>Activador</b> del TOCAQUI principal. El enlace autoriza este Activador una sola vez.</div>
     <div id="pairCodeWrap" style="margin-top:11px"><input id="pairCode" class="input" autocomplete="off" autocapitalize="off" placeholder="Código de vinculación"></div>
     <button id="pairBtn" class="btn primary wide" style="margin-top:8px">Autorizar Activador</button>
-    <div class="restricted-note" style="margin-top:9px"><span>🔒</span><span><b>Acceso restringido.</b> Esta aplicación solo permite activar, verificar y consultar tarjetas autorizadas.</span></div>
+    <div class="restricted-note" style="margin-top:9px"><span><i class="fa-solid fa-lock" aria-hidden="true"></i></span><span><b>Acceso restringido.</b> Esta aplicación solo permite activar, verificar y consultar tarjetas autorizadas.</span></div>
   </section>
 </main>
 
 <main id="main" class="main hidden">
   <div id="installHint" class="install hidden"><b>Instálalo como app independiente:</b> Safari → Compartir → Añadir a pantalla de inicio.</div>
-  <div class="restricted-note compact"><span>🔒</span><span><b>Acceso restringido · Solo activación.</b></span></div>
+  <div class="restricted-note compact"><span><i class="fa-solid fa-lock" aria-hidden="true"></i></span><span><b>Acceso restringido · Solo activación.</b></span></div>
   <div id="handoffSearching" class="handoff-searching hidden"><div class="spin"></div><div><strong>Buscando tarjeta escaneada…</strong><small>Sincronizando el último QR/NFC detectado.</small></div></div>
   <div id="handoffBanner" class="handoff-banner hidden">
     <div class="ico">✓</div>
     <div class="copy"><div class="ey">Tarjeta detectada</div><strong id="handoffCardNo">—</strong><small id="handoffCardMeta">Lista para asignar negocio.</small></div>
   </div>
 
-  <section class="hero">
-    <div class="eyebrow">Operación directa</div>
+  <section class="hero tq-dynamic-activator">
+    <i class="fa-solid fa-credit-card tq-activator-art" aria-hidden="true"></i><div class="eyebrow">Estación de activación</div>
     <h1>Activación rápida</h1>
     <p>Elige un negocio y una tarjeta. El resto del sistema queda fuera de esta vista.</p>
   </section>
@@ -198,7 +204,7 @@ button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.28.industrial-activator-1';
+var BUILD='2026.11.28.dynamic-activator-2';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
