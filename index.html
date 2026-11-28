@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.28.internal-navigation-1';
+    const TOCAQUI_BUILD = '2026.11.28.internal-navigation-2';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -558,7 +558,7 @@ button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
 .tq-select-dialog header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #334155}.tq-select-dialog header button{width:36px;height:36px;border-radius:8px;background:#25334c}
 .tq-select-options{overflow-y:auto;overscroll-behavior:contain;padding:6px}.tq-select-options button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:48px;text-align:left;padding:10px 12px;border-bottom:1px solid #25334c;color:#e2e8f0;font-size:14px}.tq-select-options button i{color:#64748b}.tq-select-options button[aria-pressed=true]{background:#193c6d;border-radius:8px;color:#fff}.tq-select-options button[aria-pressed=true] i{color:#93c5fd}
 .tq-mobile-nav{display:none}@media(max-width:767px){.tq-mobile-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;bottom:0;left:0;right:0;z-index:39;background:#0c1422;border-top:1px solid #263449;padding:5px 4px calc(5px + env(safe-area-inset-bottom));gap:2px}.tq-mobile-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:48px;color:#94a3b8;font-size:10px;border-radius:8px}.tq-mobile-nav button i{font-size:17px}.tq-mobile-nav button[aria-current=page]{color:#93c5fd;background:#19355b}.tocaqui-app-main{padding-bottom:calc(80px + env(safe-area-inset-bottom))!important}}
-}</style></head>
+}</style><style>@media screen{.tq-native-dialog{position:fixed;inset:0;margin:auto;padding:0;display:none}.tq-native-dialog[open]{display:flex}.tq-native-dialog::backdrop{background:#020617b8;backdrop-filter:blur(4px)}.tq-fold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;min-height:36px;color:#e2e8f0}.tq-fold>summary::-webkit-details-marker{display:none}.tq-fold>summary:after{content:'\203a';margin-left:auto;color:#94a3b8;font-size:20px}.tq-fold[open]>summary:after{transform:rotate(90deg)}.tq-fold label:has(input:checked){background:#19355b!important;border-color:#60a5fa!important}.tq-fold .grid-cols-3 button{min-width:34px;min-height:34px}}</style></head>
 <body class="min-h-screen">
     <div id="root"></div>
 
@@ -859,8 +859,8 @@ button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
         const InternalSelect=({label,value,onChange,options})=>{
  const [open,setOpen]=useState(false);const trigger=useRef(null);const dialog=useRef(null);
  const close=()=>{setOpen(false);requestAnimationFrame(()=>trigger.current?.focus());};
- useEffect(()=>{if(open)dialog.current?.focus();},[open]);
- return <><button ref={trigger} type="button" className="glass-input tq-select-trigger" aria-label={label} aria-haspopup="dialog" aria-expanded={open} onClick={()=>setOpen(true)}><span>{options.find(o=>o[0]===value)?.[1]||label}</span><i className="fa-solid fa-chevron-down" aria-hidden="true"/></button>{open&&ReactDOM.createPortal(<div className="tq-select-overlay" onClick={close}><section ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={label} className="tq-select-dialog" onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();close();}if(e.key==='Tab'){const items=e.currentTarget.querySelectorAll('button');const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||document.activeElement===dialog.current)){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}}}><header><strong>{label}</strong><button type="button" aria-label="Cerrar" onClick={close}><i className="fa-solid fa-xmark"/></button></header><div className="tq-select-options">{options.map(([id,name])=><button type="button" key={id} aria-pressed={value===id} onClick={()=>{onChange(id);close();}}><span>{name}</span><i className={'fa-solid '+(value===id?'fa-circle-check':'fa-circle')} aria-hidden="true"/></button>)}</div></section></div>,document.body)}</>;
+ useEffect(()=>{if(open&&dialog.current){const el=dialog.current;if(typeof el.showModal==="function"&&!el.open)el.showModal();el.focus();}},[open]);
+ return <><button ref={trigger} type="button" className="glass-input tq-select-trigger" aria-label={label} aria-haspopup="dialog" aria-expanded={open} onClick={()=>setOpen(true)}><span>{options.find(o=>o[0]===value)?.[1]||label}</span><i className="fa-solid fa-chevron-down" aria-hidden="true"/></button>{open&&<dialog ref={dialog} tabIndex={-1} aria-modal="true" aria-label={label} className="tq-select-dialog tq-native-dialog" onCancel={e=>{e.preventDefault();close();}} onClick={e=>{if(e.target===e.currentTarget)close();}} onKeyDown={e=>{if(e.key==='Escape'){e.stopPropagation();close();}if(e.key==='Tab'){const items=e.currentTarget.querySelectorAll('button');const first=items[0],last=items[items.length-1];if(e.shiftKey&&(document.activeElement===first||document.activeElement===dialog.current)){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}}}><header><strong>{label}</strong><button type="button" aria-label="Cerrar" onClick={close}><i className="fa-solid fa-xmark"/></button></header><div className="tq-select-options">{options.map(([id,name])=><button type="button" key={id} aria-pressed={value===id} onClick={()=>{onChange(id);close();}}><span>{name}</span><i className={'fa-solid '+(value===id?'fa-circle-check':'fa-circle')} aria-hidden="true"/></button>)}</div></dialog>}</>;
 };
 const App = ({cloud}) => {
             const focusSnapshotRef = useRef(null);
@@ -1121,7 +1121,7 @@ const App = ({cloud}) => {
                 idOpacity: 'opacity-60'
             });
 
-            const [selectedQrIdsForSheet, setSelectedQrIdsForSheet] = useState(() => qrs.map(q => q.id));
+            const [selectedQrIdsForSheet, setSelectedQrIdsForSheet] = useState([]);
             const [printComposition, setPrintComposition] = useState(() => {
                 try { return JSON.parse(localStorage.getItem('tocaqui_print_composition_v1') || '[]'); } catch { return []; }
             });
@@ -2282,8 +2282,7 @@ const resetTestInventory = async () => {
                 const openBatchInPrint = batch => {
                     if (!batch) return;
                     setPrintComposition([]);
-                    const ids=batch.cards.map(card=>card.id);
-                    setSelectedQrIdsForSheet(ids);
+                    setSelectedQrIdsForSheet([]);
                     try{sessionStorage.setItem('tocaqui_print_locked_batch_v1',batch.id)}catch{}
                     setPrintConfig(prev=>({...prev,templateType:batch.productType||'pvc-vertical'}));
                     setAdminTab('print');
@@ -3864,15 +3863,7 @@ const resetTestInventory = async () => {
                     });
                 }, [selectedItems]);
 
-                const toggleSelectAll = () => {
-                    const pageIds = pagedPrintQrs.map(q=>q.id);
-                    const allSelected = pageIds.length>0 && pageIds.every(id=>selectedQrIdsForSheet.includes(id));
-                    setSelectedQrIdsForSheet(prev => allSelected ? prev.filter(id=>!pageIds.includes(id)) : [...new Set([...prev,...pageIds])]);
-                    if(!allSelected && safePrintDirectPage < printDirectPageCount){
-                        setTimeout(()=>setPrintDirectPage(page=>Math.min(printDirectPageCount,page+1)),60);
-                    }
-                };
-
+                const toggleSelectAll = () => {setSelectedQrIdsForSheet(visiblePrintQrs.map(q=>q.id));};
                 const saveTemplateQrLayout = async () => {
                     const tpl=templates.find(t=>t.id===printMixTemplateId);
                     if(!tpl){showToast('Selecciona primero una plantilla en composición mixta.','warning');return;}
@@ -4275,7 +4266,8 @@ const resetTestInventory = async () => {
                                         </div>
                                         {printComposition.length
                                             ? <button type="button" onClick={()=>setPrintComposition([])} className="min-h-[32px] px-2.5 rounded-lg border border-slate-700 text-[9px] text-slate-300">Usar selección directa</button>
-                                            : <button onClick={toggleSelectAll} className="min-h-[32px] px-2.5 rounded-lg border border-blue-500/25 bg-blue-500/10 text-[9px] text-blue-300 font-semibold">{pagedPrintQrs.length && pagedPrintQrs.every(q=>selectedQrIdsForSheet.includes(q.id)) ? 'Desmarcar estas '+pagedPrintQrs.length : 'Seleccionar estas '+pagedPrintQrs.length}</button>}
+                                            : <button onClick={toggleSelectAll} className="min-h-[32px] px-2.5 rounded-lg border border-blue-500/25 bg-blue-500/10 text-[9px] text-blue-300 font-semibold">Seleccionar todas ({visiblePrintQrs.length})</button>}
+                                        {!printComposition.length&&<button type="button" onClick={()=>setSelectedQrIdsForSheet([])} className="min-h-[32px] px-2 rounded-lg border border-slate-700 text-[10px] text-slate-300">Desmarcar todo</button>}
                                     </div>
 
                                     {!printComposition.length&&(
@@ -4292,8 +4284,8 @@ const resetTestInventory = async () => {
                                                         <div className="mt-2 rounded-xl border border-slate-700 bg-slate-950 overflow-hidden">
                                                             <div className="p-2 border-b border-slate-800"><div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3"><i className="fa-solid fa-magnifying-glass text-slate-500 text-[10px]"></i><input value={printBatchSearch} onChange={e=>setPrintBatchSearch(e.target.value)} placeholder="Buscar lote…" className="w-full bg-transparent py-2 text-xs text-white outline-none placeholder:text-slate-600"/></div></div>
                                                             <div className="max-h-56 overflow-y-auto p-1.5 space-y-1">
-                                                                <button type="button" onClick={()=>{setPrintBatchFilter('all');setPrintDirectPage(1);setPrintBatchPickerOpen(false);try{sessionStorage.removeItem('tocaqui_print_locked_batch_v1')}catch{}}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter==='all'?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="text-[11px] font-semibold">Todos los lotes</span><span className="text-[9px]">{qrs.length}</span></button>
-                                                                {filteredPrintBatches.map(batch=><button type="button" key={batch.id} onClick={()=>{const allowed=qrs.filter(q=>(q.batchId||'legacy')===batch.id);const allowedIds=new Set(allowed.map(q=>q.id));setSelectedQrIdsForSheet(prev=>prev.filter(id=>allowedIds.has(id)));setPrintBatchFilter(batch.id);setPrintDirectPage(1);setPrintBatchPickerOpen(false);try{sessionStorage.setItem('tocaqui_print_locked_batch_v1',batch.id)}catch{}const first=allowed[0];if(first)setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType}));}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter===batch.id?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="min-w-0"><strong className="block truncate text-[11px]">{batch.name}</strong><span className="block truncate text-[9px] text-slate-500">{batch.id}</span></span><span className="text-[9px] shrink-0">{batch.total}</span></button>)}
+                                                                <button type="button" onClick={()=>{setSelectedQrIdsForSheet([]);setPrintBatchFilter('all');setPrintDirectPage(1);setPrintBatchPickerOpen(false);try{sessionStorage.removeItem('tocaqui_print_locked_batch_v1')}catch{}}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter==='all'?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="text-[11px] font-semibold">Todos los lotes</span><span className="text-[9px]">{qrs.length}</span></button>
+                                                                {filteredPrintBatches.map(batch=><button type="button" key={batch.id} onClick={()=>{const allowed=qrs.filter(q=>(q.batchId||'legacy')===batch.id);const allowedIds=new Set(allowed.map(q=>q.id));setSelectedQrIdsForSheet([]);setPrintBatchFilter(batch.id);setPrintDirectPage(1);setPrintBatchPickerOpen(false);try{sessionStorage.setItem('tocaqui_print_locked_batch_v1',batch.id)}catch{}const first=allowed[0];if(first)setPrintConfig(prev=>({...prev,templateType:first.productType||prev.templateType}));}} className={'w-full rounded-lg p-2 text-left flex justify-between gap-2 '+(printBatchFilter===batch.id?'bg-blue-500/15 text-white':'text-slate-300 hover:bg-slate-900')}><span className="min-w-0"><strong className="block truncate text-[11px]">{batch.name}</strong><span className="block truncate text-[9px] text-slate-500">{batch.id}</span></span><span className="text-[9px] shrink-0">{batch.total}</span></button>)}
                                                             </div>
                                                         </div>
                                                     </>)}
@@ -4301,7 +4293,7 @@ const resetTestInventory = async () => {
                                                 <div className="relative"><i className="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-500 text-[10px]"></i><input value={printDirectSearch} onChange={e=>setPrintDirectSearch(e.target.value)} placeholder="Buscar TAG o negocio…" className="w-full min-h-[40px] rounded-xl border border-slate-700 bg-slate-950/45 pl-8 pr-3 text-xs text-white outline-none placeholder:text-slate-600"/></div>
                                             </div>
 
-                                            <div className="space-y-1">
+                                            <details className="tq-fold"><summary>Tarjetas del lote · {selectedItems.length} seleccionadas</summary><div className="space-y-1">
                                                 {pagedPrintQrs.map(q=>(
                                                     <label key={q.id} className="grid grid-cols-[20px_1fr_auto] items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/20 px-2.5 py-2 cursor-pointer">
                                                         <input type="checkbox" checked={selectedQrIdsForSheet.includes(q.id)} onChange={e=>{if(e.target.checked)setSelectedQrIdsForSheet(prev=>[...new Set([...prev,q.id])]);else setSelectedQrIdsForSheet(prev=>prev.filter(i=>i!==q.id));}} className="accent-blue-500"/>
@@ -4311,7 +4303,7 @@ const resetTestInventory = async () => {
                                                 ))}
                                             </div>
 
-                                            {printDirectPageCount>1&&<div className="flex items-center justify-between gap-2"><button type="button" disabled={safePrintDirectPage<=1} onClick={()=>setPrintDirectPage(p=>Math.max(1,p-1))} className="min-h-[30px] px-2.5 rounded-lg border border-slate-700 text-[9px] text-slate-300 disabled:opacity-40">Anterior</button><span className="text-[9px] text-slate-500">{safePrintDirectPage}/{printDirectPageCount}</span><button type="button" disabled={safePrintDirectPage>=printDirectPageCount} onClick={()=>setPrintDirectPage(p=>Math.min(printDirectPageCount,p+1))} className="min-h-[30px] px-2.5 rounded-lg border border-slate-700 text-[9px] text-slate-300 disabled:opacity-40">Siguiente</button></div>}
+                                            {printDirectPageCount>1&&<div className="flex items-center justify-between gap-2"><button type="button" disabled={safePrintDirectPage<=1} onClick={()=>setPrintDirectPage(p=>Math.max(1,p-1))} className="min-h-[30px] px-2.5 rounded-lg border border-slate-700 text-[9px] text-slate-300 disabled:opacity-40">Anterior</button><span className="text-[9px] text-slate-500">{safePrintDirectPage}/{printDirectPageCount}</span><button type="button" disabled={safePrintDirectPage>=printDirectPageCount} onClick={()=>setPrintDirectPage(p=>Math.min(printDirectPageCount,p+1))} className="min-h-[30px] px-2.5 rounded-lg border border-slate-700 text-[9px] text-slate-300 disabled:opacity-40">Siguiente</button></div>}</details>
                                         </>
                                     )}
                                 </div>
@@ -4352,7 +4344,7 @@ const resetTestInventory = async () => {
                                 </div>
                                     </div>
                                 </details>
-                                <div className="w-full max-w-[780px] rounded-2xl border border-slate-700 bg-slate-900/75 p-3 sm:p-4 no-print space-y-3 shadow-lg">
+                                <details className="tq-fold w-full max-w-[780px] rounded-xl border border-slate-700 bg-slate-900/75 p-3 no-print"><summary><i className="fa-solid fa-qrcode text-cyan-400 mr-2"/>Ajustes del QR · {printConfig.qrSizePx}px</summary><div className="space-y-3 mt-3">
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
                                             <span className="block text-xs font-bold text-white"><i className="fa-solid fa-qrcode text-cyan-400 mr-2"></i>Ajustes rápidos del QR</span>
@@ -4414,9 +4406,8 @@ const resetTestInventory = async () => {
                                         </div>
                                     </div>
 
-                                </div>
-
-                                <label className="w-full max-w-[780px] flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/75 p-3 text-xs text-slate-200 no-print cursor-pointer">
+                                </div></details>
+<label className="w-full max-w-[780px] flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900/75 p-3 text-xs text-slate-200 no-print cursor-pointer">
                                     <input type="checkbox" checked={showCutGuides} onChange={e=>setShowCutGuides(e.target.checked)} className="h-4 w-4 accent-cyan-500" />
                                     <span><strong className="block text-white">Guías de corte</strong><span className="text-slate-400">Dibuja líneas por toda la hoja en los bordes de corte. Imprime al 100% y comprueba las medidas.</span></span>
                                 </label>
