@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.28.dynamic-premium-1';
+    const TOCAQUI_BUILD = '2026.11.28.dynamic-premium-2';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -551,7 +551,7 @@ button:focus-visible{outline:2px solid #60a5fa;outline-offset:2px}
 @media(max-width:639px){.tocaqui-dashboard .premium-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.tocaqui-dashboard .tq-dynamic-hero{padding:16px!important;min-height:155px}.tq-hero-copy{max-width:76%}.tq-hero-art{flex-basis:52px;font-size:38px;height:75px}.tq-hero-art i:last-child{font-size:17px}.tq-hero-copy p{font-size:11px}.tocaqui-dashboard .dashboard-actions>button{padding:11px!important}.tocaqui-dashboard .dashboard-actions h3{font-size:13px}}
 @media(prefers-reduced-motion:reduce){.tocaqui-dashboard *{transition:none!important;animation:none!important}}
 }
-</style></head>
+</style><style>@media screen{.tq-scan-chart svg{display:block;max-height:230px}.tq-recent-lot{display:block;width:100%;text-align:left;padding:12px 0;border-bottom:1px solid #263449}.tq-recent-lot:last-child{border:0}.tq-recent-lot .tq-progress-track{display:block;margin-top:8px;height:5px}.tq-recent-lot .tq-progress-track>span{display:block;height:100%;background:linear-gradient(90deg,#6366f1,#10b981);border-radius:99px}.tq-recent-lot strong{overflow-wrap:anywhere;min-width:0}.dashboard-actions>button:after{content:none}.dashboard-actions>button{border-radius:14px!important}.tocaqui-dashboard .premium-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}@media(min-width:640px){.tocaqui-dashboard .premium-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(min-width:1200px){.tocaqui-dashboard .premium-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}}</style></head>
 <body class="min-h-screen">
     <div id="root"></div>
 
@@ -1309,7 +1309,7 @@ useEffect(()=>{
         activations:Number(result.totalActivations||0),
         perCard:result.perCard||{},
         perClient:result.perClient||{},
-        perBusiness:result.perBusiness||{},
+        perBusiness:result.perBusiness||{},dailyScans:result.dailyScans||null,
         updatedAt:result.updatedAt||null
       });
     }catch(e){
@@ -1446,7 +1446,7 @@ const resetTestInventory = async () => {
                     setQrs(verify.cards);setClients(verify.clients);setTemplates(verify.templates);
                     if(resetChoices.cards){setSelectedQrIdsForSheet([]);setPrintComposition([]);setPrintMixCardId('');localStorage.removeItem('tocaqui_print_composition_v1');}
                     if(resetChoices.templates){setPrintComposition([]);setPrintMixTemplateId('');setTemplateDraft({ name:'', category:'pvc-horizontal', frontBg:'', backBg:'', frontName:'', backName:'' });setTemplateModal({open:false,isEditing:false,data:null});setPrintConfig(prev=>({...prev,selectedTemplateId:null,customFrontBg:'',customBackBg:'',theme:'dark-neon'}));localStorage.removeItem('tocaqui_print_composition_v1');}
-                    if(resetChoices.events||resetChoices.cards){const a=await workshopApi({action:'analytics',session:workshopSession});setServerAnalytics({scans:Number(a.totalScans||0),activations:Number(a.totalActivations||0),perCard:a.perCard||{},perClient:a.perClient||{},perBusiness:a.perBusiness||{},updatedAt:new Date().toISOString()});}
+                    if(resetChoices.events||resetChoices.cards){const a=await workshopApi({action:'analytics',session:workshopSession});setServerAnalytics({scans:Number(a.totalScans||0),activations:Number(a.totalActivations||0),perCard:a.perCard||{},perClient:a.perClient||{},perBusiness:a.perBusiness||{},dailyScans:a.dailyScans||null,updatedAt:new Date().toISOString()});}
                     setResetOpen(false);setResetConfirmText('');setResetChoices({cards:false,clients:false,templates:false,events:false,feedback:false});
                     showToast('Se eliminaron las categorías seleccionadas.','success');
                 } catch(err) {setCloudError('Reinicio incompleto: '+err.message);showToast('Revisa el resultado del reinicio: '+err.message,'error');}
@@ -1557,7 +1557,7 @@ const resetTestInventory = async () => {
                             if(!workshopSession) throw new Error('Se requiere una sesión autorizada.');
                             const result=await workshopApi({action:'resetCardScans',session:workshopSession,cardId:card.id});
                             setServerAnalytics(prev=>({...prev,scans:prev.scans==null?null:Math.max(0,prev.scans-Number(result.removed||0)),perCard:{...prev.perCard,[card.id]:0}}));
-                            workshopApi({action:'analytics',session:workshopSession}).then(analytics=>setServerAnalytics({scans:Number(analytics.totalScans||0),activations:Number(analytics.totalActivations||0),perCard:analytics.perCard||{},perClient:analytics.perClient||{},perBusiness:analytics.perBusiness||{},updatedAt:analytics.updatedAt||null})).catch(()=>{});
+                            workshopApi({action:'analytics',session:workshopSession}).then(analytics=>setServerAnalytics({scans:Number(analytics.totalScans||0),activations:Number(analytics.totalActivations||0),perCard:analytics.perCard||{},perClient:analytics.perClient||{},perBusiness:analytics.perBusiness||{},dailyScans:analytics.dailyScans||null,updatedAt:analytics.updatedAt||null})).catch(()=>{});
                             showToast('Escaneos reiniciados: '+Number(result.removed||0)+' lectura(s) eliminada(s).','success');
                         }catch(error){
                             showToast('No se pudieron reiniciar los escaneos: '+(error.message||error),'error');
@@ -1780,6 +1780,11 @@ const resetTestInventory = async () => {
                 const totalQRs = qrs.length;
                 const activeQRs = qrs.filter(q => q.status === 'active').length;
                 const totalScans = serverAnalytics.scans;
+                const dayFormat=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'});
+                const scanDays=Array.from({length:7},(_,i)=>{const date=new Date(Date.now()-(6-i)*86400000);return {label:date.toLocaleDateString('es-CL',{weekday:'short',timeZone:'America/Santiago'}),value:Number(serverAnalytics.dailyScans?.[dayFormat.format(date)]||0)}});
+                const scanMax=Math.max(1,...scanDays.map(d=>d.value));
+                const scanPoints=scanDays.map((d,i)=>[20+i*46,100-d.value/scanMax*80]);
+                const recentLots=Object.values(qrs.reduce((acc,q)=>{if(!q.batchId)return acc;const b=acc[q.batchId]||(acc[q.batchId]={id:q.batchId,name:q.batchName||q.batchId,total:0,active:0,at:0});b.total++;if(q.status==='active')b.active++;b.at=Math.max(b.at,Number(q.createdAt)||Date.parse(q.createdAt)||0);return acc;},Object.create(null))).sort((a,b)=>b.at-a.at).slice(0,4);
                 const recentCardActivity = qrs.flatMap(card=>(Array.isArray(card.history)?card.history:[])
                     .map((event,index)=>({card,event,index})))
                     .filter(({event})=>event && Number.isFinite(event.timestamp))
@@ -1793,8 +1798,8 @@ const resetTestInventory = async () => {
 </div>
 <div className="premium-kpis">
                             {[
-                                ['Total de tarjetas',totalQRs,'fa-qrcode',()=>openInventory()],
-                                ['Tarjetas activas',activeQRs,'fa-circle-check',()=>openInventory('active')],
+                                ['Tarjetas fabricadas',totalQRs,'fa-credit-card',()=>openInventory()],
+                                ['Tarjetas activas',activeQRs,'fa-credit-card',()=>openInventory('active')],
                                 ['Por activar',qrs.filter(q=>q.status==='pending').length,'fa-box-open',()=>openInventory('pending')],
                                 ['Lotes',new Set(qrs.map(q=>q.batchId).filter(Boolean)).size,'fa-layer-group',()=>setAdminTab('batch')],
                                 ['Clientes',clients.length,'fa-users',()=>setAdminTab('clients')],
@@ -1808,7 +1813,8 @@ const resetTestInventory = async () => {
                                 </button>
                             )}
                         </div>
-                        <section className="premium-panel tq-production-summary"><div className="flex items-center justify-between gap-2"><h2 className="font-bold text-white">Estado de producción</h2><span className="text-xs text-slate-400">Inventario actual</span></div><div className="tq-progress-value">{totalQRs?Math.round(activeQRs/totalQRs*100):0}% <span>activado</span></div><div className="tq-progress-track" role="progressbar" aria-label="Tarjetas activadas" aria-valuemin={0} aria-valuemax={100} aria-valuenow={totalQRs?Math.round(activeQRs/totalQRs*100):0}><div style={{width:(totalQRs?activeQRs/totalQRs*100:0)+'%'}} /></div><div className="flex justify-between text-xs text-slate-400 mt-2"><span>{activeQRs} activas</span><span>{totalQRs} fabricadas</span></div></section>
+                        <section className="premium-panel tq-scan-chart"><div className="flex justify-between items-center"><h2 className="font-bold text-white">Actividad de escaneos</h2><span className="text-xs text-slate-400">Últimos 7 días</span></div>{serverAnalytics.dailyScans?<><div className="tq-progress-value">{scanDays.reduce((s,d)=>s+d.value,0).toLocaleString('es-CL')} <span>escaneos registrados</span></div><svg viewBox="0 0 316 120" width="100%" role="img" aria-label="Escaneos diarios de los últimos siete días"><defs><linearGradient id="tqScanFill" x1="0" y1="0" x2="0" y2="1"><stop stopColor="#818cf8" stopOpacity=".45"/><stop offset="1" stopColor="#818cf8" stopOpacity="0"/></linearGradient></defs>{[20,40,60,80,100].map(y=><line key={y} x1="20" x2="296" y1={y} y2={y} stroke="#334155" strokeDasharray="4 4"/>)}<polygon points={'20,100 '+scanPoints.map(p=>p.join(',')).join(' ')+' 296,100'} fill="url(#tqScanFill)"/><polyline points={scanPoints.map(p=>p.join(',')).join(' ')} stroke="#818cf8" strokeWidth="2.5" fill="none"/>{scanPoints.map((p,i)=><g key={i}><circle cx={p[0]} cy={p[1]} r="3" fill="#a5b4fc"><title>{scanDays[i].label}: {scanDays[i].value}</title></circle><text x={p[0]} y="116" textAnchor="middle" fill="#94a3b8" fontSize="9">{scanDays[i].label}</text></g>)}</svg></>:<p className="text-xs text-slate-400 mt-3">Esperando estadísticas del servidor.</p>}</section>
+<section className="premium-panel tq-production-summary"><div className="flex items-center justify-between gap-2"><h2 className="font-bold text-white">Estado de producción</h2><span className="text-xs text-slate-400">Inventario actual</span></div><div className="tq-progress-value">{totalQRs?Math.round(activeQRs/totalQRs*100):0}% <span>activado</span></div><div className="tq-progress-track" role="progressbar" aria-label="Tarjetas activadas" aria-valuemin={0} aria-valuemax={100} aria-valuenow={totalQRs?Math.round(activeQRs/totalQRs*100):0}><div style={{width:(totalQRs?activeQRs/totalQRs*100:0)+'%'}} /></div><div className="flex justify-between text-xs text-slate-400 mt-2"><span>{activeQRs} activas</span><span>{totalQRs} fabricadas</span></div></section>
 <section className="premium-panel">
                             <h2 className="font-bold text-white">Actividad reciente de tarjetas</h2>
                             {recentCardActivity.length ? <ul className="mt-2 divide-y divide-slate-800">
@@ -1870,7 +1876,8 @@ const resetTestInventory = async () => {
                             </button>
                         </div>
 
-                        <section className="rounded-2xl border border-rose-500/15 bg-rose-500/[0.025] p-3.5 sm:p-4">
+                        <section className="premium-panel"><div className="flex justify-between items-center mb-3"><h2 className="font-bold text-white">Últimos lotes</h2><button type="button" onClick={()=>setAdminTab('batch')} className="text-xs text-blue-300">Ver todos</button></div>{recentLots.length?recentLots.map(b=><button key={b.id} type="button" onClick={()=>setAdminTab('batch')} className="tq-recent-lot"><span className="flex items-center gap-2"><i className="fa-solid fa-layer-group text-indigo-400"/><strong>{b.name}</strong><span className="ml-auto text-xs text-emerald-300">{b.active}/{b.total}</span><i className="fa-solid fa-chevron-right text-slate-500"/></span><span className="tq-progress-track"><span style={{width:(b.active/b.total*100)+'%'}}/></span></button>):<p className="text-xs text-slate-400">No hay lotes emitidos.</p>}</section>
+<section className="rounded-2xl border border-rose-500/15 bg-rose-500/[0.025] p-3.5 sm:p-4">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <div className="flex items-start gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center justify-center shrink-0"><i className="fa-solid fa-rotate-left"></i></div>
