@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.28.interactive-tables-2';
+    const TOCAQUI_BUILD = '2026.11.28.fast-operations-1';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1492,15 +1492,13 @@ const resetTestInventory = async () => {
                         setConfirmModal({open:false,title:'',message:'',onConfirm:null});
                         try{
                             if(!cloudReady || !workshopSession || !initialized.current) throw new Error('Se requiere una sesión autorizada.');
-                            const latest=await workshopApi({action:'list',session:workshopSession});
-                            const current=(latest.cards||[]).find(item=>item.id===card.id);
-                            if(!current) throw new Error('No se encontró la tarjeta.');
-                            if(current.status!=='active') throw new Error('La tarjeta ya no está activa; actualiza la lista.');
+                            const current=(last.current.qrs||[]).find(item=>item.id===card.id);
+                            if(!current||current.status!=='active')throw new Error('La tarjeta cambió; actualiza la lista.');
                             const updated=makeReleasedCard(current,Date.now());
-                            await workshopApi({action:'patchCard',session:workshopSession,cardId:current.id,expected:current,patch:cardPatch(current,updated)});
-                            const checked=await workshopApi({action:'list',session:workshopSession});
-                            const verified=(checked.cards||[]).find(item=>item.id===card.id);
+                            const result=await workshopApi({action:'patchCard',session:workshopSession,cardId:current.id,expected:current,patch:cardPatch(current,updated)});
+                            const verified=result.card;
                             if(!verified || verified.status!=='pending' || verified.dynamicUrl || verified.clientId || verified.businessName || verified.placeId || verified.trackingCode!==current.trackingCode) throw new Error('No se pudo confirmar el estado final. Actualiza la lista antes de reintentar.');
+                            cardSyncGeneration.current++;
                             last.current={...last.current,qrs:(last.current.qrs||[]).map(item=>item.id===verified.id?verified:item)};
                             setQrs(prev=>prev.map(item=>item.id===verified.id?verified:item));
                             try{sessionStorage.removeItem('tocaqui_activation_draft_v1:'+verified.id);}catch{}
@@ -1523,15 +1521,8 @@ const resetTestInventory = async () => {
                         try{
                             if(!workshopSession) throw new Error('Se requiere una sesión autorizada.');
                             const result=await workshopApi({action:'resetCardScans',session:workshopSession,cardId:card.id});
-                            const analytics=await workshopApi({action:'analytics',session:workshopSession});
-                            setServerAnalytics({
-                                scans:Number(analytics.totalScans||0),
-                                activations:Number(analytics.totalActivations||0),
-                                perCard:analytics.perCard||{},
-                                perClient:analytics.perClient||{},
-                                perBusiness:analytics.perBusiness||{},
-                                updatedAt:analytics.updatedAt||null
-                            });
+                            setServerAnalytics(prev=>({...prev,scans:prev.scans==null?null:Math.max(0,prev.scans-Number(result.removed||0)),perCard:{...prev.perCard,[card.id]:0}}));
+                            workshopApi({action:'analytics',session:workshopSession}).then(analytics=>setServerAnalytics({scans:Number(analytics.totalScans||0),activations:Number(analytics.totalActivations||0),perCard:analytics.perCard||{},perClient:analytics.perClient||{},perBusiness:analytics.perBusiness||{},updatedAt:analytics.updatedAt||null})).catch(()=>{});
                             showToast('Escaneos reiniciados: '+Number(result.removed||0)+' lectura(s) eliminada(s).','success');
                         }catch(error){
                             showToast('No se pudieron reiniciar los escaneos: '+(error.message||error),'error');
