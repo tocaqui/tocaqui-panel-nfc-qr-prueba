@@ -337,6 +337,21 @@
         };
 
         const App = () => {
+            const markLegacyPrint = async cards => {
+                const ids=[...new Set(cards.map(card=>card.id).filter(Boolean))];
+                if(!ids.length)return;
+                const endpoint='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
+                const headers={'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'};
+                let session=sessionStorage.getItem('tocaqui_workshop_session')||'';
+                if(!session){
+                    const credential=localStorage.getItem('tocaqui_device_credential_v1')||'';
+                    if(credential){const auth=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify({action:'resume',credential})});const result=await auth.json();if(auth.ok&&result.ok&&result.session)session=result.session;}
+                }
+                if(!session)throw new Error('Abre el panel principal e inicia sesión antes de imprimir.');
+                const response=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify({action:'markCardsExposed',session,cardIds:ids,reason:'print',requestId:crypto.randomUUID()})});
+                const result=await response.json();
+                if(!response.ok||!result.ok||result.count!==ids.length)throw new Error(result.error||'No se confirmó la protección de las tarjetas.');
+            };
             const [qrs, setQrs] = useState(() => {
                 try {
                     const saved = localStorage.getItem('nfc_qrs_v6');
@@ -1015,7 +1030,7 @@
 
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => window.print()}
+                                        onClick={async () => {try{await markLegacyPrint(clientQrs);window.print();}catch(error){showToast(error.message||'No se pudo preparar la impresión.','error');}}}
                                         className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg"
                                     >
                                         <i className="fa-solid fa-file-pdf"></i> Imprimir Ficha de Entrega
@@ -1259,11 +1274,13 @@
             // 6. ADVANCED PRINT & MASSIVE A4 DUPLEX STUDIO
             const PrintView = () => {
                 const [qrCodeImages, setQrCodeImages] = useState({});
+                const printSelectionRef=React.useRef([]);
 
                 const itemsPerPage = printConfig.templateType === '10x15' ? 2 : printConfig.templateType === 'pvc-vertical' ? 6 : 10;
                 const selectedItems = useMemo(() => {
                     return qrs.filter(q => selectedQrIdsForSheet.includes(q.id));
                 }, [qrs, selectedQrIdsForSheet]);
+                printSelectionRef.current=selectedItems.map(card=>card.id).sort();
 
                 const pages = useMemo(() => {
                     const result = [];
@@ -1369,7 +1386,7 @@
                                 <p className="text-slate-400 text-sm mt-1">Imprime tarjetas en diseño vertical u horizontal con alineación Dúplex.</p>
                             </div>
                             <button
-                                onClick={() => window.print()}
+                                onClick={async () => {try{const ids=selectedItems.map(card=>card.id).sort();await markLegacyPrint(selectedItems);if(JSON.stringify(ids)!==JSON.stringify(printSelectionRef.current))throw new Error('La selección cambió. Intenta imprimir de nuevo.');window.print();}catch(error){showToast(error.message||'No se pudo preparar la impresión.','error');}}}
                                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-xl text-xs shadow-lg shadow-emerald-600/25 flex items-center gap-2"
                             >
                                 <i className="fa-solid fa-print text-sm"></i> Imprimir Hojas A4 Dúplex

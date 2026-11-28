@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#050c1d">
 
     <script>
-    const TOCAQUI_BUILD = '2026.11.27.premium-interactive-1';
+    const TOCAQUI_BUILD = '2026.11.28.batch-management-1';
     (function(){
       function show(msg){var e=document.getElementById('tocaqui-fatal');if(!e){e=document.createElement('div');e.id='tocaqui-fatal';e.style.cssText='position:fixed;inset:0;z-index:999999;background:#070a12;color:#fff;padding:24px;font:14px system-ui;overflow:auto;white-space:pre-wrap';document.body.appendChild(e);}e.textContent='TOCAQUI: error al iniciar\n\n'+msg+'\n\nNo se han borrado tus datos.';}
       window.addEventListener('error',function(e){show(e.message+(e.filename?'\n'+e.filename+':'+e.lineno:''));});
@@ -1074,6 +1074,8 @@
             const [activationResult, setActivationResult] = useState(null);
             const [individualQr, setIndividualQr] = useState(null);
             const [individualQrImage, setIndividualQrImage] = useState('');
+            const [individualQrProtectedId, setIndividualQrProtectedId] = useState('');
+            const [individualQrProtectionError, setIndividualQrProtectionError] = useState('');
             useEffect(() => {
                 if (!individualQr) { setIndividualQrImage(''); return; }
                 let active = true;
@@ -1085,6 +1087,7 @@
             const downloadIndividualQr = async () => {
                 if (!individualQr || !individualQrImage) return;
                 try {
+                    await markCardsExposed([individualQr.id],'download');
                     const response = await fetch(individualQrImage);
                     const blob = await response.blob();
                     const objectUrl = URL.createObjectURL(blob);
@@ -1099,11 +1102,15 @@
             };
             const shareIndividualQr = async () => {
                 if (!individualQr) return;
+                if(individualQrProtectedId!==individualQr.id){showToast('Espera a que el QR esté preparado.','warning');return;}
                 const url = getBaseTagUrl(individualQr.trackingCode);
                 try {
                     if (navigator.share) {
                         if (individualQrImage && navigator.canShare) {
-                            const blob = await (await fetch(individualQrImage)).blob();
+                            const encoded=individualQrImage.match(/^data:image\/png;base64,(.+)$/);
+                            if(!encoded)throw new Error('No se pudo preparar la imagen del QR.');
+                            const bytes=Uint8Array.from(atob(encoded[1]),c=>c.charCodeAt(0));
+                            const blob = new Blob([bytes],{type:'image/png'});
                             const file = new File([blob], individualQr.trackingCode + '-QR.png', {type:'image/png'});
                             if (navigator.canShare({files:[file]})) {
                                 await navigator.share({title:individualQr.trackingCode,files:[file]});
@@ -1147,6 +1154,20 @@ const workshopApi=async(payload)=>{
  const res=await fetch('https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3'},body:JSON.stringify(payload)});
  const json=await res.json();if(!res.ok||!json.ok){const err=new Error(json.error||'Acceso rechazado');err.status=res.status;throw err;}return json;
 };
+const markCardsExposed=async(cardIds,reason)=>{
+ const ids=[...new Set(cardIds)];
+ if(!workshopSession||!ids.length||ids.some(id=>!id))throw new Error('No se identificaron las tarjetas para proteger.');
+ const result=await workshopApi({action:'markCardsExposed',session:workshopSession,cardIds:ids,reason,requestId:crypto.randomUUID()});
+ if(result.count!==ids.length)throw new Error('No se confirmó la protección de todas las tarjetas.');
+};
+useEffect(()=>{
+ setIndividualQrProtectedId('');
+ setIndividualQrProtectionError('');
+ if(!individualQr?.id)return;
+ let live=true;
+ markCardsExposed([individualQr.id],'share').then(()=>{if(live)setIndividualQrProtectedId(individualQr.id);}).catch(error=>{if(live){setIndividualQrProtectionError(error.message||'Error de conexión');showToast('No se pudo preparar el QR.','error');}});
+ return ()=>{live=false;};
+},[individualQr?.id,workshopSession]);
 useEffect(()=>{
  if(!workshopSession)return;
  let live=true;
@@ -1312,16 +1333,47 @@ useEffect(()=>{
  return()=>{alive=false;window.removeEventListener('focus',onFocus);window.removeEventListener('storage',onStorage);document.removeEventListener('visibilitychange',onVisibility);try{channel&&channel.close()}catch(e){}};
 },[cloudReady,workshopSession]);
 const queue=React.useRef(Promise.resolve());
+const cardSyncGeneration=React.useRef(0);
+const cardPatch=(previous,next)=>{
+ const immutable=new Set(['id','trackingCode','serialNumber','batchId','batchName','canonicalUrl']);
+ const patch={};
+ for(const key of new Set([...Object.keys(previous),...Object.keys(next)])){
+  if(JSON.stringify(previous[key])===JSON.stringify(next[key]))continue;
+  if(immutable.has(key))throw new Error('No se puede modificar la identidad de la tarjeta.');
+  patch[key]=Object.prototype.hasOwnProperty.call(next,key)?next[key]:null;
+ }
+ return patch;
+};
+const reloadCardsAfterConflict=async()=>{
+ cardSyncGeneration.current++;
+ const result=await workshopApi({action:'listCore',session:workshopSession});
+ if(!Array.isArray(result.cards))throw new Error('No se pudo actualizar la lista de tarjetas.');
+ last.current={...last.current,qrs:result.cards};setQrs(result.cards);
+};
 const sync=(name,table,items)=>{if(!cloudReady||!initialized.current||(name==='templates'&&!templatesReady))return;
  const prev=last.current[name];if(JSON.stringify(prev)===JSON.stringify(items))return;
+ const generation=cardSyncGeneration.current;
  last.current={...last.current,[name]:items};
  queue.current=queue.current.then(async()=>{
  const kind=name==='qrs'?'cards':name;
  const changed=items.filter(x=>!prev.some(p=>p.id===x.id&&JSON.stringify(p)===JSON.stringify(x)));
- if(changed.length)await workshopApi({action:'save',session:workshopSession,kind,items:changed});
  const deleted=prev.filter(x=>!items.some(y=>y.id===x.id)).map(x=>x.id);
- if(deleted.length)await workshopApi({action:'delete',session:workshopSession,kind,ids:deleted});
- }).catch(e=>setCloudError('Error guardando: '+e.message));
+ if(kind==='cards'){
+  if(generation!==cardSyncGeneration.current)return;
+  if(deleted.length||changed.some(card=>!prev.some(old=>old.id===card.id)))throw new Error('La creación y eliminación de tarjetas requieren una operación autorizada.');
+  for(const card of changed){
+   if(generation!==cardSyncGeneration.current)return;
+   const expected=prev.find(old=>old.id===card.id), patch=cardPatch(expected,card);
+   if(Object.keys(patch).length)await workshopApi({action:'patchCard',session:workshopSession,cardId:card.id,expected,patch});
+  }
+ }else{
+  if(changed.length)await workshopApi({action:'save',session:workshopSession,kind,items:changed});
+  if(deleted.length)await workshopApi({action:'delete',session:workshopSession,kind,ids:deleted});
+ }
+ }).catch(async e=>{
+  if(name==='qrs'){try{await reloadCardsAfterConflict();}catch(reloadError){setCloudError('Error al recuperar tarjetas: '+reloadError.message);return;}}
+  setCloudError('Error guardando: '+e.message);
+ });
 };
 useEffect(()=>sync('qrs','tocaqui_admin_qr_cards',qrs),[qrs,cloudReady]);
 useEffect(()=>sync('clients','tocaqui_admin_qr_clients',clients),[clients,cloudReady]);
@@ -1385,62 +1437,29 @@ const resetTestInventory = async () => {
 
             // El número visible se asigna en Supabase; el TAG original permanece como destino QR/NFC.
             const cardNumber = card => card.serialNumber || card.trackingCode || card.id;
-            const createBatch = async (count, batchName = '', productType = 'pvc-horizontal') => {
-                if (!cloudReady || !initialized.current) { showToast('Ingresa tu PIN para generar tarjetas.', 'error'); return null; }
-                if (!Number.isInteger(count) || count < 1 || count > 500) { showToast('Cantidad inválida (1 a 500).', 'error'); return null; }
-                const batchId = 'LOTE-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + crypto.randomUUID().slice(0,8).toUpperCase();
-                const existing = new Set(qrs.map(q => q.id));
-                const newItems = Array.from({length:count}, () => {
-                    let code;
-                    do { code = 'TAG-' + Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2,'0')).join('').toUpperCase(); } while(existing.has(code));
-                    existing.add(code);
-                    return { id:code, trackingCode:code, batchId, batchName:(batchName || 'Lote sin nombre').trim().slice(0,80), productType,
-                        status:'pending', clientId:null, functionType:null, placeId:null, businessName:null, businessAddress:null,
-                        dynamicUrl:'', createdAt:Date.now(), scans:0,
-                        history:[{timestamp:Date.now(),type:'creation',description:'Tarjeta registrada en Supabase'}] };
-                });
-                let savedItems=[];let error=null;
-                try{
-                    await workshopApi({action:'save',session:workshopSession,kind:'cards',items:newItems});
-                    const verified=await workshopApi({action:'list',session:workshopSession});
-                    const ids=new Set(newItems.map(item=>item.id));
-                    savedItems=(verified.cards||[]).filter(item=>ids.has(item.id));
-                    if(savedItems.length!==newItems.length || savedItems.some(item=>!/^TQ-\d{6,}$/.test(item.serialNumber||'')))throw new Error('La numeración no quedó confirmada en Supabase');
-                }catch(e){error=e}
-                if(error){setCloudError('Error al verificar lote: '+error.message);showToast('No se verificó el lote; no imprimas estas tarjetas.','error');return null;}
-                last.current={...last.current,qrs:[...savedItems,...last.current.qrs]};
-                setQrs(prev=>[...savedItems,...prev]);
-                setSelectedQrIdsForSheet(newItems.map(item=>item.id));
-                showToast('Lote guardado en Supabase. Listo para continuar.','success');
-                return {batchId, items:savedItems};
-            };
-
+            const cardUpdateInFlight=React.useRef(new Set());
             const updateQR = async (id, fields) => {
                 if(!cloudReady || !initialized.current){showToast('Ingresa tu PIN para administrar tarjetas.','error');return;}
-                const item=qrs.find(q=>q.id===id);if(!item)return;
+                if(cardUpdateInFlight.current.has(id))return;
+                cardUpdateInFlight.current.add(id);
+                await queue.current;
+                const item=(last.current.qrs||[]).find(q=>q.id===id);if(!item){cardUpdateInFlight.current.delete(id);return;}
                 const history=[...(item.history||[])];
                 if(fields.dynamicUrl && fields.dynamicUrl!==item.dynamicUrl)history.push({timestamp:Date.now(),type:'update',description:'Destino actualizado'});
                 if(fields.clientId && fields.clientId!==item.clientId)history.push({timestamp:Date.now(),type:'assignment',description:'Cliente asignado'});
                 const updated={...item,...fields,history,updatedAt:Date.now()};
-                const previousQrs=qrs;
-                const optimistic=qrs.map(q=>q.id===id?updated:q);
-                last.current={...last.current,qrs:optimistic};
-                setQrs(optimistic);
-                showToast('Cambio aplicado. Guardando…','info');
                 try{
-                    const result=await workshopApi({action:'saveOne',session:workshopSession,kind:'cards',item:updated});
-                    const saved=result.item||updated;
-                    const confirmed=optimistic.map(q=>q.id===id?saved:q);
-                    last.current={...last.current,qrs:confirmed};
-                    setQrs(confirmed);
+                    const result=await workshopApi({action:'patchCard',session:workshopSession,cardId:id,expected:item,patch:cardPatch(item,updated)});
+                    if(!result.card||result.card.id!==id)throw new Error('No se confirmó la tarjeta.');
+                    last.current={...last.current,qrs:(last.current.qrs||[]).map(q=>q.id===id?result.card:q)};
+                    setQrs(previous=>previous.map(q=>q.id===id?result.card:q));
                     try{localStorage.setItem('tocaqui_core_signal_v1',String(Date.now()));const bc=new BroadcastChannel('tocaqui-sync-v1');bc.postMessage({type:'card',id});bc.close()}catch(e){}
                     showToast('Tarjeta guardada.','success');
                 }catch(error){
-                    last.current={...last.current,qrs:previousQrs};
-                    setQrs(previousQrs);
+                    try{await reloadCardsAfterConflict();}catch{}
                     setCloudError('Error al guardar tarjeta: '+(error?.message||error));
-                    showToast('No se pudo confirmar el cambio; se restauró el estado anterior.','error');
-                }
+                    showToast('No se pudo confirmar el cambio; revisa los datos actualizados.','error');
+                }finally{cardUpdateInFlight.current.delete(id);}
             };
 
             const releaseInFlight=React.useRef(false);
@@ -1461,7 +1480,7 @@ const resetTestInventory = async () => {
                             if(!current) throw new Error('No se encontró la tarjeta.');
                             if(current.status!=='active') throw new Error('La tarjeta ya no está activa; actualiza la lista.');
                             const updated=makeReleasedCard(current,Date.now());
-                            await workshopApi({action:'save',session:workshopSession,kind:'cards',items:[updated]});
+                            await workshopApi({action:'patchCard',session:workshopSession,cardId:current.id,expected:current,patch:cardPatch(current,updated)});
                             const checked=await workshopApi({action:'list',session:workshopSession});
                             const verified=(checked.cards||[]).find(item=>item.id===card.id);
                             if(!verified || verified.status!=='pending' || verified.dynamicUrl || verified.clientId || verified.businessName || verified.placeId || verified.trackingCode!==current.trackingCode) throw new Error('No se pudo confirmar el estado final. Actualiza la lista antes de reintentar.');
@@ -1865,8 +1884,25 @@ const resetTestInventory = async () => {
                 const [selectedBatchId, setSelectedBatchId] = useState('');
                 const [batchQuery,setBatchQuery] = useState('');
                 const [batchProgress,setBatchProgress] = useState('all');
+                const [batchProductFilter,setBatchProductFilter] = useState('all');
+                const [batchDateFilter,setBatchDateFilter] = useState('');
+                const [batchArchiveFilter,setBatchArchiveFilter] = useState('active');
+                const [batchMetadata,setBatchMetadata] = useState([]);
+                const [batchMetadataError,setBatchMetadataError] = useState('');
+                const [batchMetadataReady,setBatchMetadataReady] = useState(false);
+                const [batchMetadataRetry,setBatchMetadataRetry] = useState(0);
+                const [batchEditName,setBatchEditName] = useState('');
+                const [batchDescription,setBatchDescription] = useState('');
+                const [batchNotes,setBatchNotes] = useState('');
+                const [batchManageBusy,setBatchManageBusy] = useState(false);
+                const [batchTargetQuantity,setBatchTargetQuantity] = useState(1);
+                const [batchConfirmAction,setBatchConfirmAction] = useState('');
+                const [batchHistory,setBatchHistory] = useState([]);
+                const [batchHistoryStatus,setBatchHistoryStatus] = useState('idle');
                 const [batchLayout,setBatchLayout] = useState('list');
                 const [creatingBatch, setCreatingBatch] = useState(false);
+                const pendingReservationRequest=React.useRef(null);
+                const pendingManagementRequest=React.useRef(null);
                 const [selectedBatchTab, setSelectedBatchTab] = useState('summary');
                 const [distributionTemplateId, setDistributionTemplateId] = useState('');
                 const [distributionQty, setDistributionQty] = useState(1);
@@ -1893,6 +1929,18 @@ const resetTestInventory = async () => {
                 const activeFormat = formatMeta[productType] || formatMeta['pvc-horizontal'];
                 const estimatedSheets = Math.ceil(Math.max(1, Number(count)||1) / activeFormat.perSheet);
 
+                useEffect(()=>{
+                    setBatchMetadataReady(false);
+                    setBatchMetadata([]);
+                    setBatchMetadataError('');
+                    if (!workshopSession) return;
+                    let live=true;
+                    workshopApi({action:'listBatches',session:workshopSession})
+                        .then(result=>{if(!Array.isArray(result.batches))throw new Error('Respuesta de lotes incompleta');if(live){setBatchMetadata(result.batches);setBatchMetadataError('');setBatchMetadataReady(true);}})
+                        .catch(error=>{if(live){setBatchMetadataReady(false);setBatchMetadataError(error.message||'No se pudo consultar la gestión de lotes.');}});
+                    return ()=>{live=false;};
+                },[workshopSession,batchMetadataRetry]);
+
                 const batchGroups = useMemo(() => {
                     const map = new Map();
                     qrs.filter(q=>q.batchId).forEach(card => {
@@ -1910,14 +1958,21 @@ const resetTestInventory = async () => {
                         group.cards.push(card);
                         group.createdAt = Math.min(group.createdAt || card.createdAt || 0, card.createdAt || group.createdAt || 0);
                     });
-                    return [...map.values()].sort((x,y)=>(y.createdAt||0)-(x.createdAt||0));
-                }, [qrs]);
+                    batchMetadata.filter(item=>item.reserved&&!map.has(item.batchId)).forEach(item=>map.set(item.batchId,{id:item.batchId,name:item.name,productType:item.productType,cards:[],createdAt:item.createdAt||0}));
+                    return [...map.values()].map(group=>{
+                        const metadata=batchMetadata.find(item=>item.batchId===group.id);
+                        return {...group,...(metadata||{}),id:group.id,name:metadata?.name||group.name,productType:metadata?.productType||group.productType};
+                    }).sort((x,y)=>(new Date(y.createdAt||0).getTime()||0)-(new Date(x.createdAt||0).getTime()||0));
+                }, [qrs,batchMetadata]);
 
                 const visibleBatches = batchGroups.filter(batch=>{
                     const query=batchQuery.trim().toLowerCase();
                     const active=batch.cards.filter(card=>card.status==='active').length;
                     const progress=active===0?'pending':active===batch.cards.length?'active':'partial';
                     return (batchProgress==='all'||batchProgress===progress)
+                        && (batchArchiveFilter==='all'||(batchArchiveFilter==='archived'?!!batch.archived:!batch.archived))
+                        && (batchProductFilter==='all'||batch.productType===batchProductFilter)
+                        && (!batchDateFilter||(batch.createdAt && new Date(batch.createdAt)>=new Date(batchDateFilter+'T00:00:00')))
                         && (!query||[batch.name,batch.id].some(value=>String(value).toLowerCase().includes(query)));
                 });
 
@@ -1929,6 +1984,59 @@ const resetTestInventory = async () => {
                 },[selectedBatchId]);
 
                 const selectedBatch = batchGroups.find(batch=>batch.id===selectedBatchId) || null;
+                useEffect(()=>{
+                    if(!selectedBatchId||selectedBatchTab!=='history'||!batchMetadataReady)return;
+                    let live=true;
+                    setBatchHistoryStatus('loading');
+                    workshopApi({action:'listBatchHistory',session:workshopSession,batchId:selectedBatchId})
+                        .then(result=>{if(!Array.isArray(result.history))throw new Error('Historial incompleto');if(live){setBatchHistory(result.history);setBatchHistoryStatus('ready');}})
+                        .catch(()=>{if(live)setBatchHistoryStatus('error');});
+                    return ()=>{live=false;};
+                },[selectedBatchId,selectedBatchTab,batchMetadataReady,workshopSession]);
+                useEffect(()=>{
+                    if(!selectedBatch)return;
+                    setBatchEditName(selectedBatch.name||'');
+                    setBatchDescription(selectedBatch.description||'');
+                    setBatchNotes(selectedBatch.notes||'');
+                    setBatchTargetQuantity(selectedBatch.reserved?selectedBatch.quantity:selectedBatch.cards.length);
+                    setBatchConfirmAction('');
+                },[selectedBatchId,selectedBatch?.revision]);
+
+                const manageBatch = async (operation,payload={}) => {
+                    if(!selectedBatch||batchManageBusy||!batchMetadataReady)return;
+                    setBatchManageBusy(true);
+                    try {
+                        await queue.current;
+                        const signature=JSON.stringify([selectedBatch.id,operation,selectedBatch.revision||0,payload]);
+                        if(pendingManagementRequest.current?.signature!==signature)pendingManagementRequest.current={signature,id:crypto.randomUUID()};
+                        const result=await workshopApi({action:selectedBatch.reserved?'manageReservation':'manageBatch',session:workshopSession,batchId:selectedBatch.id,operation,expectedRevision:selectedBatch.revision||0,payload,requestId:pendingManagementRequest.current.id});
+                        if(!result.batch||result.batch.batchId!==selectedBatch.id)throw new Error('No se pudo confirmar el cambio del lote.');
+                        if(!Array.isArray(result.cards)||result.cards.some(card=>!card.id||card.batchId!==selectedBatch.id)||new Set(result.cards.map(card=>card.id)).size!==result.cards.length)throw new Error('Respuesta de tarjetas incompleta. Actualiza antes de reintentar.');
+                        if(operation==='resize'&&(selectedBatch.reserved?result.batch.quantity!==payload.quantity:result.cards.length!==payload.quantity))throw new Error('La cantidad no pudo confirmarse. Actualiza antes de reintentar.');
+                        if(operation==='issue'&&(result.batch.reserved||result.cards.length!==selectedBatch.quantity||result.cards.some(card=>!/^TQ-\d{6,}$/.test(card.serialNumber||''))))throw new Error('No se confirmó la emisión. Actualiza antes de reintentar.');
+                        if(operation==='delete'&&!result.batch.deleted)throw new Error('No se confirmó la eliminación.');
+                        pendingManagementRequest.current=null;
+                        setBatchMetadata(previous=>[...previous.filter(item=>item.batchId!==selectedBatch.id),...(result.batch.deleted?[]:[result.batch])]);
+                        if(result.batch.deleted)setSelectedBatchId('');
+                        if(Array.isArray(result.cards)){
+                            const byId=new Map(result.cards.map(card=>[card.id,card]));
+                            const mergeCards=previous=>{
+                                const present=new Set(previous.map(card=>card.id));
+                                return [...previous.map(card=>operation==='edit'&&byId.has(card.id)?{...card,batchName:byId.get(card.id).batchName}:card),...result.cards.filter(card=>!present.has(card.id))];
+                            };
+                            last.current={...last.current,qrs:mergeCards(last.current.qrs||[])};
+                            setQrs(previous=>mergeCards(previous));
+                        }
+                        setBatchConfirmAction('');
+                        showToast('Cambio del lote guardado.','success');
+                    } catch(error) {
+                        if(error.status===409){
+                            try{const latest=await workshopApi({action:'listBatches',session:workshopSession});if(Array.isArray(latest.batches))setBatchMetadata(latest.batches);}catch{}
+                        }
+                        showToast(error.message||'No se pudo guardar el lote.','error');
+                    }
+                    finally {setBatchManageBusy(false);}
+                };
                 const selectedBatchTemplates = selectedBatch ? templates.filter(t=>t.category===selectedBatch.productType) : [];
                 const distributedCards = selectedBatch ? selectedBatch.cards.filter(card=>card.designTemplateId) : [];
                 const undistributedCards = selectedBatch ? selectedBatch.cards.filter(card=>!card.designTemplateId) : [];
@@ -2123,14 +2231,22 @@ const resetTestInventory = async () => {
 
                 const handleCreateBatch = async event => {
                     event.preventDefault();
-                    if (creatingBatch) return;
+                    if (creatingBatch||!batchMetadataReady) return;
                     setCreatingBatch(true);
                     try {
-                        const result = await createBatch(Number(count), batchName, productType);
-                        if (result?.batchId) {
-                            setSelectedBatchId(result.batchId);
-                            setBatchName('Lote nuevo');
-                        }
+                        const quantity=Number(count);
+                        if(!Number.isInteger(quantity)||quantity<1||quantity>500)throw new Error('Cantidad inválida (1 a 500).');
+                        const signature=JSON.stringify([batchName.trim(),productType,quantity]);
+                        if(pendingReservationRequest.current?.signature!==signature)pendingReservationRequest.current={signature,id:crypto.randomUUID()};
+                        const result=await workshopApi({action:'createBatchReservation',session:workshopSession,name:batchName.trim(),productType,quantity,requestId:pendingReservationRequest.current.id});
+                        if(!result.batch?.batchId||!result.batch.reserved||result.batch.quantity!==quantity||!Array.isArray(result.cards)||result.cards.length)throw new Error('No se confirmó la reserva. Actualiza antes de reintentar.');
+                        pendingReservationRequest.current=null;
+                        setBatchMetadata(previous=>[...previous,result.batch]);
+                        setSelectedBatchId(result.batch.batchId);
+                        setBatchName('Lote nuevo');
+                        showToast('Reserva creada. Emite las tarjetas cuando estés listo.','success');
+                    } catch(error){
+                        showToast(error.message||'No se pudo crear la reserva.','error');
                     } finally {
                         setCreatingBatch(false);
                     }
@@ -2156,7 +2272,7 @@ const resetTestInventory = async () => {
                                 <section className="p-4 sm:p-5 border-b lg:border-b-0 lg:border-r border-slate-800">
                                     <div className="mb-4">
                                         <h2 className="text-sm font-bold text-white">Crear nuevo lote</h2>
-                                        <p className="text-[11px] text-slate-500 mt-1">El lote solo define fabricación y cantidad. El diseño y la activación se asignan después.</p>
+                                        <p className="text-[11px] text-slate-500 mt-1">Primero reserva la cantidad. Los TAG se generan al emitir las tarjetas desde el detalle.</p>
                                     </div>
 
                                     <form onSubmit={handleCreateBatch} className="space-y-4">
@@ -2193,7 +2309,7 @@ const resetTestInventory = async () => {
                                         <div className="rounded-xl bg-slate-950/45 border border-slate-800 px-3 py-2.5 flex items-center justify-between gap-3">
                                             <div>
                                                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Resumen</div>
-                                                <div className="text-xs text-slate-300 mt-0.5">{count} TAG únicos · {activeFormat.label}</div>
+                                                <div className="text-xs text-slate-300 mt-0.5">{count} tarjetas por emitir · {activeFormat.label}</div>
                                             </div>
                                             <div className="text-right">
                                                 <div className="text-lg font-bold text-white">{estimatedSheets}</div>
@@ -2201,8 +2317,10 @@ const resetTestInventory = async () => {
                                             </div>
                                         </div>
 
-                                        <button type="submit" disabled={creatingBatch} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-sm">
-                                            {creatingBatch?<><i className="fa-solid fa-spinner fa-spin mr-2"></i>Generando lote…</>:<><i className="fa-solid fa-layer-group mr-2"></i>Crear lote de {count}</>}
+                                        {batchMetadataError&&<div role="alert" className="text-xs text-rose-300">No se pudo cargar la gestión de lotes: {batchMetadataError} <button type="button" onClick={()=>setBatchMetadataRetry(value=>value+1)} className="underline font-semibold">Reintentar</button></div>}
+
+                                        <button type="submit" disabled={creatingBatch||!batchMetadataReady} className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-sm">
+                                            {creatingBatch?<><i className="fa-solid fa-spinner fa-spin mr-2"></i>Creando reserva…</>:<><i className="fa-solid fa-layer-group mr-2"></i>Reservar lote de {count}</>}
                                         </button>
                                     </form>
                                 </section>
@@ -2220,6 +2338,13 @@ const resetTestInventory = async () => {
                                         <select aria-label="Estado del lote" value={batchProgress} onChange={event=>setBatchProgress(event.target.value)} className="glass-input">
                                             <option value="all">Todos los estados</option><option value="pending">Sin activaciones</option><option value="partial">En progreso</option><option value="active">Completos</option>
                                         </select>
+                                        <select aria-label="Archivo del lote" value={batchArchiveFilter} onChange={event=>setBatchArchiveFilter(event.target.value)} className="glass-input">
+                                            <option value="active">Lotes vigentes</option><option value="archived">Archivados</option><option value="all">Todos los lotes</option>
+                                        </select>
+                                        <select aria-label="Filtrar lotes por producto" value={batchProductFilter} onChange={event=>setBatchProductFilter(event.target.value)} className="glass-input">
+                                            <option value="all">Todos los productos</option>{Object.entries(formatMeta).map(([id,meta])=><option key={id} value={id}>{meta.label}</option>)}
+                                        </select>
+                                        <input type="date" aria-label="Filtrar lotes desde fecha" value={batchDateFilter} onChange={event=>setBatchDateFilter(event.target.value)} className="glass-input" />
                                         <button type="button" className="premium-toggle" aria-pressed={batchLayout==='grid'} onClick={()=>setBatchLayout(value=>value==='grid'?'list':'grid')}>Vista de tarjetas</button>
                                     </div>
                                     {visibleBatches.length ? (
@@ -2238,7 +2363,7 @@ const resetTestInventory = async () => {
                                                                 </div>
                                                                 <div className="text-[10px] text-slate-500 font-mono mt-1 truncate">{batch.id}</div>
                                                                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] mt-1.5">
-                                                                    <span className="text-slate-300">{batch.cards.length} tarjetas</span>
+                                                                    <span className="text-slate-300">{batch.reserved?batch.quantity:batch.cards.length} tarjetas{batch.reserved?' · Reserva':''}</span>
                                                                     <span className="text-emerald-300">{active} activas</span>
                                                                     <span className="text-amber-300">{pending} pendientes</span>
                                                                     <span className="text-slate-500">{batch.createdAt?new Date(batch.createdAt).toLocaleDateString('es-CL'):'Sin fecha'}</span>
@@ -2275,11 +2400,13 @@ const resetTestInventory = async () => {
                                             <div className="flex min-w-max gap-1 pb-2">
                                                 {[
                                                     ['summary','Resumen','fa-list-check'],
+                                                    ['edit','Editar','fa-pen'],
+                                                    ['history','Historial','fa-clock-rotate-left'],
                                                     ['distribution','Distribución','fa-swatchbook'],
                                                     ['activation','Activación','fa-bolt'],
                                                     ['print','Impresión','fa-print'],
                                                     ['verification','Verificación','fa-shield-check']
-                                                ].map(tab=>(
+                                                ].filter(tab=>!selectedBatch.reserved||['summary','edit','history'].includes(tab[0])).map(tab=>(
                                                     <button key={tab[0]} type="button" onClick={()=>setSelectedBatchTab(tab[0])}
                                                         className={selectedBatchTab===tab[0]?'px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold':'px-3 py-2 rounded-lg text-slate-400 hover:bg-slate-800 text-xs font-semibold'}>
                                                         <i className={'fa-solid '+tab[2]+' mr-1.5'}></i>{tab[1]}
@@ -2291,17 +2418,18 @@ const resetTestInventory = async () => {
 
                                     {(()=>{
                                         const meta=formatMeta[selectedBatch.productType]||formatMeta['pvc-vertical'];
-                                        const total=selectedBatch.cards.length;
+                                        const total=selectedBatch.reserved?selectedBatch.quantity:selectedBatch.cards.length;
                                         const active=selectedBatch.cards.filter(card=>card.status==='active').length;
                                         const pending=total-active;
                                         const clientCount=new Set(selectedBatch.cards.map(card=>card.clientId).filter(Boolean)).size;
                                         const uniqueTags=new Set(selectedBatch.cards.map(card=>card.trackingCode||card.id)).size;
-                                        const duplicateTags=Math.max(0,total-uniqueTags);
+                                        const duplicateTags=selectedBatch.reserved?0:Math.max(0,total-uniqueTags);
                                         const distributionPercent=total?Math.round(distributedCards.length/total*100):0;
                                         return (
                                             <div className="p-4 sm:p-5">
                                                 {selectedBatchTab==='summary'&&(
                                                     <div className="space-y-5">
+                                                        {selectedBatch.reserved&&<p className="rounded-xl border border-cyan-500/30 p-3 text-sm text-cyan-200">Reserva sin TAG emitidos. Puedes cambiar la cantidad o eliminarla antes de generar las tarjetas.</p>}
                                                         <div className="grid grid-cols-4 gap-3 border-b border-slate-800 pb-5">
                                                             <div><div className="text-2xl font-bold text-white">{total}</div><div className="text-[10px] text-slate-500">Tarjetas</div></div>
                                                             <div><div className="text-2xl font-bold text-emerald-300">{active}</div><div className="text-[10px] text-slate-500">Activas</div></div>
@@ -2314,13 +2442,37 @@ const resetTestInventory = async () => {
                                                             <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Hojas A4 estimadas</span><span className="text-slate-200">{Math.ceil(total/meta.perSheet)}</span></div>
                                                             <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Creado</span><span className="text-slate-200">{selectedBatch.createdAt?new Date(selectedBatch.createdAt).toLocaleString('es-CL'):'Sin fecha'}</span></div>
                                                             <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Clientes asociados</span><span className="text-slate-200">{clientCount}</span></div>
-                                                            <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Identidades TAG</span><span className={duplicateTags?'text-rose-300 font-semibold':'text-emerald-300 font-semibold'}>{duplicateTags?duplicateTags+' duplicado(s)':'Todos únicos'}</span></div>
+                                                            <div className="py-3 flex justify-between gap-3"><span className="text-slate-500">Identidades TAG</span><span className={duplicateTags?'text-rose-300 font-semibold':'text-emerald-300 font-semibold'}>{selectedBatch.reserved?'Aún no emitidas':duplicateTags?duplicateTags+' duplicado(s)':'Todos únicos'}</span></div>
                                                         </div>
 
                                                         <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                                                            <button type="button" onClick={()=>setSelectedBatchTab('distribution')} className="flex-1 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-4 py-3 text-sm font-bold text-white">Distribuir diseños</button>
-                                                            <button type="button" onClick={()=>setSelectedBatchTab('activation')} className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-3 text-sm font-bold text-white">Activar tarjetas</button>
+                                                            <button type="button" onClick={()=>setSelectedBatchTab('edit')} className="flex-1 rounded-xl border border-blue-500/40 px-4 py-3 text-sm font-bold text-blue-200"><i className="fa-solid fa-pen mr-2"></i>Editar lote</button>
+                                                            {!selectedBatch.reserved&&<button type="button" onClick={()=>setSelectedBatchTab('distribution')} className="flex-1 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-4 py-3 text-sm font-bold text-white">Distribuir diseños</button>}
+                                                            {!selectedBatch.reserved&&<button type="button" onClick={()=>setSelectedBatchTab('activation')} className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-3 text-sm font-bold text-white">Activar tarjetas</button>}
                                                         </div>
+                                                    </div>
+                                                )}
+
+                                                {selectedBatchTab==='edit'&&(
+                                                    <div className="space-y-4">
+                                                        <div><h4 className="text-base font-bold text-white">Editar lote</h4><p className="text-xs text-slate-400 mt-1">Los identificadores, números y enlaces de las tarjetas se conservan.</p></div>
+                                                        {batchMetadataError&&<p role="alert" className="text-rose-300 text-sm">No está disponible la gestión de lotes: {batchMetadataError}</p>}
+                                                        <label className="block text-xs text-slate-300">Nombre<input className="glass-input w-full mt-1" maxLength="80" value={batchEditName} onChange={e=>setBatchEditName(e.target.value)}/></label>
+                                                        <label className="block text-xs text-slate-300">Descripción<textarea className="glass-input w-full mt-1" maxLength="1000" value={batchDescription} onChange={e=>setBatchDescription(e.target.value)}/></label>
+                                                        <label className="block text-xs text-slate-300">Observaciones<textarea className="glass-input w-full mt-1" maxLength="2000" value={batchNotes} onChange={e=>setBatchNotes(e.target.value)}/></label>
+                                                        <button type="button" disabled={!batchMetadataReady||batchManageBusy||!batchEditName.trim()||(selectedBatch.reserved&&selectedBatch.archived)} onClick={()=>manageBatch('edit',{name:batchEditName.trim(),description:batchDescription,notes:batchNotes})} className="w-full rounded-xl bg-blue-600 disabled:opacity-40 px-4 py-3 text-sm font-bold text-white">{batchManageBusy?'Guardando…':'Guardar cambios'}</button>
+                                                        <div className="border-t border-slate-800 pt-4 space-y-2"><label className="block text-xs text-slate-300">Cantidad total de tarjetas<input type="number" min={selectedBatch.reserved?1:selectedBatch.cards.length} max="500" step="1" className="glass-input w-full mt-1" value={batchTargetQuantity} onChange={e=>setBatchTargetQuantity(Number(e.target.value))}/></label><p className="text-xs text-slate-400">{selectedBatch.reserved?'Puedes aumentar o reducir la reserva antes de emitir las tarjetas.':'Solo se permite aumentar la cantidad. Las tarjetas existentes conservan sus identificadores y enlaces.'}</p><button type="button" disabled={!batchMetadataReady||batchManageBusy||selectedBatch.archived||!Number.isInteger(batchTargetQuantity)||batchTargetQuantity<1||batchTargetQuantity>500||(selectedBatch.reserved?batchTargetQuantity===selectedBatch.quantity:batchTargetQuantity<=selectedBatch.cards.length)} onClick={()=>manageBatch('resize',{quantity:batchTargetQuantity})} className="w-full rounded-xl border border-blue-500/40 disabled:opacity-40 px-4 py-3 text-sm font-bold text-blue-200">{selectedBatch.reserved?'Guardar cantidad':'Agregar '+Math.max(0,batchTargetQuantity-selectedBatch.cards.length)+' tarjetas'}</button></div>
+                                                        {selectedBatch.reserved&&!batchConfirmAction&&<div className="flex gap-2"><button type="button" disabled={batchManageBusy||selectedBatch.archived} onClick={()=>setBatchConfirmAction('issue')} className="flex-1 rounded-xl bg-cyan-600 disabled:opacity-40 px-4 py-3 text-sm font-bold text-white">Emitir tarjetas</button><button type="button" disabled={batchManageBusy} onClick={()=>setBatchConfirmAction('delete')} className="flex-1 rounded-xl border border-rose-500/40 px-4 py-3 text-sm text-rose-200">Eliminar reserva</button></div>}
+                                                        {!batchConfirmAction?<button type="button" disabled={!batchMetadataReady||batchManageBusy} onClick={()=>setBatchConfirmAction(selectedBatch.archived?'restore':'archive')} className="w-full rounded-xl border border-slate-700 disabled:opacity-40 px-4 py-3 text-sm text-slate-200">{selectedBatch.archived?'Restaurar lote':'Archivar lote'}</button>:<div role="alert" className="rounded-xl border border-amber-500/30 p-4 text-sm text-amber-100"><p>{batchConfirmAction==='issue'?'Al emitir se generan los TAG permanentes. Ya no podrás reducir ni eliminar este lote. ¿Continuar?':batchConfirmAction==='delete'?'¿Eliminar esta reserva sin tarjetas emitidas?':`¿${batchConfirmAction==='archive'?'Archivar':'Restaurar'} este lote?`}</p><div className="flex gap-2 mt-3"><button type="button" disabled={batchManageBusy} onClick={()=>manageBatch(batchConfirmAction)} className="rounded-lg bg-blue-600 px-3 py-2">Confirmar</button><button type="button" onClick={()=>setBatchConfirmAction('')} className="rounded-lg border border-slate-600 px-3 py-2">Cancelar</button></div></div>}
+                                                    </div>
+                                                )}
+
+                                                {selectedBatchTab==='history'&&(
+                                                    <div className="space-y-4"><div><h4 className="text-base font-bold text-white">Historial del lote</h4><p className="text-xs text-slate-400 mt-1">Se muestran las modificaciones registradas desde la incorporación de esta gestión.</p></div>
+                                                        {!batchMetadataReady&&<p className="text-sm text-slate-400">La gestión de lotes no está disponible.</p>}
+                                                        {batchMetadataReady&&batchHistoryStatus==='loading'&&<p className="text-sm text-slate-400">Cargando historial…</p>}
+                                                        {batchMetadataReady&&batchHistoryStatus==='error'&&<p role="alert" className="text-sm text-rose-300">No se pudo cargar el historial. Cierra y vuelve a abrir esta pestaña para reintentar.</p>}
+                                                        {batchMetadataReady&&batchHistoryStatus==='ready'&&(batchHistory.length?<ul className="divide-y divide-slate-800">{batchHistory.map(event=><li key={event.id} className="py-3"><div className="text-sm text-slate-100">{({createReservation:'Reserva creada',edit:'Información actualizada',archive:'Lote archivado',restore:'Lote restaurado',resize:'Cantidad modificada',issue:'Tarjetas emitidas',delete:'Reserva eliminada'})[event.operation]||'Modificación del lote'}</div><div className="text-xs text-slate-500 mt-1">{event.createdAt?new Date(event.createdAt).toLocaleString('es-CL'):'Sin fecha'}</div></li>)}</ul>:<p className="text-sm text-slate-400">Aún no hay modificaciones registradas.</p>)}
                                                     </div>
                                                 )}
 
@@ -3294,12 +3446,19 @@ const resetTestInventory = async () => {
 
             // 6. ADVANCED PRINT & MASSIVE A4 DUPLEX STUDIO
             const PrintView = () => {
+                const printInFlight=React.useRef(false);
+                const printSelectionRef=React.useRef([]);
                 const printA4Sheets = async () => {
+                    if(printInFlight.current)return;
                     const root = document.getElementById('print-area-wrapper');
                     if (!root || !root.querySelector('.print-page-a4')) {
                         showToast('Selecciona al menos una tarjeta para imprimir.','warning');
                         return;
                     }
+                    printInFlight.current=true;
+                    try{
+                    const ids=[...new Set(selectedItems.map(item=>item.id))].sort();
+                    await markCardsExposed(ids,'print');
                     const images = Array.from(root.querySelectorAll('img'));
                     await Promise.all(images.map(img => {
                         if (img.complete && img.naturalWidth > 0) return Promise.resolve();
@@ -3312,7 +3471,10 @@ const resetTestInventory = async () => {
                             img.addEventListener('error', resolve, {once:true});
                         });
                     }));
+                    if(JSON.stringify(ids)!==JSON.stringify([...new Set(printSelectionRef.current)].sort()))throw new Error('La selección cambió; vuelve a iniciar la impresión.');
                     requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+                    }catch(error){showToast('No se pudo preparar la impresión: '+(error.message||error),'error');}
+                    finally{printInFlight.current=false;}
                 };
                 const [qrCodeImages, setQrCodeImages] = useState({});
                 const [printBatchFilter, setPrintBatchFilter] = useState(() => {
@@ -3578,6 +3740,7 @@ const resetTestInventory = async () => {
                             return tpl ? { ...q, _printTemplate:tpl } : q;
                         });
                 }, [compositionItems, qrs, selectedQrIdsForSheet, templates, printBatchFilter]);
+                printSelectionRef.current=selectedItems.map(item=>item.id);
 
                 const compositionGroups = useMemo(() => {
                     const map = new Map();
@@ -5886,6 +6049,7 @@ const resetTestInventory = async () => {
                                     </div>
                                     <button type="button" aria-label="Cerrar QR" onClick={() => setIndividualQr(null)} className="p-2 text-slate-400 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
                                 </div>
+                                {individualQrProtectedId===individualQr.id ? <>
                                 <div className="bg-white rounded-xl p-3 mx-auto w-full max-w-[250px] aspect-square flex items-center justify-center">
                                     {individualQrImage ? <img src={individualQrImage} alt={'Código QR de '+individualQr.trackingCode} className="w-full h-full object-contain" /> : <span className="text-slate-700 text-sm">Generando QR...</span>}
                                 </div>
@@ -5930,6 +6094,7 @@ const resetTestInventory = async () => {
                                 </div>
                                 <a href={getBaseTagUrl(individualQr.trackingCode)} target="_blank" rel="noopener noreferrer" className="block text-center text-cyan-300 border border-cyan-500/30 rounded-xl py-2.5 text-sm font-semibold">Probar enlace QR <i className="fa-solid fa-arrow-up-right-from-square ml-1"></i></a>
                                 <p className="text-[11px] text-slate-400 text-center">Este QR conserva su identificador dinámico. El destino se administra desde Configurar.</p>
+                                </> : <p className="text-sm text-slate-400" role="status">{individualQrProtectionError?'No se pudo preparar el QR. Cierra y vuelve a abrirlo para reintentar.':'Preparando QR de forma segura…'}</p>}
                             </div>
                         </div>
                     )}
