@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="es">
 <head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
@@ -58,6 +59,19 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 #pickerBody .choice .thumb-sm{width:36px;height:42px;flex-shrink:0}
 #categoryChips{display:flex;flex-wrap:wrap;gap:4px}
 #categoryChips .chip{min-height:32px;padding:5px 9px}
+</style><style>
+.tq-table-head{display:grid;grid-template-columns:44px minmax(0,1fr) 85px;gap:9px;padding:8px 10px;background:#111d30;border:1px solid #26364f;border-radius:10px 10px 0 0;color:#94a3b8;font-size:10px;font-weight:700}
+#cards{gap:0!important;border:1px solid #26364f;border-top:0;border-radius:0 0 10px 10px;overflow:hidden}
+#cards button.card{border-radius:0!important;border:0!important;border-bottom:1px solid #26364f!important;background:#081120;min-height:58px}
+#cards button.card:last-child{border-bottom:0!important}
+#cards .card strong,#cards .card small,#cards .card .tag{margin-top:0!important}
+#cards .card strong{font-size:12px}#cards .card small{font-size:10px}
+.destinations{display:flex!important;flex-direction:column;gap:0;border:1px solid #26364f;border-radius:10px;overflow:hidden}
+.destinations .dest{border:0;border-bottom:1px solid #26364f;border-radius:0;min-height:42px;position:relative;padding:7px 32px 7px 12px;font-size:12px}
+.destinations .dest:last-child{border-bottom:0}.destinations .dest.active{box-shadow:inset 3px 0 #60a5fa}
+.destinations .dest.active:after{content:'✓';position:absolute;right:12px;top:12px;color:#60a5fa}
+.destinations .dest small{font-size:10px;margin-left:20px}
+#pickerOverlay .sheet{width:min(100%,760px);border-radius:14px}#pickerBody .choice{border-radius:0;border-bottom:1px solid #26364f}#pickerBody .choice strong{font-size:12px}#pickerBody .choice small{font-size:10px}
 </style></head>
 <body>
 <div class="app">
@@ -95,8 +109,8 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
   </section>
 
   <div id="quickActions" class="quick-actions">
-    <button id="focusBusinessBtn" class="quick primary"><span class="ico">⌕</span><span><strong>Buscar negocio</strong><small>Google Places · flujo principal</small></span></button>
-    <button id="quickScanBtn" class="quick scan"><span class="ico">⌗</span><span><strong>Escanear</strong><small>QR físico</small></span></button>
+    <button id="focusBusinessBtn" class="quick primary"><span class="ico"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></span><span><strong>Buscar negocio</strong><small>Google Places · flujo principal</small></span></button>
+    <button id="quickScanBtn" class="quick scan"><span class="ico"><i class="fa-solid fa-qrcode" aria-hidden="true"></i></span><span><strong>Escanear</strong><small>QR físico</small></span></button>
   </div>
 
   <div id="progressCard" class="progress-card">
@@ -130,7 +144,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
       <button id="batchFilterBtn" class="filter"><small>Lote</small><strong>Todos los lotes</strong></button>
       <button id="designFilterBtn" class="filter"><small>Diseño</small><strong>Todos los diseños</strong></button>
     </div>
-    <div id="cards" class="cards"></div>
+    <div class="tq-table-head"><span>Diseño</span><span>Tarjeta / plantilla</span><span>Categoría</span></div><div id="cards" class="cards"></div>
     <div class="pager"><button id="prevPage" class="btn ghost">Anterior</button><span id="pageLabel">1 / 1</span><button id="nextPage" class="btn ghost">Siguiente</button></div>
   </section>
 
@@ -138,10 +152,10 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
     <div class="panel-head"><div style="display:flex;align-items:center;gap:9px"><span class="step-badge">3</span><div><h2>Destino</h2><p>Solo lo necesario para activar.</p></div></div></div>
     <div id="selectedCardBox" class="chosen" style="margin-bottom:9px"></div>
     <div class="destinations">
-      <button class="dest active" data-dest="google_review">Google Reseñas<small>Directo a reseña</small></button>
-      <button class="dest" data-dest="review_gate">Experiencia<small>Experiencia + reseña</small></button>
-      <button class="dest" data-dest="whatsapp">WhatsApp<small>Número del negocio</small></button>
-      <button class="dest" data-dest="custom_url">URL / Catálogo<small>Menú, catálogo o web</small></button>
+      <button class="dest active" data-dest="google_review"><i class="fa-brands fa-google" aria-hidden="true"></i> Google Reseñas<small>Directo a reseña</small></button>
+      <button class="dest" data-dest="review_gate"><i class="fa-solid fa-star-half-stroke" aria-hidden="true"></i> Experiencia<small>Experiencia + reseña</small></button>
+      <button class="dest" data-dest="whatsapp"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> WhatsApp<small>Número del negocio</small></button>
+      <button class="dest" data-dest="custom_url"><i class="fa-solid fa-link" aria-hidden="true"></i> URL / Catálogo<small>Menú, catálogo o web</small></button>
     </div>
     <div id="customWrap" class="hidden" style="margin-top:8px"><input id="customUrl" class="input" placeholder="https://…"></div>
     <div class="compact-row" style="margin-top:8px"><button id="clientBtn" class="filter"><small>Cliente opcional</small><strong>Asignar cliente</strong></button></div>
@@ -169,7 +183,7 @@ button,input{font:inherit}.app{max-width:720px;margin:0 auto;min-height:100dvh;p
 <script>
 (function(){
 'use strict';
-var BUILD='2026.11.26.scan-v2';
+var BUILD='2026.11.28.activator-table-v3';
 var API='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-private-workshop';
 var DEVICE='https://nasdgjalsfxnwymqicio.supabase.co/functions/v1/tocaqui-device-activation';
 var KEY='sb_publishable_b2pGQWqC4OtByq_l8r86oA_ZxLWZty3';
